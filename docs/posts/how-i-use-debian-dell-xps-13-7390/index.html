@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-use-debian-dell-xps-13-7390</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-use-debian-dell-xps-13-7390</h3>
+  <h1 id="how-i-use-debian-gnulinux-on-dell-xps-13-7390">How I use Debian GNU/Linux on Dell XPS 13 7390</h1>
+<h2 id="background">Background</h2>
+<p>I can happily report that this machine works well with Debian
+11/Bullseye!</p>
+<p>Reportedly, other options for a machine that is highly compatible with
+Linux include Lenovo, <a href="https://laptopwithlinux.com/">Laptop with
+Linux</a>,
+<a href="https://slimbook.es/en/">Slimbook</a>, <a href="https://www.tuxedocomputers.com/index.php">Tuxedo
+Computers</a>,
+<a href="https://system76.com/">System76</a>, <a href="https://shop.puri.sm/">Purism</a>,
+<a href="https://pine64.com/">Pine</a> and <a href="https://frame.work/">Framework</a>.</p>
+<h3 id="installation">Installation</h3>
+<p>Installing Debian on this machine poses a few challenges.</p>
+<ul>
+<li><p>The only ports for external connectivity are USB-C ports (besides an
+audio jack). Your installation media (generally a USB drive) will
+have to connect via this interface.</p></li>
+<li><p>The video card <a href="https://wiki.debian.org/InstallingDebianOn/Dell/Dell%20XPS%2013%207390">is not compatible with Debian 10/Buster’s default
+kernel</a>.
+Therefore I suggest you use Debian 11/Bullseye instead.</p></li>
+<li><p>The WiFi card requires the non-free <code>firmware-iwlwifi</code> package.
+If you want to use the WiFi card during installation you will have
+to make this firmware available somehow.</p></li>
+<li><p>The SSD controller must be put into AHCI mode otherwise Debian will
+not be able to see it.</p></li>
+</ul>
+<h3 id="use">Use</h3>
+<p>Subsequent use of the device has a few challenges of its own too.</p>
+<ul>
+<li><p>The USB-C ports are the only connectivity for external monitors and
+other peripherals.</p></li>
+<li><p>Suspend to RAM may require BIOS configuration.</p></li>
+</ul>
+<h2 id="installation-process">Installation process</h2>
+<h3 id="installation-media">Installation media</h3>
+<p>I used a USB-A drive with <a href="https://www.apple.com/uk/shop/product/MJ1M2ZM/A/usb-c-to-usb-adapter">a standard Apple USB-C to USB-A
+adapter</a>. Alternatively
+you can use a USB-C drive. To make <code>firmware-iwlwifi</code> available
+during installation I used a non-free installation image. I chose the
+<a href="https://cdimage.debian.org/cdimage/unofficial/non-free/cd-including-firmware/bullseye_di_rc3-live+nonfree/amd64/iso-hybrid/">XFCE Bullseye release candidate non-free live
+CD</a>
+but the significantly smaller <a href="https://cdimage.debian.org/cdimage/unofficial/non-free/cd-including-firmware/bullseye_di_rc3+nonfree/amd64/iso-cd/">non-free
+netinst</a>
+would probably work fine too.</p>
+<h3 id="booting">Booting</h3>
+<p>Start the machine with the USB drive attached and press F12 to boot
+into the BIOS menu. Make sure that the SSD controller is set to AHCI
+mode. Then choose to boot from your USB drive. (To do
+so you may then have to exit the BIOS menu and enter it again by
+pressing F12 again.)</p>
+<h3 id="installing">Installing</h3>
+<p>Installation should proceed as a standard Debian installation.</p>
+<h2 id="use-1">Use</h2>
+<h3 id="compatibility">Compatibility</h3>
+<p>I haven’t found any features that don’t work.</p>
+<h3 id="external-monitor">External monitor</h3>
+<p>External monitor connectivity works fine from two of the three USB-C
+ports. I guess the other is not designed to output video. (I haven’t
+tried both ports at the same time but I don’t anticipate any
+problems.)</p>
+<p>I use a <a href="https://www.startech.com/en-gb/audio-video-products/cdp2dp">StarTech USB-C to Display Port
+adaptor</a>
+with a standard Display Port to Display Port cable.</p>
+<h3 id="x11">X11</h3>
+<p>X11 works fine. The only problem that I have noticed is that
+switching to the virtual terminals (Ctrl-Alt-F1 etc.) is flaky and
+running multiple X servers at the same time is flaky. Sometimes it
+works, sometimes it doesn’t. Sometimes it seems to hang but can be
+recovered by closing the lid (i.e. putting the machine to sleep) and
+then opening it again. Sometimes it hangs and closing and opening the
+lid doesn’t work; in those cases I have to reboot.</p>
+<h4 id="x11-external-screen-disconnection-bug">X11 external screen disconnection bug</h4>
+<p>If I am in dual head mode (i.e. X is using the internal screen and an
+external screen) and I unplug the external screen then the driver
+seems not to notify X. X still believes two displays are connected.
+Subsequently it becomes impossible to switch to internal-only mode
+until I plug the external screen back in.</p>
+<h3 id="suspend">Suspend</h3>
+<p>Only <code>s2idle</code>/<code>freeze</code> (which are both names for S0/suspend to idle)
+and <code>deep</code> (S3/suspend to RAM) seem to be supported. (It’s <em>possible</em>
+that <code>disk</code> (S4/suspend to disk/“hibernate”) doesn’t appear here only
+because I didn’t make a big enough swap partition, but I am not sure.)</p>
+<pre><code>$ cat /sys/power/state
+freeze mem
+$ cat /sys/power/mem_sleep
+s2idle [deep]</code></pre>
+<h4 id="suspend-to-ram-s3-deep-mem">Suspend to RAM (S3, <code>deep</code> <code>mem</code>)</h4>
+<p>This is probably the variety of suspend that you actually want to
+use because it has extremely low power draw.</p>
+<p>I disabled TPM, SGX, SMM, and Absolute in the BIOS (as described
+in a helpful <a href="https://www.reddit.com/r/Dell/comments/hla8yk/how_to_enable_s3_deep_sleep_on_xps_17_9700_in/">Reddit
+post</a>).
+I don’t know whether doing so was necessary. Enter S3 sleep with</p>
+<pre><code>sudo sh -c 'echo deep &gt; /sys/power/mem_sleep &amp;&amp; echo mem  &gt; /sys/power/state'</code></pre>
+<h5 id="waking-the-machine">Waking the machine</h5>
+<p>You <em>must not</em> try to wake the machine by pressing the power button;
+that will put it into shutdown. Instead close and reopen the lid.</p>
+<h5 id="s3-sleep-touchpad-cpu-bug">S3 sleep touchpad CPU bug</h5>
+<p><a href="https://bugzilla.redhat.com/show_bug.cgi?id=1847627">There is a bug</a>
+that causes high CPU usage when returning from S3 sleep until the
+touchpad is touched. I had noticed that my fan kicked in around an
+hour after waking but I didn’t understand why until I noticed my load
+average was persistently above 1. I then spotted a mysterious process
+called <code>irq/51-CUST0001</code> in <code>top</code>. Searching for references to it led
+me to the above-mentioned bug report.</p>
+<p>I suppose the workaround is to just touch the touchpad!</p>
+<h4 id="suspend-to-idle-s0-freeze">Suspend to idle (S0, <code>freeze</code>)</h4>
+<p>This feature works but I doubt it reduces power draw very much.</p>
+<h3 id="trackpad">Trackpad</h3>
+<p>Trackpad behaviour can be configured with <code>xinput</code>. Run <code>xinput --list</code> and look for the entry like <code>CUST0001:00 06CB:76B1 Touchpad</code>.
+Use that string in the commands below.</p>
+<h4 id="tap-to-click">Tap to click</h4>
+<p>To configure a tap on the trackpad to be registered as a left click
+run</p>
+<pre><code>xinput --set-prop &quot;CUST0001:00 06CB:76B1 Touchpad&quot; &quot;libinput Tapping Enabled&quot; 1</code></pre>
+<h4 id="natural-scrolling">Natural scrolling</h4>
+<p>For “Natural”, i.e. reversed, scrolling run</p>
+<pre><code>xinput --set-prop &quot;CUST0001:00 06CB:76B1 Touchpad&quot; &quot;libinput Natural Scrolling Enabled&quot; 1</code></pre>
+<h3 id="bluetooth">Bluetooth</h3>
+<p>I haven’t tested Bluetooth thoroughly but it seems to work. Some useful notes follow.</p>
+<ul>
+<li><a href="https://wiki.debian.org/BluetoothUser#Pairing_using_CLI" class="uri">https://wiki.debian.org/BluetoothUser#Pairing_using_CLI</a>
+<ul>
+<li>use <code>bluetoothctl</code></li>
+<li>The first time, I was only able to pair and connect by using the
+interactive mode. Subsequently, the non-interactive mode worked.</li>
+<li><code>apt-get install pulseaudio-module-bluetooth</code></li>
+<li><code>pactl load-module module-bluetooth-discover</code></li>
+<li>for mic and headphones at same time
+<ul>
+<li>pactl list cards short | grep bluez</li>
+<li>pactl set-card-profile bluez_card.F0_1D_BC_FA_98_CF headset_head_unit</li>
+<li>(See <a href="https://www.igelcommunity.com/post/automatically-connect-bluetooth-headsets-and-enable-hsp-mode-for-bidirectional-audio-on-igel-os" class="uri">https://www.igelcommunity.com/post/automatically-connect-bluetooth-headsets-and-enable-hsp-mode-for-bidirectional-audio-on-igel-os</a>)</li>
+<li><code>pactl set-card-profile bluez_card.F0_1D_BC_FA_98_CF a2dp_sink</code>
+(to set back to “High Fidelity Playback”</li>
+<li><code>pactl set-card-profile bluez_card.F0_1D_BC_FA_98_CF &lt;tab&gt;</code>
+shows all possibilities</li>
+</ul></li>
+<li>does work with the microphone of Surface headphones but
+quality seems not great</li>
+</ul></li>
+</ul>
+<h3 id="auto-dimming-screen-on-battery-power">Auto-dimming screen on battery power</h3>
+<p>By default, when running on batter power the screen automatically dims
+and brightens depending on what is on the screen. It seems somewhat
+random, but it depends in a strange way on the brightness of what is
+already on the screen. I worked out how to turn it off:</p>
+<ul>
+<li>In the BIOS (F2 at startup) go to Video then turn EcoPower off.</li>
+</ul>
+<p>Then the brightness must be controlled manually, for example</p>
+<pre><code>echo 40000 &gt; /sys/class/backlight/intel_backlight/brightness</code></pre>
+<h2 id="references">References</h2>
+<ul>
+<li><p>The <a href="https://wiki.debian.org/InstallingDebianOn/Dell/Dell%20XPS%2013%207390">Dell XPS 13 7390 installation reference on the Debian
+wiki</a></p></li>
+<li><p><a href="https://www.kernel.org/doc/Documentation/power/states.txt">Kernel documentation about power
+states</a></p></li>
+</ul>
+<h2 id="credits">Credits</h2>
+<ul>
+<li><a href="https://askubuntu.com/questions/696413/ubuntu-installer-cant-find-any-disk-on-dell-xps-13-9350/696414#696414">hg8 on
+askubutu</a>
+for the AHCI mode solution</li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

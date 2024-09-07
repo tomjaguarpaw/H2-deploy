@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>understanding-bound</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>understanding-bound</h3>
+  <h1 id="understanding-bound">Understanding Bound</h1>
+<p>WARNING: INCOMPLETE!</p>
+<h2 id="introduction">Introduction</h2>
+<p><a href="http://hackage.haskell.org/package/bound-1.0.6"><code>bound</code></a> is a Haskell
+library written by Edward Kmett that allows you to encode and
+manipulate languages that involve binding, such as lambda calculus.
+Edward has published <a href="https://www.fpcomplete.com/user/edwardk/bound">an introduction to <code>bound</code> at the FP Complete
+School of Haskell</a>.
+His introduction starts by summarizing other approaches to dealing
+with binding before explaining in detail how <code>bound</code> was derived from
+an earlier approach. I’m not sure who came up with the idea of bound
+but Edward is listed as the sole author on <a href="http://hackage.haskell.org/package/bound-1.0.6">the Hackage
+page</a>.</p>
+<p>I’ll give a very brief refresher on untyped lambda calculus. It’s not
+supposed to be an introduction.</p>
+<p>Lambda calculus lets us build “terms” by following three rules. We
+can</p>
+<ul>
+<li>write variables, such as <code>x</code>, <code>y</code>, <code>z</code></li>
+<li>apply one term to another, so from <code>x</code> and <code>y</code> we get <code>x y</code></li>
+<li>abstract a term with a lambda, so from <code>x y</code> we can get
+<code>\x (x y)</code> and <code>\y (x y)</code></li>
+</ul>
+<p>For notational convenience, instead of writing <code>(x y) z</code> we will often
+drop the parentheses and write simply <code>x y z</code> instead.</p>
+<p>Besides these rules for forming terms there are important operations
+which manipulate terms.</p>
+<h3 id="substitution">Substitution</h3>
+<p>Given terms <code>t1</code> and <code>t2</code> we can “substitute <code>t1</code> for all free
+occurrences of <code>x</code> in <code>t2</code>”. For example</p>
+<ul>
+<li><p>If <code>t1 = z z</code> and <code>t2 = y x</code> then the result is <code>y (z z)</code>. One
+occurence of <code>x</code> has received the substitute.</p></li>
+<li><p>If <code>t1 = \y y</code> and <code>t2 = z x x</code> then the result is <code>z (\y y) (\y     y)</code>. Two occurrences of <code>x</code> have received the substitute.</p></li>
+<li><p>If <code>t1 = z</code> and <code>t2 = \y (y z)</code> then the result is <code>t2 = \y (y     z)</code>. There were no occurrences of <code>x</code> so the substitution left
+the term with the same form.</p></li>
+<li><p>If <code>t1 = y z</code> and <code>t2 = (x y) (\x z x)</code> then the result is <code>t2 =     (y z y) (\x z x)</code>. This is important! The first occurrence of
+<code>x</code> was not bound by any lambda so it is called “free” and
+receives the substitutute. The second occurrence <em>was not</em> free
+so it <em>does not</em> receive the substitute.</p></li>
+</ul>
+<h3 id="instantiation">Instantiation</h3>
+<p>A term of the form <code>\x ...</code> can have its binding instantiated to a
+variable. For example, in <code>\x (x y x)</code> the lambda abstraction can be
+instantiated with <code>x</code>, giving <code>x y x</code>. But the <code>x</code> in the lambda was
+arbitrary, so we can also instantiate it with <code>z</code>, giving <code>z y z</code>.</p>
+<p>When we embed something like the lambda calculus in Haskell we want a
+type that represents terms of this form</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>git-rebase-conflicts-display</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>git-rebase-conflicts-display</h3>
+  <h1 id="better-display-for-git-rebase-conflicts">Better display for git rebase conflicts</h1>
+<p>In the article <a href="../git-rebase-conflicts/">Resolving git rebase
+conflicts</a> I explain a procedure for
+resolving git rebase conflicts. It requires understanding the logical
+(semantic) intent of the rebased commit and applying it to the
+current state of the base branch.</p>
+<p>There are two ways we can better understand the logical intent of the
+rebased commit. Firstly, we could try looking at the (<code>diff3</code>-style)
+conflict hunk. For example it might look as follows.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>      foo1()</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="va">++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a> +    foo3()</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="va">++||||||| merged common ancestors</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="va">+     foo2()</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="va">++    foo3()</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="va">++=======</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="va">++    foo2()</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="va">++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Remove foo3</span></span></code></pre></div>
+<p>The intent of the rebased commit is to transform the middle hunk
+section into the bottom hunk section, in this case to remove <code>foo3()</code>.
+Secondly, we could look at the output of <code>git show REBASE_HEAD</code>. This
+gives us a “unified diff” that may be easier to read. It will look
+something like the following.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a> def main():</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>     foo1()</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>     foo2()</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="st">-    foo3()</span></span></code></pre></div>
+<p>The downside is that we will see <em>all</em> of the rebased commit, not just
+the conflicting parts. Can we combine the best of both?</p>
+<p>Rebase conflict markers would be more helpful displayed in a different
+form. We need to see exactly two things: the diff of the rebased
+commit at the conflict location and the context of the target branch.
+From the examples in the prior article, where we had</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>      foo1()</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>      foo2()</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>      foo3()</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="va">++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a> +    foo4()</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="va">++||||||| merged common ancestors</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="va">++=======</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="va">+    foo5()</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="va">++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Add foo 5</span></span></code></pre></div>
+<p>it would have been better shown as</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>      foo1()</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>      foo2()</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>      foo3()</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>      foo4()</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">=======</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="va">+     foo5()</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="va">&gt;&gt;&gt;&gt;&gt;&gt;&gt; Add foo 5</span></span></code></pre></div>
+<p>Where we had</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>      foo1()</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="va">++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a> +    foo3()</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="va">++||||||| merged common ancestors</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="va">+     foo2()</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="va">++    foo3()</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="va">++=======</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="va">++    foo2()</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="va">++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Remove foo3</span></span></code></pre></div>
+<p>it would have been better shown as</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>    foo1()</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    foo3()</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">=======</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    foo2()</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="st">-   foo3()</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="va">&gt;&gt;&gt;&gt;&gt;&gt;&gt; Remove foo3</span></span></code></pre></div>
+<p>Where we had</p>
+<pre><code>  def main():
+      foo1()
+      foo2()
+++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+++||||||| merged common ancestors
+++    foo3()
+++=======
++     foo3()
++     foo4()
+++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Add foo4</code></pre>
+<p>it would have been better shown as</p>
+<pre><code>def main():
+    foo1()
+    foo2()
+&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+=======
+    foo3()
++   foo4()
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; Add foo4</code></pre>
+<p>Where we had</p>
+<pre><code>  def main():
+++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+ +    foo1_new_name()
+ +    foo2()
+++||||||| merged common ancestors
++     foo1()
+++    foo2()
+++=======
+++    foo1()
+++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Remove foo2
+      foo3()</code></pre>
+<p>it would have been better shown as</p>
+<pre><code>def main():
+&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+    foo1_new_name()
+    foo2()
+=======
+    foo1()
+-   foo2()
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; Remove foo2
+    foo3()</code></pre>
+<p>Where we had</p>
+<pre><code>  def main():
+++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+ +    foo1and2()
+++||||||| merged common ancestors
+++    foo1()
+++    foo2()
+++=======
++     foo1_new_name()
++     foo2()
+++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Rename foo1 to foo1_new_name
+      foo3()</code></pre>
+<p>it would have been better shown as</p>
+<pre><code>def main():
+&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+    foo1and2()
+=====
++   foo1_new_name()
+-   foo1()
+    foo2()
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; Rename foo1 to foo1_new_name
+    foo3()</code></pre>
+<p>Unfortunately we cannot patch this into git ourselves because <a href="https://stackoverflow.com/a/50726972/997606">the
+conflict style choices is hard-coded into
+git</a>. Nonetheless, an
+editor plugin or even text-to-text processor could rewrite the <code>diff3</code>
+style into the “context plus diff style” I propose. I have written <a href="https://github.com/tomjaguarpaw/ad/blob/master/hunk.hs">a
+demo in
+Haskell</a>.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

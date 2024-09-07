@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>reverse-mode-automatic-differentiation</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>reverse-mode-automatic-differentiation</h3>
+  <h1 id="reverse-mode-automatic-differentiation">Reverse mode Automatic Differentiation</h1>
+<p>– made simpler</p>
+<h2 id="warning-this-article-is-old-and-rather-idiosyncratic">Warning: this article is old and rather idiosyncratic</h2>
+<p>I have a much better explanation of reverse mode AD at <a href="../automatic-differentiation-worked-examples">Automatic
+differentiation: source-to-source worked
+examples</a>. I would
+advise you not to read this article. I’m only keeping it around for
+historical interest.</p>
+<p>In “<a href="../symbolic-expressions-can-be-automatically-differentiated">Symbolic expressions can be Automatically differentiated
+too</a>” I
+demonstrated that forward mode Automatic Differentiation (AD) is not
+as mysterious as it is often made out to be. In fact it is quite
+simple.</p>
+<p>On the other hand, reverse mode AD seems unfortunately to be
+unavoidably more complicated than forward mode, but in this article I
+hope to show that it is still a bit simpler than it is often made out
+to be. If you read <a href="https://en.wikipedia.org/wiki/Automatic_differentiation#Reverse_accumulation">introductions to reverse mode
+AD</a>
+you will find scary passages like</p>
+<blockquote>
+<p>reverse accumulation requires the storage of the intermediate
+variables wi as well as the instructions that produced them in a
+data structure known as a Wengert list (or “tape”)</p>
+</blockquote>
+<p>and</p>
+<blockquote>
+<p>The nodes in the adjoint graph represent multiplication by the
+derivatives of the functions calculated by the nodes in the
+primal. For instance, addition in the primal causes fanout in the
+adjoint; fanout in the primal causes addition in the adjoint; a
+unary function y = f(x) in the primal causes x̄ = ȳ f′(x) in the
+adjoint; etc.</p>
+</blockquote>
+<p>This doesn’t help anyone to learn reverse mode AD. It <em>is</em> a bit
+complicated but it <em>isn’t</em> scary.</p>
+<p>There is only any benefit in using reverse mode AD when
+differentiating an expression with a large number of input variables.
+If you only have a small number of input variables then forward mode
+will probably be faster. With that in mind let’s set up the relevant
+data structures and API.</p>
+<h2 id="expressions-and-vectors">Expressions and vectors</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE LambdaCase #-}</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Map.Strict</span> <span class="kw">as</span> <span class="dt">Map</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Maybe</span>      <span class="kw">as</span> <span class="dt">Maybe</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span>           <span class="dt">Data.List</span>       (foldl')</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- The type of coordinates.  This is for clarity of display</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- purposes only.</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">Coord</span> <span class="ot">=</span> <span class="dt">Int</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- An expression type that has labels 'e' on subexpressions</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co">-- and labels 'v' on variables.</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">--</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co">-- The expression X1 * (X2 + (X1 * 2)) would be represented as</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co">-- </span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co">--     Var ((), 1)</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co">--       `Product`</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co">--     (Var ((), 2)</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="co">--        `Sum`</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co">--      (Var ((), 1) `Product` (One `Sum` One)))</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">E</span> e v <span class="ot">=</span> <span class="dt">Var</span>     (v, <span class="dt">Coord</span>)</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>           <span class="op">|</span> <span class="dt">One</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>           <span class="op">|</span> <span class="dt">Zero</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>           <span class="op">|</span> <span class="dt">Negate</span>  (e, <span class="dt">E</span> e v)</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>           <span class="op">|</span> <span class="dt">Sum</span>     (e, <span class="dt">E</span> e v) (e, <span class="dt">E</span> e v)</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>           <span class="op">|</span> <span class="dt">Product</span> (e, <span class="dt">E</span> e v) (e, <span class="dt">E</span> e v)</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>           <span class="op">|</span> <span class="dt">Exp</span>     (e, <span class="dt">E</span> e v)</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>         <span class="kw">deriving</span> <span class="dt">Show</span></span></code></pre></div>
+<p>Compare this to the forward mode expression datatype which had only
+one variable (“<code>X</code>”) and didn’t allow labelling subexpressions or
+variables. We will use the labels in the reverse mode algorithm.</p>
+<p>For the sake of simplicity we’ll consider vectors of length 1000
+represented by <code>Map</code>s.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- The vector type is implemented as a Map from coordinates</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- to Double.  In this example, for concreteness, we will consider</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- vectors of length 1000.</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">V</span> <span class="ot">=</span> <span class="dt">Map.Map</span> <span class="dt">Coord</span> <span class="dt">Double</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- The zero vector</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="ot">zero ::</span> <span class="dt">V</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>zero <span class="ot">=</span> Map.fromList (<span class="fu">zip</span> [<span class="dv">1</span><span class="op">..</span><span class="dv">1000</span>] [<span class="dv">0</span>,<span class="dv">0</span><span class="op">..</span>])</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- Add two vectors</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="ot">plus ::</span> <span class="dt">V</span> <span class="ot">-&gt;</span> <span class="dt">V</span> <span class="ot">-&gt;</span> <span class="dt">V</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>plus <span class="ot">=</span> Map.unionWith (<span class="op">+</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">-- Multiply a vector by a scalar</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="ot">times ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">V</span> <span class="ot">-&gt;</span> <span class="dt">V</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>times a <span class="ot">=</span> Map.map (a <span class="op">*</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co">-- Negate a vector</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="ot">negateV ::</span> <span class="dt">V</span> <span class="ot">-&gt;</span> <span class="dt">V</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>negateV <span class="ot">=</span> Map.map <span class="fu">negate</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="co">-- The component of a vector in a given coordinate direction.</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="co">-- For example, the &quot;component along&quot; 2 of (3,4,5,6,...) is 4.</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="ot">componentAlong ::</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">V</span> <span class="ot">-&gt;</span> <span class="dt">Double</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>componentAlong i v <span class="ot">=</span> <span class="dt">Maybe</span><span class="op">.</span>fromMaybe <span class="dv">0</span> (Map.lookup i v)</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="co">-- A vector which has one non-zero entry, value x in the i</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co">-- direction.  For example, &quot;5 `inDirection` 3&quot; is (0,0,5,0,...).</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="ot">inDirection ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">V</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>inDirection x i <span class="ot">=</span> Map.fromList [(i, x)]</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="co">-- Add a quantity to the given component.  For example,</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="co">-- &quot;plusComponent 2 10 (3,4,5,6,...)&quot; is &quot;(3,14,5,6,...)&quot;.</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="ot">plusComponent ::</span> <span class="dt">Coord</span> <span class="ot">-&gt;</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">V</span> <span class="ot">-&gt;</span> <span class="dt">V</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>plusComponent <span class="ot">=</span> Map.insertWith (<span class="op">+</span>)</span></code></pre></div>
+<h2 id="forward-mode">Forward mode</h2>
+<p>We can use this API to implement forward mode AD for functions with
+multiple inputs.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">forwardMode ::</span> <span class="dt">V</span> <span class="ot">-&gt;</span> <span class="dt">E</span> e v <span class="ot">-&gt;</span> (<span class="dt">Double</span>, <span class="dt">V</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>forwardMode v <span class="ot">=</span> ev <span class="kw">where</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  ev <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Var</span> (_, i)             <span class="ot">-&gt;</span> (componentAlong i v,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>                               <span class="dv">1</span> <span class="ot">`inDirection`</span> i)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">One</span>                    <span class="ot">-&gt;</span> (<span class="dv">1</span>, zero)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Zero</span>                   <span class="ot">-&gt;</span> (<span class="dv">0</span>, zero)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Negate</span> (_, e)          <span class="ot">-&gt;</span> <span class="kw">let</span> (ex, ed) <span class="ot">=</span> ev e</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>                              <span class="kw">in</span>  (<span class="op">-</span>ex, negateV ed)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Sum</span> (_, e) (_, e')     <span class="ot">-&gt;</span> <span class="kw">let</span> (ex, ed)   <span class="ot">=</span> ev e</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>                                  (ex', ed') <span class="ot">=</span> ev e'</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>                              <span class="kw">in</span>  (ex <span class="op">+</span> ex', ed <span class="ot">`plus`</span> ed')</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Product</span> (_, e) (_, e') <span class="ot">-&gt;</span> <span class="kw">let</span> (ex, ed)   <span class="ot">=</span> ev e</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>                                  (ex', ed') <span class="ot">=</span> ev e'</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>                              <span class="kw">in</span>  (ex <span class="op">*</span> ex', (ex <span class="ot">`times`</span> ed')</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>                                               <span class="ot">`plus`</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>                                             (ex' <span class="ot">`times`</span> ed))</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Exp</span> (_, e)             <span class="ot">-&gt;</span> <span class="kw">let</span> (ex, ed) <span class="ot">=</span> ev e</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>                              <span class="kw">in</span>  (<span class="fu">exp</span> ex, <span class="fu">exp</span> ex <span class="ot">`times`</span> ed)</span></code></pre></div>
+<p>Compare this definition to the one of <code>diffEval</code> in the <a href="../symbolic-expressions-can-be-automatically-differentiated">the previous
+article</a>.
+You will see that it has exactly the same structure. We can also
+define a sample expression to test it on which corresponds precisely
+to <code>bigExpression</code> from <a href="../symbolic-expressions-can-be-automatically-differentiated">the previous
+article</a>.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">f ::</span> <span class="dt">E</span> () () <span class="ot">-&gt;</span> <span class="dt">E</span> () ()</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>f x <span class="ot">=</span> exp_ (x_ <span class="ot">`minus`</span> one)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> a <span class="ot">`minus`</span> b <span class="ot">=</span> a <span class="ot">`Sum`</span> ((), <span class="dt">Negate</span> b)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        one         <span class="ot">=</span> ((), <span class="dt">One</span>)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        x_          <span class="ot">=</span> ((), x)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        exp_ a      <span class="ot">=</span> <span class="dt">Exp</span> ((), a)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="ot">bigExpression ::</span> <span class="dt">E</span> () ()</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>bigExpression <span class="ot">=</span> <span class="fu">iterate</span> f x1 <span class="op">!!</span> <span class="dv">1000</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> x1 <span class="ot">=</span> (<span class="dt">Var</span> ((), <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>exampleForward <span class="ot">=</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mapM_</span> (<span class="fu">print</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>         <span class="op">.</span> componentAlong <span class="dv">1</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>         <span class="op">.</span> <span class="fu">snd</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>         <span class="op">.</span> <span class="fu">flip</span> forwardMode bigExpression</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>         <span class="op">.</span> (<span class="ot">`inDirection`</span> <span class="dv">1</span>))</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        [<span class="fl">0.00009</span>, <span class="dv">1</span>, <span class="fl">1.00001</span>]</span></code></pre></div>
+<pre><code>&gt; exampleForward
+3.2478565715995278e-6
+1.0
+1.0100754777229357
+-- That was slow</code></pre>
+<p>Unfortunately, <code>forwardMode</code> is terribly slow. In fact it takes time
+proportional to <em>n</em>, where <em>n</em> is the number of inputs. We’re using
+vectors of length 1,000 in this article and if we used vectors of
+length 10,000 it would be ten times slower. The reason for this
+asymptotic complexity is that each time we combine the derivatives of
+subexpressions, for example in</p>
+<pre><code>ed `plus` ed'</code></pre>
+<p>we are doing <em>O(n)</em> work.</p>
+<h2 id="reverse-mode">Reverse mode</h2>
+<p>Reverse mode is faster when there are many inputs. First I’ll explain
+what reverse mode is and then I’ll explain why it’s faster.
+Unfortunately reverse mode is not as simple to explain as forward
+mode. It is simplest to understand if split into three parts.</p>
+<p>Given a point in <code>V</code> at which to evaluate the derivative of our
+expression first we decorate every subexpression with its <em>value</em> at
+that point.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ot">evalDecorate ::</span> <span class="dt">V</span> <span class="ot">-&gt;</span> <span class="dt">E</span> e v <span class="ot">-&gt;</span> (<span class="dt">Double</span>, <span class="dt">E</span> <span class="dt">Double</span> v)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>evalDecorate v <span class="ot">=</span> ev <span class="kw">where</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  ev <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Var</span> (a, i)             <span class="ot">-&gt;</span> (componentAlong i v, <span class="dt">Var</span> (a, i))</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">One</span>                    <span class="ot">-&gt;</span> (<span class="dv">1</span>, <span class="dt">One</span>)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Zero</span>                   <span class="ot">-&gt;</span> (<span class="dv">0</span>, <span class="dt">Zero</span>)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Negate</span> (_, e)          <span class="ot">-&gt;</span> <span class="kw">let</span> (x, d1) <span class="ot">=</span> ev e</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>                              <span class="kw">in</span>  (<span class="op">-</span>x,    <span class="dt">Negate</span> (x, d1))</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Sum</span> (_, e) (_, e')     <span class="ot">-&gt;</span> <span class="kw">let</span> (x, d1) <span class="ot">=</span> ev e</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>                                  (y, d2) <span class="ot">=</span> ev e'</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>                              <span class="kw">in</span>  (x <span class="op">+</span> y, <span class="dt">Sum</span> (x, d1) (y, d2))</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Product</span> (_, e) (_, e') <span class="ot">-&gt;</span> <span class="kw">let</span> (x, d1) <span class="ot">=</span> ev e</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>                                  (y, d2) <span class="ot">=</span> ev e'</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>                              <span class="kw">in</span>  (x <span class="op">*</span> y, <span class="dt">Product</span> (x, d1) (y, d2))</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Exp</span> (_, e)             <span class="ot">-&gt;</span> <span class="kw">let</span> (x, d1) <span class="ot">=</span> ev e</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>                              <span class="kw">in</span>  (<span class="fu">exp</span> x, <span class="dt">Exp</span> (x, d1))</span></code></pre></div>
+<p>The first component of the return value is the value of the whole
+expression. This evaluation is half of what forward mode AD does. In
+reverse mode we calculate the value but we do not combine it with the
+derivative yet. Instead we keep the whole decorated expression tree
+around for a second pass.</p>
+<p>By way of example, let us evaluate the partial derivatives of</p>
+<pre><code>f = X1 * (X2 + (X1 * 2))</code></pre>
+<p>at <code>(X1, X2) = (3,4)</code>. We expect to find that</p>
+<ul>
+<li><p><code>f = 30</code></p></li>
+<li><p><code>f_X1 = X2 + 4 * X1 = 16</code></p></li>
+<li><p><code>f_X2 = X1 = 3</code></p></li>
+</ul>
+<p>After being decorated with values of subexpressions, <code>f</code> becomes</p>
+<pre><code>[X1; 3] * [[X2; 4] + [[X1; 3] * [2; 2]; 6]; 10]</code></pre>
+<p>(From here we see indeed that <code>f = 3 * 10 = 30</code>.)</p>
+<p>The second pass is the only conceptually hard part of reverse mode.
+We propagate a “sensitivity” value from the root of the expression
+tree to the variables. It tells us how sensitive the value of our
+expression is to changes of the variables.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ot">sensitivityDecorate ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">E</span> <span class="dt">Double</span> v <span class="ot">-&gt;</span> <span class="dt">E</span> () <span class="dt">Double</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>sensitivityDecorate <span class="ot">=</span> ev <span class="kw">where</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  ev s <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Var</span> (_, x)             <span class="ot">-&gt;</span> <span class="dt">Var</span>     (s, x)</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">One</span>                    <span class="ot">-&gt;</span> <span class="dt">One</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Zero</span>                   <span class="ot">-&gt;</span> <span class="dt">Zero</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Negate</span> (_, e)          <span class="ot">-&gt;</span> <span class="dt">Negate</span>  ((), ev (<span class="op">-</span>s) e)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Sum</span> (_, e) (_, e')     <span class="ot">-&gt;</span> <span class="dt">Sum</span>     ((), ev s e)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>                                      ((), ev s e')</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Product</span> (x, e) (y, e') <span class="ot">-&gt;</span> <span class="dt">Product</span> ((), ev (s <span class="op">*</span> y) e)</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>                                      ((), ev (s <span class="op">*</span> x) e')</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Exp</span> (x, e)             <span class="ot">-&gt;</span> <span class="dt">Exp</span>     ((), ev (s <span class="op">*</span> <span class="fu">exp</span> x) e)</span></code></pre></div>
+<p>The calculation simply follows the normal rules of calculus. The
+negation operation has sensitivity <code>-1</code> to its argument, the sum
+operation has sensitivity <code>1</code> to both its arguments and the product
+<code>x1 * x2</code> has sensitivity <code>b</code> to <code>x1</code> when the value of <code>x2</code> is <code>b</code>,
+and sensitivity <code>a</code> to <code>x2</code> when the value of <code>x1</code> is <code>a</code>.</p>
+<p>Continuing with our example, after sensitivity decoration we obtain</p>
+<pre><code>[X1; 10] * ([X2; 3] + ([X1; 3 * 2] * 2))</code></pre>
+<p>which is</p>
+<pre><code>[X1; 10] * ([X2; 3] + ([X1; 6] * 2))</code></pre>
+<p>The third step is trivial and is to walk the leaves and gather them
+into a list.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="ot">listOfVars ::</span> [(v, <span class="dt">Coord</span>)] <span class="ot">-&gt;</span> <span class="dt">E</span> e v <span class="ot">-&gt;</span> [(v, <span class="dt">Coord</span>)]</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>listOfVars <span class="ot">=</span> ev <span class="kw">where</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  ev l <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Var</span> t                  <span class="ot">-&gt;</span> t <span class="op">:</span> l</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">One</span>                    <span class="ot">-&gt;</span> l</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Zero</span>                   <span class="ot">-&gt;</span> l</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Negate</span> (_, e)          <span class="ot">-&gt;</span> l <span class="ot">`ev`</span> e</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Sum</span> (_, e) (_, e')     <span class="ot">-&gt;</span> l <span class="ot">`ev`</span> e <span class="ot">`ev`</span> e'</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Product</span> (_, e) (_, e') <span class="ot">-&gt;</span> l <span class="ot">`ev`</span> e <span class="ot">`ev`</span> e'</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Exp</span> (_, e)             <span class="ot">-&gt;</span> l <span class="ot">`ev`</span> e</span></code></pre></div>
+<p>Despite the functionality of <code>listOfVars</code> being trivial it is
+<em>absolutely critical</em> that we gather the leaves by consing onto an
+accumulating argument. It is very expensive to use structurally
+recursive list appends.</p>
+<p>Our example gives us the following list of leaves</p>
+<pre><code>[X1; 10], [X2; 3], [X1; 6]</code></pre>
+<p>Then we simply sum componentwise, giving</p>
+<pre><code>[X1; 16], [X2; 3]</code></pre>
+<p>as anticipated. Combining the passes gives the complete reverse mode
+algorithm.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="ot">reverseMode ::</span> <span class="dt">V</span> <span class="ot">-&gt;</span> <span class="dt">E</span> e v <span class="ot">-&gt;</span> <span class="dt">V</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>reverseMode v <span class="ot">=</span> foldl' (\d (s, x) <span class="ot">-&gt;</span> plusComponent x s d) zero</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span> listOfVars []</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span> sensitivityDecorate <span class="dv">1</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span> <span class="fu">snd</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span> evalDecorate v</span></code></pre></div>
+<p>On our previously defined example expression with vectors of size
+1000, reverse mode is <em>much</em> faster than forward mode.</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>exampleReverse <span class="ot">=</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mapM_</span> (<span class="fu">print</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>         <span class="op">.</span> componentAlong <span class="dv">1</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>         <span class="op">.</span> (\x <span class="ot">-&gt;</span> reverseMode x bigExpression)</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>         <span class="op">.</span> (<span class="ot">`inDirection`</span> <span class="dv">1</span>))</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>        [<span class="fl">0.00009</span>, <span class="dv">1</span>, <span class="fl">1.00001</span>]</span></code></pre></div>
+<pre><code>&gt; exampleReverse
+3.2478565715995362e-6
+1.0
+1.010075477722936
+-- Yes, it was fast</code></pre>
+<p>It is faintly reassuring that the answers we get are numerically
+slightly different than for forward mode. The algebraic derivative is
+the same, of course, but the numerical operations are performed in a
+different order which leads to tiny differences in the floating point
+value.</p>
+<p>Why is reverse mode faster than forward mode? We noted previously
+that forward mode must do <em>O(n)</em> work at each subexpression to combine
+derivatives. Reverse mode avoids this by walking the leaves. In
+reverse mode all the information you need about the derivatives is
+contained in the leaves.</p>
+<p>What are the downsides of reverse mode? Firstly it’s probably slower
+than forward mode for small numbers of inputs, i.e. on small vectors.
+Perhaps more importantly though the <code>evalDecorate</code> pass forces the
+whole expression into memory which may be unacceptable for large
+expressions.</p>
+<p>Where is the Wengert list? Presumably it’s the expression tree
+decorated with values of subexpressions which is then decorated with
+sensitivities. It seems nice to have this tree than a Wengert list
+(or “tape”)! What’s all this about adjoint graphs and duals and
+primals? I really have no clue.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Reverse mode AD seems to be unavoidably more complicated than forward
+mode but it is not actually particularly complicated and certainly not
+as hard to understand as it seems to be from much of the literature
+you will read about it.</p>
+<p>Thanks to Edward Kmett who patiently answered my questions on reverse
+mode so I was finally able to understand it.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

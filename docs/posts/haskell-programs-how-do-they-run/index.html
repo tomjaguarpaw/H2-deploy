@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>haskell-programs-how-do-they-run</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>haskell-programs-how-do-they-run</h3>
+  <h1 id="haskell-programs-how-do-they-run">Haskell programs: how do they run?</h1>
+<p>If this article were entitled “Haskell programs: how do they look?” it
+would be very short. The answer would be “beautiful”. If it were
+entitled “Haskell programs: what do they calculate?” I could write
+about Haskell’s lovely mathematical compositional behaviour.</p>
+<p>But it’s not; it’s entitled “Haskell programs: how do they run?” and
+explains how Haskell programs are executed step by step (specifically,
+the programs produced by GHC). Haskell is what is called a “lazy
+language” and because lazy languages are rare the execution of Haskell
+programs often remains rather mysterious even to its most frequent
+users. The consequence of this lack of understanding is programs that
+have strange performance characteristics, often using vastly larger
+amounts of memory than anticipated, and sometimes running more slowly
+too.</p>
+<p>This article will present a model that you can use to understand the
+mechanism by which Haskell programs are executed. It’s not
+complicated, but useful information on this topic is very hard to find
+and it took me several years to put together all the key pieces of
+information needed for a complete picture. I’ll reassemble the
+complete picture for you much more quickly in the space of merely
+several paragraphs below!</p>
+<p>To fit in with the nomenclature in the Haskell literature I’m going to
+use the word “evaluation” rather than “execution”. The latter seems
+to better convey the notion of following a sequence of instructions
+encoded by a program, but the former seems to be in wider use by those
+who write compilers.</p>
+<p>Firstly, let me mention some terms that are often used when talking
+about how Haskell programs are evaluated: “redex”, “weak head normal
+form” (WHNF), “constant applicative form” (CAF), “call by need”. As
+far as I can tell these are all terms from the mathematical theory of
+lambda calculus and although they describe aspects of the process of
+evaluation of Haskell programs they are not useful for understanding
+the process of evaluation directly. Two other phrases that are, in my
+opinion, unhelpful and imprecise respectively, are “graph reduction”
+and “delays the evaluation of an expression until its value is
+needed”.</p>
+<h2 id="normal-form">Normal form</h2>
+<p>By contrast I’m going to offer a very direct and concrete approach to
+understanding how Haskell programs are evaluated. The evaluation will
+be done in terms of something I’m going to call the “normal form”.
+The normal form is a simplified version of Haskell with fewer language
+constructs. It has only</p>
+<ul>
+<li>literals</li>
+<li>variables</li>
+<li>constructors</li>
+<li>let</li>
+<li>lambda</li>
+<li>function application</li>
+<li>case</li>
+</ul>
+<p>Additionally, in a function call the function itself and arguments must
+be variables or literals; and constructor applications must be
+“saturated”, i.e. there must be no missing arguments.</p>
+<p>All Haskell programs can be translated into this normal form. I’m not
+going to expend space describing how because there’s lots and lots of
+Haskell syntax. Suffice it to say that these can all be translated
+straightforwardly to the normal form: where clauses, function
+definition syntax, guards, nested patterns, nested expressions.</p>
+<p>This normal form is a language with a direct operational reading. You
+could even call in an imperative language. I’m not going to give a
+special name to the normal form. It’s similar to “administrative
+normal form” which is a concept from compiler development technology,
+and it’s also similar to STG, one of the GHC intermediate languages.</p>
+<p>The evaluation of this normal form is sufficient for 99% of your
+Haskell performance needs. It will be enough to understand any
+performance issues except the lowest level performance hackery.</p>
+<p>Here’s an example of a program in Haskell and its equivalent in the
+normal form:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Haskell</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">map</span> f []     <span class="ot">=</span> []</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">map</span> f (x<span class="op">:</span>xs) <span class="ot">=</span> f x <span class="op">:</span> <span class="fu">map</span> f xs</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Normal form</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">map</span> <span class="ot">=</span> \f xs <span class="ot">-&gt;</span> <span class="kw">case</span> xs <span class="kw">of</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  []    <span class="ot">-&gt;</span> []</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  x<span class="op">:</span>xs' <span class="ot">-&gt;</span> <span class="kw">let</span> first <span class="ot">=</span> f x</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>               rest  <span class="ot">=</span> <span class="fu">map</span> f xs'</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>           <span class="kw">in</span> first <span class="op">:</span> rest</span></code></pre></div>
+<p>Notice that we can’t use Haskell’s multi-clause function definition
+syntax, the arguments must specifically be in lambdas and we can’t
+have nested subexpressions; instead we have to bind subexpressions to
+variables.</p>
+<h2 id="what-do-we-evaluate-to">What do we evaluate to?</h2>
+<p>Since we are considering a process for evaluating Haskell programs our
+first thought ought to be about what we expect from the process: what
+do Haskell programs evaluate <em>to</em>?</p>
+<p>The result of an evaluation is called a “value”, and a value is either</p>
+<ul>
+<li>a (fully saturated) constructor (including primitive types), or</li>
+<li>a lambda</li>
+</ul>
+<p>(This is the same concept that is captured by the notion of WHNF.)</p>
+<h2 id="how-do-we-evaluate">How do we evaluate</h2>
+<p>How exactly does evaluation proceed? It’s actually rather imperative.</p>
+<ul>
+<li><p>literals, lambdas, constructors – these are already values and
+therefore evaluation terminates immediately</p></li>
+<li><p><code>let x = e in body</code>: create a closure for <code>e</code> on the heap and let
+<code>x</code> be a pointer to this closure, i.e. all mentions of <code>x</code> scoped
+by this binding point to that closure. A closure is basically a
+block of code, along with some variables, that can be evaluated
+later.</p></li>
+<li><p>variables <code>x</code>: <code>x</code> is a pointer to a closure, as described above.
+Evaluate that closure to a value and overwrite its memory location
+with the value (the overwriting stage is sometimes called
+“memoization”).</p></li>
+<li><p>function application <code>f a</code>: first evaluate <code>f</code>. This results in
+something of the form <code>\x -&gt; body</code>, evaluate <code>body</code> after
+substituting <code>a</code> for <code>x</code> within it.</p></li>
+<li><p><code>case e of alts</code>: evaluate <code>e</code>, then check which alternative matches
+and evaluate it.</p></li>
+</ul>
+<p>Those are the complete rules for evaluating Haskell programs. Some
+examples will follow shortly.</p>
+<h2 id="resource-usage">Resource usage</h2>
+<p>There are just two simple rules which fully explain how these
+evaluation rules cause usage of memory resources.</p>
+<p>Firstly, the only thing that allocates on the heap is <code>let</code>.</p>
+<p>Secondly, the only thing that consumes stack (in a way that we care
+about) is <code>case</code>, whilst it is evaluating its scrutinee. (The
+“scrutinee” is <code>s</code> in <code>case s of ... -&gt; ...</code>.) Haskell consumes stack
+whilst evaluating <code>s</code> so it can know where it should continue from once
+evaluation of <code>s</code> has finished.</p>
+<p>Nothing else consumes any memory resources.</p>
+<h2 id="evaluation-example">Evaluation example</h2>
+<p>We’ll trace an example implemented in terms of <code>map</code> above plus the
+following two functions</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Haskell</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">repeat</span> x <span class="ot">=</span> xs <span class="kw">where</span> xs <span class="ot">=</span> x <span class="op">:</span> xs</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Normal form</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">repeat</span> <span class="ot">=</span> \x <span class="ot">-&gt;</span> <span class="kw">let</span> xs <span class="ot">=</span> x <span class="op">:</span> xs</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>               <span class="kw">in</span> xs</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- Haskell</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span> (x<span class="op">:</span>xs) <span class="ot">=</span> x</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- Normal form</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span> <span class="ot">=</span> \xs <span class="ot">-&gt;</span> <span class="kw">case</span> xs <span class="kw">of</span> x<span class="op">:</span>xs' <span class="ot">-&gt;</span> x</span></code></pre></div>
+<p>The expression to evaluate will be</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Haskell</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span> (<span class="fu">map</span> (\x <span class="ot">-&gt;</span> x <span class="op">+</span> x) (<span class="fu">repeat</span> (<span class="dv">10</span> <span class="op">+</span> <span class="dv">1</span>)))</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Normal form</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> f <span class="ot">=</span> \x <span class="ot">-&gt;</span> x <span class="op">+</span> x</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    t <span class="ot">=</span> <span class="dv">10</span> <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    r <span class="ot">=</span> <span class="fu">repeat</span> t</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    m <span class="ot">=</span> <span class="fu">map</span> f r</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="kw">in</span> <span class="fu">head</span> m</span></code></pre></div>
+<p>To save space in this article you can watch <a href="https://skillsmatter.com/skillscasts/8726-haskell-programs-how-do-they-run">my talk at Haskell
+eXchange
+2016</a>
+where I trace the evaluation of this program.</p>
+<h3 id="primitive-operations">Primitive operations</h3>
+<p>Something to bear in mind is that primitive operations must run on
+values, i.e. fully evaluated things. This means that an operation
+such as <code>(+)</code> must be implemented as something like</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>(<span class="op">+</span>) <span class="ot">=</span> \x y <span class="ot">-&gt;</span> <span class="kw">case</span> x <span class="kw">of</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>     x' <span class="ot">-&gt;</span> <span class="kw">case</span> y <span class="kw">of</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>         y' <span class="ot">-&gt;</span> primitive_plus x' y'</span></code></pre></div>
+<p>where <code>primitive_plus</code> is perhaps implemented by some underlying C
+library. The consequence is that <code>(+)</code>, or any other primitive
+operation evaluates its arguments.</p>
+<h2 id="sharing">Sharing</h2>
+<p>The rules for evaluation tell us exactly what we need to know about
+how sharing happens. Consider these two versions of an enumeration
+function:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>enum1 <span class="ot">=</span> <span class="fu">zip</span> ns</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">where</span> ns <span class="ot">=</span> [<span class="dv">1</span><span class="op">..</span>]</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>enum2 xs <span class="ot">=</span> <span class="fu">zip</span> ns xs</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">where</span> ns <span class="ot">=</span> [<span class="dv">1</span><span class="op">..</span>]</span></code></pre></div>
+<p>If we’re familiar with the concept of “eta equivalence” we might think
+that these two definitions will be evaluated in the same way. We
+might think of an analogous definition where two definitions <em>are</em>
+equivalent and evaluated in the same way:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>inc1 x <span class="ot">=</span> (<span class="op">+</span>) <span class="dv">1</span> x</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>inc2   <span class="ot">=</span> (<span class="op">+</span>) <span class="dv">1</span></span></code></pre></div>
+<p>But the enumeration examples do not evaluate the same way. Why not?
+Let’s look at what happens when we convert them into the normal form</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> enum1 <span class="ot">=</span> <span class="kw">let</span> ns <span class="ot">=</span> [<span class="dv">1</span><span class="op">..</span>]</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>            <span class="kw">in</span> <span class="fu">zip</span> ns</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> enum2 <span class="ot">=</span> \xs <span class="ot">-&gt;</span> <span class="kw">let</span> ns <span class="ot">=</span> [<span class="dv">1</span><span class="op">..</span>]</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>                   <span class="kw">in</span> <span class="fu">zip</span> ns xs</span></code></pre></div>
+<p>Considering how these evaluate we see that in <code>enum1</code>, <code>ns</code> is shared by <em>all</em>
+invocations of the function, whereas in <code>enum2</code>, <code>ns</code> is created afresh
+by each invocation of the function. Sharing <code>ns</code> can lead to large
+and surprising space leaks.</p>
+<p>So we see that careful consideration of how Haskell programs evaluate
+can shed light on unexpected or surprising behaviour.</p>
+<h2 id="foldl"><code>foldl</code></h2>
+<p><code>foldl</code> is expressed in the normal form as</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">foldl</span> <span class="ot">=</span> \f z xs <span class="ot">-&gt;</span> <span class="kw">case</span> xs <span class="kw">of</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  []    <span class="ot">-&gt;</span> z</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  x<span class="op">:</span>xs' <span class="ot">-&gt;</span> <span class="kw">let</span> z' <span class="ot">=</span> f z x</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>           <span class="kw">in</span> <span class="fu">foldl</span> f z' xs'</span></code></pre></div>
+<p>See <a href="https://skillsmatter.com/skillscasts/8726-haskell-programs-how-do-they-run">my talk at Haskell eXchange
+2016</a>
+where I trace the evaluation of <code>foldl (+) 0 [1..100]</code>. In short, it
+builds up the proverbial “long chain of thunks” on the heap before
+consuming O(n) stack space to evaluate them.</p>
+<h2 id="foldl-1"><code>foldl'</code></h2>
+<p><code>foldl'</code> is the “strict version of <code>foldl</code>” and is expressed in the
+normal form as</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>foldl' <span class="ot">=</span> \f z xs <span class="ot">-&gt;</span> <span class="kw">case</span> xs <span class="kw">of</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  []    <span class="ot">-&gt;</span> z</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  x<span class="op">:</span>xs' <span class="ot">-&gt;</span> <span class="kw">case</span> f z x <span class="kw">of</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>      z' <span class="ot">-&gt;</span> foldl' f z' xs'</span></code></pre></div>
+<p>(As a short aside, note that in Haskell we would use <code>seq</code> instead of
+<code>case</code> because a Haskell <code>case</code> with no patterns doesn’t evaluate its
+scrutinee.)</p>
+<p>See <a href="https://skillsmatter.com/skillscasts/8726-haskell-programs-how-do-they-run">my talk at Haskell eXchange
+2016</a>
+where I trace the evaluation of <code>foldl' (+) 0 [1..100]</code>. Unlike <code>foldl</code>, it
+consumes neither (much) heap nor stack.</p>
+<h2 id="foldr"><code>foldr</code></h2>
+<p><code>foldr</code> is expressed in the normal form as</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">foldr</span> <span class="ot">=</span> \f z xs <span class="ot">-&gt;</span> <span class="kw">case</span> xs <span class="kw">of</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  []    <span class="ot">-&gt;</span> z</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  x<span class="op">:</span>xs' <span class="ot">-&gt;</span> <span class="kw">let</span> rest <span class="ot">=</span> <span class="fu">foldr</span> (<span class="op">+</span>) <span class="dv">0</span> xs'</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>           <span class="kw">in</span> f x rest</span></code></pre></div>
+<p>See <a href="https://skillsmatter.com/skillscasts/8726-haskell-programs-how-do-they-run">my talk at Haskell eXchange
+2016</a>
+where I trace the evaluation of <code>foldr (+) 0 [1..100]</code>. It consumes
+O(n) heap and stack.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>All Haskell programs can be translated straightforwardly to a simple
+normal form which has a simple imperative-style interpretation.</p>
+<p>By following through the execution of the program we can understand
+how it uses memory resources.</p>
+<h2 id="addendum">Addendum</h2>
+<p>After writing this article I was pointed to the following references,
+which perhaps make better reading:</p>
+<ul>
+<li><p><a href="https://www.microsoft.com/en-us/research/wp-content/uploads/1998/09/comp-by-trans-scp.pdf">A transformation-based optimiser for
+Haskell</a>,
+section 3.1</p></li>
+<li><p><a href="https://www.microsoft.com/en-us/research/wp-content/uploads/1996/05/float.pdf">Let-floating: moving bindings to give faster
+programs</a>,
+section 2.1</p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

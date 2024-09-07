@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>next-haskell</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>next-haskell</h3>
+  <h1 id="next-haskell">Next Haskell</h1>
+<p>What changes would we want to make to Haskell, but we can’t for fear
+of breaking backwards compatibility? They should instead be made to
+the Next Haskell.</p>
+<ul>
+<li><p>Better names for <code>data</code>, <code>type</code> and <code>newtype</code>: <a href="https://mail.haskell.org/pipermail/haskell-cafe/2015-August/120732.html">https://mail.haskell.org/pipermail/haskell-cafe/2015-August/120732.html</a></p></li>
+<li><p><code>main :: IO (); main = ...</code> involves duplication. This needs to be
+got rid of, but I can’t think of a good way right now.</p></li>
+<li><p>Reduce special syntax: no special syntax for list types or list
+literals, maybe not even for tuple types or tuple literals! <code>(-&gt;)</code>
+should not be a reserved identifier.</p></li>
+<li><p>Either do notation or comprehensions, not both.</p></li>
+<li><p>Remove <code>if</code>. The only version of <code>case</code> should be a “lambda case”.
+Any arguments can be passed to it using the normal means of function
+application.</p></li>
+<li><p>It should be possible to “eta-reduce <code>case</code> branches”. That is, I
+should be able to write</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>\<span class="kw">case</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Just</span>    <span class="ot">-&gt;</span> foo</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> bar</span></code></pre></div>
+<p>instead of</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>\<span class="kw">case</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Just</span> x  <span class="ot">-&gt;</span> foo x</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>     <span class="dt">Nothing</span> <span class="ot">-&gt;</span> bar</span></code></pre></div></li>
+<li><p>Either arguments should be taken on the left hand side of a
+function, or the function type constructor should be reversed.</p></li>
+<li><p>No unary function <code>-</code> for negation.</p></li>
+<li><p><code>:</code> and <code>::</code> should be swapped</p></li>
+<li><p>No partial record fields</p></li>
+<li><p><code>x `f` y</code> should desugar to <code>f y x</code></p></li>
+<li><p>Warnings that should be errors</p>
+<ul>
+<li><p>Missing patterns</p></li>
+<li><p>Missing record fields</p></li>
+</ul></li>
+<li><p>Get rid of <code>otherwise</code>. It’s far too cute.</p></li>
+</ul>
+<h2 id="sources-of-ideas">Sources of ideas</h2>
+<ul>
+<li>https://www.reddit.com/r/haskell/comments/4f47ou/why_does_haskell_in_your_opinion_suck/</li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

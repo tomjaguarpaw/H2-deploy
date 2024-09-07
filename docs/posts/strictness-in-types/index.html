@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>strictness-in-types</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>strictness-in-types</h3>
+  <h1 id="reflecting-strictness-in-haskell-types">Reflecting strictness in Haskell types</h1>
+<p>In GHC, from the operational point of view, the type <code>Int</code> does not
+indicate a bit pattern somewhere in memory that represents an integer.
+What it indicates is <em>either</em> an integer bit pattern <em>or</em> a “thunk” (a
+delayed computation) which can be “forced” (run). When and if the
+computation terminates the thunk will be overwritten with the integer
+bit pattern that it produced.</p>
+<p>Thus the GHC type system provides less fine-grained information than
+we might naively expect, especially if we are used to the strict point
+of view. Often the ability to invisibly interchange thunks and values
+is a blessing. In fact it is one of Haskell’s great blessings.
+However, it is well known that it can also be a curse. Here’s an
+example:</p>
+<pre><code>foldl :: (a -&gt; b -&gt; a) -&gt; a -&gt; [b] -&gt; a
+foldl _ z [] = z
+foldl f z (b:bs) = foldl f (f z b) bs</code></pre>
+<p>The application of <code>f</code> to <code>z</code> and <code>b</code> does not result in an evaluated
+<code>a</code>. Instead it results in a thunk representing the function call.
+If the input list is of length <code>n</code> we make <code>n</code> recursive calls and
+build up a thunk whose size is proportional to <code>n</code>. This leaks space.</p>
+<p>The way to avoid a space leak is to explicitly force the <code>a</code> we have
+created with a call to <code>seq</code> before each recursive call.</p>
+<pre><code>foldl' :: (a -&gt; b -&gt; a) -&gt; a -&gt; [b] -&gt; a
+foldl' _ z [] = z
+foldl' f z (b:bs) = a `seq` foldl f a bs
+    where a = f z b</code></pre>
+<p>This way the <code>a</code> remains completely evaluated at each stage.</p>
+<p>This is a reasonable solution, but as Haskellers we are used to our
+types specifying very fine-grained information about the operation of
+our program. We want our types to specify when <code>IO</code> actions can
+occur, so why not ask for our types to specify when evaluation of
+thunks takes place?</p>
+<p>Unfortunately this isn’t straightforward to come by. For example, we
+might try</p>
+<pre><code>data Strict a = Strict !a
+
+foldl :: (a -&gt; b -&gt; a) -&gt; Strict a -&gt; [b] -&gt; a
+foldl _ (Strict z) [] = z
+foldl f (Strict z) (b:bs) = foldl f (Strict (f z b)) bs</code></pre>
+<p>But this is no good. After all, a <code>Strict a</code> doesn’t represent a
+strict <code>a</code> but rather a <em>thunk</em> returning a strict <code>a</code>! So we build
+up a chain of thunks nonetheless. In fact there is no difference in
+terms of laziness between <code>a</code> and our attempted <code>Strict a</code>. Both of
+them are just thunks that can be forced to return an <code>a</code>.</p>
+<p>However, there is a trick that allows us to represent strictness in
+types. The trick is to indicate strictness in the <em>argument</em> to a
+function rather than its return type. I learned this from <a href="http://www.haskell.org/pipermail/haskell-cafe/2009-June/062987.html">a post of
+Stefan Holdermans to the Haskell-Cafe mailing
+list</a>.</p>
+<pre><code>{-# LANGUAGE TypeOperators #-}
+
+data a :-&gt; b = Strict (a -&gt; b)
+-- Strict constructor will be hidden
+
+-- Specifying the precedence of :-&gt; merely for neater syntax
+infixr 0 :-&gt;
+
+strictly :: (a -&gt; b) -&gt; a :-&gt; b
+strictly f = Strict (\a -&gt; a `seq` f a)
+
+(!) :: (a :-&gt; b) -&gt; a -&gt; b
+Strict f ! a = f a</code></pre>
+<p>Then we can write a recursive <code>foldl</code> which is guaranteed to be space
+leak free because it has the right type.</p>
+<pre><code>foldl' :: (a -&gt; b -&gt; a) -&gt; a :-&gt; [b] -&gt; a
+foldl' f = strictly (\z xs -&gt; case xs of
+              []   -&gt; z
+              y:ys -&gt; foldl' f !(f z y) $ ys)</code></pre>
+<p>The value whose type is on the left hand side of a <code>:-&gt;</code> is guaranteed
+to be evaluated strictly, i.e. forced before the result can start to
+be consumed.</p>
+<h2 id="polymorphic-strictness">Polymorphic strictness</h2>
+<p>What do we do if we want to define functions which are polymorphic
+over strictness type? For example the standard definition of <code>const</code>
+doesn’t touch its <code>b</code> argument when its return value is evaluated.</p>
+<pre><code>const :: a -&gt; b -&gt; a
+const a b = a</code></pre>
+<p>On the other hand we can define another version which does</p>
+<pre><code>const' :: a -&gt; b -&gt; a
+const' a b = b `seq` a</code></pre>
+<p>How do we implement both of these with one definition? Well, we can introduce
+a class to capture the general concept with instances for <code>(-&gt;)</code> and
+<code>(:-&gt;)</code>. (The need for the notation <code>arrow</code> instead of something
+symbolic is a syntactic annoyance. I’m not sure how to get round it.)</p>
+<pre><code>class FunctionLike arrow where
+  (?) :: (a `arrow` b) -&gt; a -&gt; b
+  functionLike :: (a -&gt; b) -&gt; (a `arrow` b)
+
+instance FunctionLike (-&gt;) where
+  (?) = id
+  functionLike = id
+
+instance FunctionLike (:-&gt;) where
+  (?) = (!)
+  functionLike = strictly</code></pre>
+<p>Then we can define polymorphic <code>const</code> as</p>
+<pre><code>constPolymorphic :: FunctionLike arrow =&gt; a -&gt; b `arrow` a
+constPolymorphic a = functionLike (\_ -&gt; a)</code></pre>
+<p>and use it to directly derive the two specialisations that we want.</p>
+<pre><code>const :: a -&gt; b -&gt; a
+const = constPolymorphic
+
+const' :: a -&gt; b :-&gt; a
+const' = constPolymorphic</code></pre>
+<p>If we were so inclined we could use <code>FunctionLike</code> to define the leaky
+and leak free versions of <code>foldl</code> at the same time!</p>
+<pre><code>foldlPolymorphic :: FunctionLike arrow =&gt;
+                    (a -&gt; b -&gt; a) -&gt; a `arrow` ([b] -&gt; a)
+foldlPolymorphic f = functionLike (\z xs -&gt; case xs of
+                         []   -&gt; z
+                         y:ys -&gt; foldl' f ?(f z y))</code></pre>
+<p>The operator <code>?</code> should be interpreted as function application which
+is polymorphic over strictness.</p>
+<h2 id="strictness-in-data-types">Strictness in data types</h2>
+<p>Even more amazingly, <a href="http://www.reddit.com/r/haskell/comments/2chb2h/fantasy_world_haskell/cjgepwj">gelisam on Haskell Reddit showed me how to make
+data types that are strictness
+polymorphic!</a>
+The key observation is that the only difference between the usual,
+lazy <code>data Foo a = Foo a</code> and the strict <code>data Foo a = Foo !a</code> is that
+the function which constructs <code>Foo</code>s is lazy in its argument for the
+former, and strict in its argument for the latter.</p>
+<p>If we want to be polymorphic over strict and lazy lists, for example,
+we can define</p>
+<pre><code>data List (arrow :: * -&gt; * -&gt; *) a = Nil | Cons a (List arrow a)
+-- The List constructor will have to be hidden, although pattern
+-- matching on it would be OK.  arrow is a phantom type which we
+-- use as a strictness indicator.
+
+-- We expose this polymorphic cons instead
+cons :: FunctionLike arrow =&gt;
+        a `arrow` (List arrow a `arrow` List arrow a)
+cons = functionLike (\x -&gt; functionLike (\y -&gt; Cons x y))</code></pre>
+<p>(Again I apologise for the syntax. Hopefully someone knowledgeable can
+tell me what to do about that.)</p>
+<p>A <code>List (-&gt;) a</code> is a lazy list of <code>a</code>, and a <code>List (:-&gt;) a</code> is a
+strict list of <code>a</code>. We can define data values in a way that is
+polymorphic over strictness type, for example enumerating all integers
+in a range.</p>
+<pre><code>range :: FunctionLike arrow =&gt; Int -&gt; Int -&gt; List arrow Int
+range a b = if a &gt; b
+            then Nil
+            else cons ?a ?(range (a+1) b)</code></pre>
+<p>(Recall that the operator <code>?</code> should be interpreted as function
+application which is polymorphic over strictness.)</p>
+<p>Then <code>count 1 1000000 :: List (-&gt;) Int</code> is a lazy list where the one
+million elements are computed as required. <code>count 1 1000000 :: List (:-&gt;) Int</code> is a strict list where all one million elements are
+computed at once.</p>
+<h2 id="wadlers-strictness-monad">Wadler’s “strictness monad”</h2>
+<p>Wadler talks about a “strictness monad” in section 3.2 on page 9 of
+<a href="http://homepages.inf.ed.ac.uk/wadler/topics/monads.html">Comprehending
+Monads</a> but I
+don’t think it solves the problem I want it to solve.</p>
+<p>For example, consider</p>
+<pre><code>foldl :: (a -&gt; b -&gt; a) -&gt; Str a -&gt; [b] -&gt; Str a
+foldl _ z [] = z
+foldl f z (b:bs) = foldl f (f &lt;$&gt; z &lt;*&gt; pure b) bs</code></pre>
+<p>This still builds up a chain of thunks in the same way that our
+original <code>Strict</code> attempt did. All the <code>Str</code> monad seems to achieve
+is enforcing an ordering of evaluations with respect to each other.
+Perhaps there’s a way of getting the desired behaviour with a cleverer
+usage of <code>Str</code>, but I don’t see it.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Strictness in Haskell is generally hidden away and not reflected by
+types, but there does seem to be a way of representing strictness in
+the type system!</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

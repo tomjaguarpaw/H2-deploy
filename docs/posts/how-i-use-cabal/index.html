@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-use-cabal</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-use-cabal</h3>
+  <h1 id="how-i-use-cabal">How I use cabal</h1>
+<p>– version 3.2.0.0.</p>
+<h2 id="i-want-to-download-cabal">I want to download cabal</h2>
+<p>I use <a href="https://www.haskell.org/ghcup/">ghcup</a>. Personally I prefer
+the <a href="https://gitlab.haskell.org/haskell/ghcup-hs#manual-install">manual
+install</a>.
+I am on a 32-bit Linux system so I do</p>
+<pre><code>curl -f https://downloads.haskell.org/~ghcup/0.1.9/i386-linux-ghcup-0.1.9 &gt; ~/ghcup
+chmod +x ~/ghcup</code></pre>
+<p>Then to install cabal it is a simple matter of</p>
+<pre><code>~/ghcup install cabal 3.2.0.0</code></pre>
+<p>The binary that it installs will end up at
+<code>~/.ghcup/bin/cabal-3.2.0.0</code> and a symlink to it will probably be
+created at <code>~/.ghcup/bin/cabal</code>.</p>
+<h2 id="i-want-to-play-around-with-a-package-in-the-repl">I want to play around with a package in the REPL</h2>
+<p>For very quick exploration you can specify a dependency on the
+command line. If you want something that is a little more persistent
+you can create a temporary project and add it as a dependency.</p>
+<h3 id="specify-a-dependency-on-the-command-line">Specify a dependency on the command line</h3>
+<p>In a directory that doesn’t contain a Haskell package’s <code>.cabal</code> file
+(perhaps your home directory) run</p>
+<pre><code>cabal v2-repl --build-depends QuickCheck
+&lt;it downloads and builds QuickCheck if necessary...&gt;
+*Main&gt; import Test.QuickCheck
+*Main Test.QuickCheck&gt; let prop h t = (length t + 1) == (length $ h:t)
+*Main Test.QuickCheck&gt; quickCheck prop
++++ OK, passed 100 tests.</code></pre>
+<h3 id="create-a-temporary-project-and-add-it-as-a-dependency">Create a temporary project and add it as a dependency</h3>
+<pre><code>$ mkdir my-temporary-package
+$ cd my-temporary-package
+$ cabal init</code></pre>
+<p>Edit <code>my-temporary-package.cabal</code> to change</p>
+<pre><code>build-depends:       base &gt;=... &amp;&amp; &lt;...</code></pre>
+<p>to</p>
+<pre><code>build-depends:       base, QuickCheck</code></pre>
+<p>(The constraints on base are going to cause you more harm than good
+for a quick exploratory project. You can add them back later if it
+becomes necessary.)</p>
+<pre><code>$ cabal v2-repl</code></pre>
+<h3 id="what-about-cabal-install---lib">What about <code>cabal install --lib</code>?</h3>
+<p>I would avoid it. To me it seems like a fools errand to try to load
+non-system packages with anything but <code>cabal</code>.</p>
+<h2 id="i-have-a-package-in-local-source-directory.-i-want-to-use-it-in-another-local-package.">I have a package in local source directory. I want to use it in another local package.</h2>
+<p>Suppose I have a package called <code>package1</code> in a local source directory
+and whose cabal file is at <code>/home/me/package1/package1.cabal</code>; I want
+to use it in another local package I’m developing whose cabal file is
+<code>/home/me/package2/package2.cabal</code>.</p>
+<p>I achieve this by adding an <code>optional-packages</code> stanza to <code>package2</code>’s
+<code>cabal.project</code>, as follows.</p>
+<ul>
+<li><p>If <code>/home/me/package2/cabal.project</code> already exists</p>
+<p>just add the following line</p>
+<pre><code>optional-packages: /home/me/package1/package1.cabal</code></pre></li>
+<li><p>If <code>/home/me/package2/cabal.project</code> does not yet exist</p>
+<p>create <code>/home/me/package2/cabal.project</code> containing the following</p>
+<pre><code>packages: *.cabal
+optional-packages: /home/me/package1/package1.cabal</code></pre>
+<p>It is vital that the “<code>packages: *.cabal</code>” line be included
+otherwise your project defaults to containing no packages at all.
+This default doesn’t seem to make any sense, but there it is.</p></li>
+</ul>
+<h3 id="cabal-install---lib-doesnt-seem-to-work"><code>cabal install --lib</code> doesn’t seem to work</h3>
+<p>Although <code>cabal install --lib</code> seems like it ought to support use
+cases like this, I’ve never been able to get it to work.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

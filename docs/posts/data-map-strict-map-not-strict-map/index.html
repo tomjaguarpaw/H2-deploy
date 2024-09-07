@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>data-map-strict-map-not-strict-map</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>data-map-strict-map-not-strict-map</h3>
+  <h1 id="haskells-data.map.strict.map-is-not-a-strict-map">Haskell’s <code>Data.Map.Strict.Map</code> is not a strict map</h1>
+<p>Summary: <em>I was surprised when I learned that <code>Data.Map.Strict.Map</code> is
+not strict. Its laziness has serious consequences for attempts at
+space leak free programming in Haskell.</em></p>
+<p>The Haskell
+<a href="https://hackage.haskell.org/package/containers"><code>containers</code></a> package
+has a module called
+<a href="https://hackage.haskell.org/package/containers-0.6.5.1/docs/Data-Map.html"><code>Data.Map</code></a>
+which provides an associative container type. That module just
+re-exports
+<a href="https://hackage.haskell.org/package/containers-0.6.5.1/docs/Data-Map-Lazy.html"><code>Data.Map.Lazy</code></a>
+so it is a <em>lazy</em> associative container type. What does the word
+“lazy” mean here? Have a look at this example:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="op">&gt;</span> <span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Map.Lazy</span> <span class="kw">as</span> <span class="dt">L</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">&gt;</span> L.delete <span class="dv">0</span> <span class="op">$</span> L.insert <span class="dv">0</span> <span class="fu">undefined</span> <span class="op">$</span> L.empty</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>fromList []</span></code></pre></div>
+<p>We started with an empty map, inserted the entry <code>undefined</code> under the
+key <code>0</code>, and then deleted the entry under key <code>0</code>. The result was an
+empty map. We call this data structure “lazy” because its operations
+do not evaluate the entries it contains. Instead the entries are left
+as unevaluated thunks until some consumer evaluates them. (The tree
+structure of the map and the keys of the map are not lazy, however.)
+We know the map does not evaluate its entries because if it did we
+would have seen an exception when it came to evaluate <code>undefined</code>.</p>
+<p>Contrast this lazy behaviour with the behaviour of <code>Data.Map.Strict</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="op">&gt;</span> <span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Map.Strict</span> <span class="kw">as</span> <span class="dt">S</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="op">&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">&gt;</span> S.delete <span class="dv">0</span> <span class="op">$</span> S.insert <span class="dv">0</span> <span class="fu">undefined</span> <span class="op">$</span> S.empty</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>fromList <span class="op">***</span> <span class="dt">Exception</span><span class="op">:</span> Prelude.undefined</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">...</span></span></code></pre></div>
+<p>The strict map ensures that the entries are always kept evaluated
+(when the map itself is). We see that it tried to evaluate
+<code>undefined</code> and thus raised an exception.</p>
+<p>The <a href="../nested-strict-data/">strict version is useful for avoiding space
+leaks</a> when making many adjustments to a map.
+It avoids the entries becoming unevaluated thunks, growing in size.
+For example, this function has a space leak:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">countParity ::</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> <span class="dt">L.Map</span> <span class="dt">String</span> <span class="dt">Integer</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>countParity <span class="ot">=</span> foldl' inc (L.fromList [(<span class="st">&quot;even&quot;</span>, <span class="dv">0</span>), (<span class="st">&quot;odd&quot;</span>, <span class="dv">0</span>)])</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">where</span> inc m n <span class="ot">=</span> <span class="kw">if</span> n <span class="ot">`mod`</span> <span class="dv">2</span> <span class="op">==</span> <span class="dv">0</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">then</span> L.adjust (<span class="op">+</span><span class="dv">1</span>) <span class="st">&quot;even&quot;</span> m</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">else</span> L.adjust (<span class="op">+</span><span class="dv">1</span>) <span class="st">&quot;odd&quot;</span> m</span></code></pre></div>
+<p>and this function doesn’t:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">countParityStrict ::</span> [<span class="dt">Integer</span>] <span class="ot">-&gt;</span> <span class="dt">S.Map</span> <span class="dt">String</span> <span class="dt">Integer</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>countParityStrict <span class="ot">=</span> foldl' inc (S.fromList [(<span class="st">&quot;even&quot;</span>, <span class="dv">0</span>), (<span class="st">&quot;odd&quot;</span>, <span class="dv">0</span>)])</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">where</span> inc m n <span class="ot">=</span> <span class="kw">if</span> n <span class="ot">`mod`</span> <span class="dv">2</span> <span class="op">==</span> <span class="dv">0</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">then</span> S.adjust (<span class="op">+</span><span class="dv">1</span>) <span class="st">&quot;even&quot;</span> m</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">else</span> S.adjust (<span class="op">+</span><span class="dv">1</span>) <span class="st">&quot;odd&quot;</span> m</span></code></pre></div>
+<p>If we want to make a larger data type that contains an associative map
+and that has many modifications performed to it over the lifetime of a
+program should we should use a strict map like this</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">MyData</span> <span class="ot">=</span> <span class="dt">MyData</span> {<span class="ot"> myBool ::</span> <span class="op">!</span><span class="dt">Bool</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>                     ,<span class="ot"> myMap  ::</span> <span class="op">!</span>(<span class="dt">S.Map</span> <span class="dt">String</span> <span class="dt">Integer</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>                     }</span></code></pre></div>
+<p>rather than a lazy map like this?</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">MyData</span> <span class="ot">=</span> <span class="dt">MyData</span> {<span class="ot"> myBool ::</span> <span class="op">!</span><span class="dt">Bool</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>                     ,<span class="ot"> myMap  ::</span> <span class="op">!</span>(<span class="dt">L.Map</span> <span class="dt">String</span> <span class="dt">Integer</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>                     }</span></code></pre></div>
+<p>It’s a trick question! Suppose I diligently chose the first option
+but my colleague who was using my data type comes to me and says “I
+have a space leak when using <code>MyData</code>”. How could that be?!</p>
+<p><code>Data.Map.Strict.Map</code> <em>is not a strict map</em>. It is the <em>same type</em> as
+<code>Data.Map.Lazy.Map</code>! We saw strict behaviour above because
+<code>Data.Map.Strict</code> is a <em>strict interface to a lazy map</em>. It does not
+itself provide a strict map. <a href="https://hackage.haskell.org/package/containers-0.6.5.1/docs/Data-Map-Strict.html">The
+documentation</a>
+is explicit about this</p>
+<blockquote>
+<p>Each function in this module is careful to force values before
+installing them in a Map. … If all values stored in all maps in
+the arguments are in WHNF, then all values stored in all maps in the
+results will be in WHNF once those maps are evaluated.</p>
+</blockquote>
+<p>Perhaps it could afford to be <em>more</em> explicit that the type
+<code>Data.Map.Strict.Map</code> is exactly the same as its lazy counterpart, but
+it’s not trying to hide anything. Nonetheless it was closer to a
+decade than a year into my Haskell journey that I learned this. It
+seems I’m <a href="https://www.reddit.com/r/haskell/comments/ns0af1/haskell_position_openings_at_boozt/h0l1a2n/">not the only
+one</a>
+who got the wrong impression.</p>
+<p>Consequently, even if you diligently attempt to avoid space leaks by
+defining strict data types then elsewhere in your program you or your
+colleague can innocently subvert your best intentions by using the
+lazy map interface rather than the strict one. Both interfaces work
+on the same map type so the type system does not help here. It
+compiled but it did not work!</p>
+<p>What are the consequences for attempts space leak free programming in
+Haskell? Unfortunately you cannot counteract space leaks in
+<code>Data.Map</code> <em>locally</em>, by ensuring that you use it in data types only
+as a strict field. Instead you must act <em>globally</em>, taking care to
+always use the strict interface rather than the lazy one. For space
+leak free programming maps containing unevaluated thunks are illegal
+states: we don’t want them to occur in our program. One of the
+paradigmatic goals of strongly typed functional programming is to
+<a href="https://fsharpforfunandprofit.com/posts/designing-with-types-making-illegal-states-unrepresentable/">make illegal states
+unrepresentable</a>.
+It is unfortunate that it is not possible to follow the paradigm for
+space leak free programming with <code>Data.Map</code>.</p>
+<p>How about creating a new data type that is genuinely distinct from
+<code>Data.Map.Lazy.Map</code>? A simple <code>newtype</code> would suffice, as long as we
+are careful not to expose the constructor and we only export functions
+that preserve the “legality” of the state: when the map is evaluated
+all the contents should be evaluated. That is possible but it has
+drawbacks. For example the type would technically no longer obey the
+functor law <code>fmap f . fmap g == fmap (f . g)</code>: for <code>f = const ()</code> and
+<code>g = const undefined</code> then <code>fmap f . fmap g</code> would be <code>undefined</code> on a
+strict map but <code>fmap (f . g)</code> wouldn’t be. (<code>Data.Map</code> has <a href="https://www.stackage.org/haddock/lts-13.21/containers-0.6.0.1/src/Data-Map-Strict-Internal.html#map">separate
+rewrite rules for strict and lazy
+<code>map</code></a>
+for this reason.) The “strict containers” functor law is <code>fmap f . fmap g == fmap (\x -&gt; f $! g x)</code>. Perhaps that’s not such a terrible loss.</p>
+<p>After the first version of this article was published, <a href="https://www.reddit.com/r/haskell/comments/q16haw/datamapstrictmap_is_not_a_strict_map/hfd2ww3/">/u/sjakobi on
+Reddit pointed
+out</a>
+that a package for strict <code>Data.Map</code> (and other <code>containers</code> types)
+already exists:
+<a href="https://hackage.haskell.org/package/strict-containers"><code>strict-containers</code></a>.
+There is a <a href="https://github.com/haskellari/strict/issues/22">discussion on GitHub
+issues</a> about how the
+package came to be. Relatedly, there is an open issue to provide a
+<a href="https://github.com/haskell/containers/issues/752"><code>Data.Sequence.Strict</code>
+API</a>.</p>
+<p>Does the strict <code>newtype</code> have other drawbacks? Is there an
+alternative way to achieve space leak free programming whilst
+<code>Data.Map.Strict</code> remains only an interface? Is there another
+solution? If you know then please <a href="http://web.jaguarpaw.co.uk/~tom/contact">tell
+me</a>.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

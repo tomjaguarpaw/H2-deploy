@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>alternatives-convert-products-to-sums</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>alternatives-convert-products-to-sums</h3>
+  <h1 id="alternatives-convert-products-to-sums"><code>Alternative</code>s convert products to sums</h1>
+<p>You may know that <code>Applicative</code>s are product-preserving functors.
+That is, we have functions</p>
+<pre><code>pure :: Applicative f =&gt; () -&gt; f ()
+uncurry (liftA2 (,)) :: Applicative f =&gt; (f a, f b) -&gt; f (a, b)</code></pre>
+<p>Next we will consider what sort of functors convert products to sums.
+We need a function which converts an empty product to an empty sum:</p>
+<pre><code>zero :: () -&gt; f Void</code></pre>
+<p>(where <code>Void</code> is uninhabited). We also need a function which converts a
+pair product into a pair sum:</p>
+<pre><code>pair :: (f a, f b) -&gt; f (Either a b)</code></pre>
+<p>Let’s simplify <code>zero</code> by removing the argument and <code>fmap</code>ping <code>absurd :: Void -&gt; a</code>:</p>
+<pre><code>empty = fmap absurd (zero ()) :: f a</code></pre>
+<p>It would also be nice to simplify our interface to <code>pair</code>. We can
+get a function of a somewhat nicer type</p>
+<pre><code>&lt;|&gt; = curry (fmap (either id id) . pair) :: f a -&gt; f a -&gt; f a</code></pre>
+<p>which can be proved equivalent to <code>pair</code> in the sense that</p>
+<pre><code>pair (a, b) = fmap Left a &lt;|&gt; fmap Right b</code></pre>
+<p>But these two functions</p>
+<pre><code>empty :: f a
+(&lt;|&gt;) :: f a -&gt; f a -&gt; f a</code></pre>
+<p>are exactly what is required for an <a href="http://hackage.haskell.org/package/base-4.7.0.2/docs/Control-Applicative.html#g:2"><code>Alternative</code>
+instance</a>,
+and so <code>Alternative</code>s are functors which convert products to sums.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

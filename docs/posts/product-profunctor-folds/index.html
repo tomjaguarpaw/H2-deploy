@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>product-profunctor-folds</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>product-profunctor-folds</h3>
+  <h1 id="productprofunctor-folds">ProductProfunctor folds</h1>
+<h2 id="introduction">Introduction</h2>
+<p>In an excellent piece of pedagogy, <a href="http://www.haskellforall.com/2013/08/composable-streaming-folds.html">Gabriel Gonzalez explains how to
+implement composable streaming (space leak free) folds in
+Haskell</a>.
+In this article I’ll explain how to make these composable folds even
+more composable!</p>
+<p>Gabriel’s key idea is captured in <a href="http://hackage.haskell.org/package/foldl">his foldl
+package</a>, where the notion
+of a left fold is abstracted into the <code>Fold</code> datatype.</p>
+<pre><code>data Fold a b = forall x . Fold (x -&gt; a -&gt; x) x (x -&gt; b)</code></pre>
+<p>A <code>Fold a b</code> represents a left fold on a list of <code>a</code>, updating a state
+of (existential) type <code>x</code>, and eventually returning a final value of type <code>b</code>.</p>
+<ul>
+<li>The first component (of type <code>x -&gt; a -&gt; x</code>) reads a value of type <code>a</code> from the
+list and updates the state <code>x</code>.</li>
+<li>The second component (of type <code>x</code>) is the start state.</li>
+<li>The third component (of type <code>x -&gt; b</code>) maps the final state of type
+<code>x</code> to a final state of type <code>b</code>.</li>
+</ul>
+<p>There is an <code>Applicative</code> instance for <code>Fold a</code> which combines two
+separate folds into a single fold that combines their state. In this
+way we can avoid space leaks when running two separate folds on the
+same list. For example</p>
+<pre><code>average = (/) &lt;$&gt; L.sum &lt;*&gt; L.genericLength
+L.fold average [1..10000000]</code></pre>
+<p>only walks the list once and does not leak space.</p>
+<h2 id="lists-of-pairs">Lists of pairs</h2>
+<p>Suppose I have a value of type <code>[(Bool, Double)]</code> and I want to run <code>and</code>
+on the first component (returns <code>True</code> if all elements are <code>True</code>,
+<code>False</code> otherwise), and <code>average</code> (as defined above) on the second
+component. The simple approach of projecting out each component and
+running the folds separately is flawed.</p>
+<pre><code>myList :: [(Bool, Double)]
+
+L.fold L.and (map fst myList)
+L.fold average (map snd myList)</code></pre>
+<p>This exhibits exactly the kind of space leaks we are trying to avoid.
+The spine of <code>myList</code> is fully forced and kept around between the two
+calls to <code>L.fold</code>. There is a solution, and that is to use a
+<code>Profunctor</code> instance.</p>
+<h2 id="profunctor">Profunctor</h2>
+<p>A <code>Profunctor</code> <code>p</code> is like a <code>Functor</code> with two arguments, but the
+first is <em>contravariant</em> meaning that it acts as a receiver of
+values. The class definition for <code>Profunctor</code> is</p>
+<pre><code>class Profunctor p where
+    lmap :: (a -&gt; a') -&gt; p a' b -&gt; p a  b
+    rmap :: (b -&gt; b') -&gt; p a  b -&gt; p a b'
+    -- rmap is just like fmap on the right-hand type variable</code></pre>
+<p>(For a more in-depth look at <code>Profunctor</code> see <a href="http://ocharles.org.uk/blog/guest-posts/2013-12-22-24-days-of-hackage-profunctors.html">my 24 Days of Hackage
+post on the
+subject</a>).</p>
+<p><code>Fold</code> is a <code>Profunctor</code>, because <code>Fold a b</code> <em>receives</em> values of type
+<code>a</code> and <em>emits</em> a value of type <code>b</code>. Using the <code>Profunctor</code> instance
+we can combine two <code>Fold</code>s of different argument types into one:</p>
+<pre><code>(***!) :: (Applicative (p (a, a')), Profunctor p) =&gt;
+            p a b -&gt; p a' b' -&gt; p (a, a') (b, b')
+p ***! p' = (,) &lt;$&gt; lmap fst p &lt;*&gt; lmap snd p'
+
+andWithAverage :: L.Fold (Bool, Double) (Bool, Double)
+andWithAverage = L.and ***! average</code></pre>
+<p>Now we can run <code>L.fold andWithAverage myList</code> <em>without</em> space leaks!</p>
+<h2 id="productprofunctor">ProductProfunctor</h2>
+<p>One could write a typeclass to capture the essence of what we have
+just implemented</p>
+<pre><code>class Profunctor p =&gt; ProductProfunctor p where
+  (***!) :: p a b -&gt; p a' b' -&gt; p (a, a') (b, b')
+  empty :: p () ()</code></pre>
+<p><code>(***!)</code> can be implemented exactly as given above, and <code>empty</code> is
+just <code>pure ()</code>. So what is the point of using a typeclass rather than
+simply using the <code>Applicative</code> and <code>Profunctor</code> instances? The class
+ensures that the <code>Applicative</code> instance for <code>p a</code> is <em>independent</em> of
+a. I’m not <em>certain</em> this is necessary, but it does seem to be a
+useful sanity check.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>The <code>Profunctor</code> instance for <code>Fold</code> increases the composability of
+Gabriel’s composable streaming folds. The <code>ProductProfunctor</code> is an
+interesting concept.</p>
+<p>The <code>foldl</code> library doesn’t actually supply a <code>Profunctor</code> instance,
+but <a href="http://hackage.haskell.org/package/folds">Edward Kmett’s similar <code>folds</code>
+library</a> does have
+<code>Profunctor</code> instances.</p>
+<hr />
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

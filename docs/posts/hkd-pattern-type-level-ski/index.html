@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>hkd-pattern-type-level-ski</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>hkd-pattern-type-level-ski</h3>
+  <h1 id="the-hkd-pattern-and-type-level-ski">The HKD pattern and type-level SKI</h1>
+<p>Let’s start with a nice warm bowl of language soup.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE DataKinds            #-}</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE GADTs                #-}</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE TypeFamilies         #-}</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE PolyKinds            #-}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE TypeOperators        #-}</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE TypeInType           #-}</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE UndecidableInstances #-}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Control.Monad.Trans.Writer</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Control.Monad.Trans.Reader</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.Functor.Identity</span></span></code></pre></div>
+<h2 id="the-world-before-hkd">The world before HKD</h2>
+<p>Suppose we want to parametrise a type on some type constructor. A
+prototypical exaple might be</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">Foo</span> f <span class="ot">=</span> <span class="dt">Foo</span> (<span class="dt">Maybe</span> (f <span class="dt">Int</span>))</span></code></pre></div>
+<p>We can be parametric and fill in <code>Foo</code> with all sorts of goodies. For
+example, we can use different sorts of monads,</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">e1 ::</span> <span class="dt">Foo</span> (<span class="dt">Writer</span> <span class="dt">String</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>e1 <span class="ot">=</span> <span class="dt">Foo</span> <span class="op">$</span> <span class="dt">Just</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  tell <span class="st">&quot;Hello &quot;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  tell <span class="st">&quot;World!&quot;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span> <span class="dv">2</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="ot">e2 ::</span> <span class="dt">Foo</span> <span class="dt">IO</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>e2 <span class="ot">=</span> <span class="dt">Foo</span> <span class="op">$</span> <span class="dt">Just</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">putStrLn</span> <span class="st">&quot;Type an Int&quot;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">readLn</span></span></code></pre></div>
+<p>We can do pairs (albeit through a newtype),</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Pair</span> a <span class="ot">=</span> <span class="dt">Pair</span> a a</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="ot">e3 ::</span> <span class="dt">Foo</span> <span class="dt">Pair</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>e3 <span class="ot">=</span> <span class="dt">Foo</span> (<span class="dt">Just</span> (<span class="dt">Pair</span> <span class="dv">1</span> <span class="dv">2</span>))</span></code></pre></div>
+<p>If we want to make make a <code>Reader Int String</code> using <code>Foo</code>’s <code>Int</code> as
+the first parameter we have to do more newtype wrapping,</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">ReversedReader</span> a r <span class="ot">=</span> <span class="dt">ReversedReader</span> (<span class="dt">Reader</span> r a)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="ot">e4 ::</span> <span class="dt">Foo</span> (<span class="dt">ReversedReader</span> <span class="dt">String</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>e4 <span class="ot">=</span> <span class="dt">Foo</span> <span class="op">$</span> <span class="dt">Just</span> <span class="op">$</span> <span class="dt">ReversedReader</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  i <span class="ot">&lt;-</span> ask</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span> (<span class="fu">show</span> i)</span></code></pre></div>
+<p>And if we want to store functions like <code>a -&gt; f Int</code> we have to come up
+with yet another wrapper,</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">ApplicativeAction</span> a f b <span class="ot">=</span> <span class="dt">ApplicativeAction</span> (a <span class="ot">-&gt;</span> f b)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="ot">e5 ::</span> <span class="dt">Applicative</span> f <span class="ot">=&gt;</span> <span class="dt">Foo</span> (<span class="dt">ApplicativeAction</span> a f)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>   <span class="ot">-&gt;</span> a</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>   <span class="ot">-&gt;</span> f (<span class="dt">Foo</span> <span class="dt">Identity</span>)</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>e5 (<span class="dt">Foo</span> <span class="dt">Nothing</span>) _ <span class="ot">=</span> <span class="fu">pure</span> (<span class="dt">Foo</span> <span class="dt">Nothing</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>e5 (<span class="dt">Foo</span> (<span class="dt">Just</span> (<span class="dt">ApplicativeAction</span> f))) a <span class="ot">=</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmap</span> (<span class="dt">Foo</span> <span class="op">.</span> <span class="dt">Just</span> <span class="op">.</span> <span class="dt">Identity</span>) (f a)</span></code></pre></div>
+<h2 id="hkd-to-the-rescue">HKD to the rescue</h2>
+<p>This as all getting tedious so HKD comes to the rescue. Instead of
+parametrising on a type constructor we parametrise on some opaque
+symbol (a defunctionalised version of the type constructor, if you
+will). Sandy Maguire described how this works in his article <a href="http://reasonablypolymorphic.com/blog/hkd-not-terrible/">HKD:
+Less Terrible than You Might
+Expect</a>.
+<code>Foo</code> becomes</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="kw">family</span> <span class="dt">F</span> f b</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Foo'</span> f <span class="ot">=</span> <span class="dt">Foo'</span> (<span class="dt">Maybe</span> (<span class="dt">F</span> f <span class="dt">Int</span>))</span></code></pre></div>
+<p>Then we no longer need a newtype for pairs,</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">P</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="kw">instance</span> <span class="dt">F</span> <span class="dt">P</span> a <span class="ot">=</span> (a, a)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="ot">e3' ::</span> <span class="dt">Foo'</span> <span class="dt">P</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>e3' <span class="ot">=</span> <span class="dt">Foo'</span> (<span class="dt">Just</span> (<span class="dv">1</span>, <span class="dv">2</span>))</span></code></pre></div>
+<p>Or for reversed <code>Reader</code>s,</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">RR</span> a</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="kw">instance</span> <span class="dt">F</span> (<span class="dt">RR</span> a) r <span class="ot">=</span> <span class="dt">Reader</span> r a</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="ot">e4' ::</span> <span class="dt">Foo'</span> (<span class="dt">RR</span> <span class="dt">String</span>)</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>e4' <span class="ot">=</span> <span class="dt">Foo'</span> <span class="op">$</span> <span class="dt">Just</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  i <span class="ot">&lt;-</span> ask</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span> (<span class="fu">show</span> i)</span></code></pre></div>
+<p>Or for <code>Applicative</code> actions,</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">AA</span> a f</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Iden</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="kw">instance</span> <span class="dt">F</span> (<span class="dt">AA</span> a f) b <span class="ot">=</span> a <span class="ot">-&gt;</span> f b</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="kw">instance</span> <span class="dt">F</span> <span class="dt">Iden</span> b <span class="ot">=</span> b</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="ot">e5' ::</span> <span class="dt">Applicative</span> f <span class="ot">=&gt;</span> <span class="dt">Foo'</span> (<span class="dt">AA</span> a f) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> f (<span class="dt">Foo'</span> <span class="dt">Iden</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>e5' (<span class="dt">Foo'</span> <span class="dt">Nothing</span>) _ <span class="ot">=</span> <span class="fu">pure</span> (<span class="dt">Foo'</span> <span class="dt">Nothing</span>)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>e5' (<span class="dt">Foo'</span> (<span class="dt">Just</span> f)) a <span class="ot">=</span> <span class="fu">fmap</span> (<span class="dt">Foo'</span> <span class="op">.</span> <span class="dt">Just</span>) (f a)</span></code></pre></div>
+<h1 id="twiddling-our-thumbs">Twiddling our thumbs</h1>
+<p>That’s all well and good but it’s still frustrating to have to define
+a new symbol and instance each time we want <code>Foo</code> to hold a different
+type. What we want to do is to capture the parameter to <code>f</code> (in
+<code>Foo</code>’s case, <code>Int</code>) and construct some expression with it. Type
+families and the defunctionalised symbols provide that facility but in
+a clumsy and non-compositional way. We want a uniform and
+compositional way of writing type-level functions, a sort of
+type-level lambda calculus, if you will.</p>
+<p>Muse on that for a few moments while I fiddle around with a typed
+version of the SKI combinators.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Arr</span> a b <span class="kw">where</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">S</span><span class="ot">     ::</span> <span class="dt">Arr</span> a (b <span class="ot">-&gt;</span> r)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>        <span class="ot">-&gt;</span> <span class="dt">Arr</span> a b</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        <span class="ot">-&gt;</span> <span class="dt">Arr</span> a r</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">K</span><span class="ot">     ::</span> a <span class="ot">-&gt;</span> <span class="dt">Arr</span> b a</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">I</span><span class="ot">     ::</span> <span class="dt">Arr</span> a a</span></code></pre></div>
+<p><code>Arr a (b -&gt; r) -&gt; Arr a b -&gt; Arr a r</code> has the pattern <code>... (b -&gt; r) -&gt; ... b -&gt; ... r</code> and so it looks a bit like an <code>Applicative</code>. Let
+me implement that.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Applicative</span> (<span class="dt">Arr</span> k1) <span class="kw">where</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pure</span>  <span class="ot">=</span> <span class="dt">K</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  (<span class="op">&lt;*&gt;</span>) <span class="ot">=</span> <span class="dt">S</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Functor</span> (<span class="dt">Arr</span> k1) <span class="kw">where</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmap</span> f <span class="ot">=</span> (<span class="op">&lt;*&gt;</span>) (<span class="fu">pure</span> f)</span></code></pre></div>
+<p>I’m going to implement the SKI calculus rules in function called <code>A</code>.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="dt">A</span><span class="ot"> ::</span> <span class="dt">Arr</span> a b <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="dt">A</span> <span class="dt">I</span> a <span class="ot">=</span> a</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="dt">A</span> (<span class="dt">K</span> k) _ <span class="ot">=</span> k</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="dt">A</span> (<span class="dt">S</span> f x) a <span class="ot">=</span> (<span class="dt">A</span> f a) (<span class="dt">A</span> x a)</span></code></pre></div>
+<p>Hmm, that doesn’t compile because <code>A</code> is uppercase. I guess I <em>could</em>
+make it lowercase but the uppercase version is all cool and pointy.
+Maybe I’ll make it a type function instead. Haskell’s hot dependent
+type technology can lift <code>A</code> to the type level almost automatically.
+Luckily I included <code>TypeInType</code> in the language soup we had for
+starters.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="kw">family</span> <span class="dt">A</span> (<span class="ot">a ::</span> <span class="dt">Arr</span> k1 k2) (<span class="ot">b ::</span> k1)<span class="ot"> ::</span> k2</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="kw">instance</span> <span class="dt">A</span> <span class="dt">I</span> a <span class="ot">=</span> a</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="kw">instance</span> <span class="dt">A</span> (<span class="dt">K</span> k) _ <span class="ot">=</span> k</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="kw">instance</span> <span class="dt">A</span> (<span class="dt">S</span> f x) a <span class="ot">=</span> (<span class="dt">A</span> f a) (<span class="dt">A</span> x a)</span></code></pre></div>
+<p>Neat. But I’ve lost my cool <code>Applicative</code> instance because it doesn’t
+exist at the type level. Never mind, let’s bring it back and add a
+type-level <code>id</code> and <code>&lt;|</code> for luck.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> (<span class="op">&lt;*&gt;</span>) <span class="ot">=</span> <span class="dt">S</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">Pure</span> <span class="ot">=</span> <span class="dt">K</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> (<span class="op">&lt;$&gt;</span>) f <span class="ot">=</span> (<span class="op">&lt;*&gt;</span>) (<span class="dt">Pure</span> f)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">Id</span> <span class="ot">=</span> <span class="dt">I</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> (<span class="op">&lt;|</span>) f x <span class="ot">=</span> <span class="dt">A</span> f x</span></code></pre></div>
+<h2 id="abstraction-at-the-type-level">Abstraction at the type level</h2>
+<p>Anyway, where was I? Back to the problem at hand. How can we get a
+uniform and compositional way of writing type-level functions, like a
+type-level lambda calculus? Oh, hang on a minute! SKI calculus is
+equivalent to lambda calculus, and I just implemented it at the type
+level by accident.</p>
+<p>Right, let’s make type constructor <code>Foo</code> again, this time parametrised
+on something of kind <code>Arr * *</code>.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Foo''</span> f <span class="ot">=</span> <span class="dt">Foo''</span> (<span class="dt">Maybe</span> (f <span class="op">&lt;|</span> <span class="dt">Int</span>))</span></code></pre></div>
+<p>How do we rewrite our types using type-level SKI? The transformation
+of lambda terms into SKI terms can be somewhat messy. The examples
+we’ll consider here will be just within the realm of the readable, but
+I wouldn’t want to inflict upon you terms any more complicated than
+these. Basically, we’ve got an applicative interface. To introduce
+something that doesn’t depend on your type parameter use <code>Pure</code> –
+i.e. <code>K</code> – to introduce your parameter itself use <code>Id</code> – i.e. <code>I</code> –
+and to apply one term to another use <code>&lt;*&gt;</code> – i.e. <code>S</code>.</p>
+<p>For example, <code>\a -&gt; (a, a)</code> at the value level is <code>(,) &lt;$&gt; id &lt;*&gt; id</code>,
+and at the type level it’s <code>(,) &lt;$&gt; Id &lt;*&gt; Id</code>.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="ot">e3'' ::</span> <span class="dt">Foo''</span> ((,) <span class="op">&lt;$&gt;</span> <span class="dt">Id</span> <span class="op">&lt;*&gt;</span> <span class="dt">Id</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>e3'' <span class="ot">=</span> <span class="dt">Foo''</span> (<span class="dt">Just</span> (<span class="dv">1</span>, <span class="dv">2</span>))</span></code></pre></div>
+<p>Let’s try another example. <code>\r -&gt; Reader r String</code> is <code>Reader &lt;$&gt; Id &lt;*&gt; Pure String</code>. Oops! <code>Reader</code> is defined as</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">Reader</span> r <span class="ot">=</span> <span class="dt">ReaderT</span> r <span class="dt">Identity</span></span></code></pre></div>
+<p>so we can’t use it without at least one argument. Never fear,
+type-level SKI is here! We can just use <code>\r -&gt; ReaderT r Identity String</code> which becomes <code>ReaderT &lt;$&gt; Id &lt;*&gt; Pure Identity &lt;*&gt; Pure String</code>.</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="ot">e4'' ::</span> <span class="dt">Foo''</span> (<span class="dt">ReaderT</span> <span class="op">&lt;$&gt;</span> <span class="dt">Id</span> <span class="op">&lt;*&gt;</span> <span class="dt">Pure</span> <span class="dt">Identity</span> <span class="op">&lt;*&gt;</span> <span class="dt">Pure</span> <span class="dt">String</span>)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>e4'' <span class="ot">=</span> <span class="dt">Foo''</span> <span class="op">$</span> <span class="dt">Just</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  i <span class="ot">&lt;-</span> ask</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span> (<span class="fu">show</span> i)</span></code></pre></div>
+<p>If we want to do <code>\b -&gt; a -&gt; f b</code> then we need <code>(-&gt;) a &lt;$&gt; (f &lt;$&gt; Id)</code>.</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="ot">e5'' ::</span> <span class="dt">Applicative</span> f <span class="ot">=&gt;</span> <span class="dt">Foo''</span> ((<span class="ot">-&gt;</span>) a <span class="op">&lt;$&gt;</span> (f <span class="op">&lt;$&gt;</span> <span class="dt">Id</span>))</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    <span class="ot">-&gt;</span> a</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    <span class="ot">-&gt;</span> f (<span class="dt">Foo''</span> <span class="dt">Id</span>)</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>e5'' (<span class="dt">Foo''</span> <span class="dt">Nothing</span>) _ <span class="ot">=</span> <span class="fu">pure</span> (<span class="dt">Foo''</span> <span class="dt">Nothing</span>)</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>e5'' (<span class="dt">Foo''</span> (<span class="dt">Just</span> f)) a <span class="ot">=</span> <span class="fu">fmap</span> (<span class="dt">Foo''</span> <span class="op">.</span> <span class="dt">Just</span>) (f a)</span></code></pre></div>
+<h2 id="conclusion-and-discussion">Conclusion and discussion</h2>
+<p>We can define a single type family whose index is some combination of
+a collection of compositional symbols called the SKI combinators.
+Using those we can build up a type-level expression equivalent to any
+lambda term. We can even use an applicative interface to do this!</p>
+<p>What’s the downside? Well, you saw those terms, right? They’re
+verging on unreadable. Also, inferrence is terrible (but no worse
+than with defunctionalised symbols). Some languages (for example
+Scala, I believe) have native type-level lambda abstractions. We
+don’t have them in Haskell. Given the result of this investigation I
+assume that’s purely because the inference is bad (see also <a href="https://softwareengineering.stackexchange.com/a/185439/115952">Lennart’s
+speculation on the
+matter</a>).</p>
+<p>We could have defined SKI at the type level directly. This would give
+us composable data types as well as new type-level symbols to map on.
+I’m not sure that there would be a lot of point though. It might be
+worth exploring further.</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">S</span> f g x <span class="ot">=</span> <span class="dt">S</span> ((f x) (g x))</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">K</span> x y   <span class="ot">=</span> <span class="dt">K</span> x</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">I</span> x     <span class="ot">=</span> <span class="dt">I</span> x</span></code></pre></div>
+<p>Richard Eisenberg seems to have been touching on the same sort of thing in
+his post <a href="https://typesandkinds.wordpress.com/2013/04/01/defunctionalization-for-the-win/">Defunctionalization for the
+win</a>.
+There is distinction between the work presented here and his and I haven’t
+yet been able to understand whether they are the same in spirit.</p>
+<p>Have you seen type-level SKI or type-level applicatives used like this
+before? <a href="http://web.jaguarpaw.co.uk/~tom/contact/">Contact me</a>.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

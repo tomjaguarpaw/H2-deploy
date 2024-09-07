@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-use-macos</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-use-macos</h3>
+  <h1 id="how-i-use-macos">How I use MacOS</h1>
+<ul>
+<li><p>By default Ctrl-Space switches keyboard layout. I disable it: <a href="https://apple.stackexchange.com/questions/423971/disable-controlspace-keyboard-shortcut/423974#423974" class="uri">https://apple.stackexchange.com/questions/423971/disable-controlspace-keyboard-shortcut/423974#423974</a></p></li>
+<li><p>If your tilde (~) key has become switched for plus-minus (±) then in
+the keyboard settings, choose “change keyboard type” and choose ANSI
+keyboard (not ISO).</p></li>
+<li><p>iTerm2 to send Alt properly: Preferences -&gt; Profiles -&gt; Default -&gt;
+Keys -&gt; Left Option Key -&gt; Esc+</p></li>
+<li><p>Fix the iTerm2 flashing white line bug:
+<a href="https://blog.sangdang.fi/fix-the-white-line-flashing-on-top-of-iterm2-in-fullscreen" class="uri">https://blog.sangdang.fi/fix-the-white-line-flashing-on-top-of-iterm2-in-fullscreen</a></p></li>
+<li><p>Rebind Caps Lock to Enter:</p>
+<pre><code>hidutil property --set '{&quot;UserKeyMapping&quot;: [{&quot;HIDKeyboardModifierMappingSrc&quot;: 0x700000039,&quot;HIDKeyboardModifierMappingDst&quot;: 0x700000058}]}'</code></pre>
+<p>(see
+<a href="https://developer.apple.com/library/archive/technotes/tn2450/_index.html" class="uri">https://developer.apple.com/library/archive/technotes/tn2450/_index.html</a>)</p></li>
+<li><p>Show dock instantly</p>
+<pre><code>defaults write com.apple.dock autohide-time-modifier -int 0 &amp;&amp; killall Dock</code></pre></li>
+<li><p>Disable drag lock: Accessibility -&gt; Pointer Control -&gt; Trackpad
+Options -&gt; Enable Dragging -&gt; Without Drag Lock</p>
+<p>But how to release drag instantly? No one knows.</p>
+<ul>
+<li><p><a href="https://itectec.com/askdifferent/macos-tap-and-drag-delay/" class="uri">https://itectec.com/askdifferent/macos-tap-and-drag-delay/</a></p></li>
+<li><p><a href="https://www.reddit.com/r/MacOS/comments/mke6p2/trackpad_drag_lock_too_long_reduce_lock/" class="uri">https://www.reddit.com/r/MacOS/comments/mke6p2/trackpad_drag_lock_too_long_reduce_lock/</a></p></li>
+</ul></li>
+<li><p>Weird mouse wheel scroll acceleration. This doesn’t seem to work:</p>
+<pre><code>defaults write .GlobalPreferences com.apple.scrollwheel.scaling -1</code></pre>
+<p><a href="https://apple.stackexchange.com/a/256512/270818" class="uri">https://apple.stackexchange.com/a/256512/270818</a></p>
+<p>Haven’t tried this: <a href="https://github.com/davekeck/DisableExtremeScrollAcceleration" class="uri">https://github.com/davekeck/DisableExtremeScrollAcceleration</a></p></li>
+<li><p>Chrome undo close tab: Command-Shift-T or File -&gt; Undo Close Tab</p></li>
+<li><p>iTerm2 dim inactive background windows: iTerm2 -&gt; Preferences -&gt;
+Appearances -&gt; Dimming -&gt; Dim Inactive Background Windows</p></li>
+<li><p><a href="https://news.ycombinator.com/item?id=29742551">macOS Setup after 15 Years of
+Linux</a></p></li>
+<li><p>Possibly how to make it sleep better:</p>
+<p><a href="https://news.ycombinator.com/item?id=29743452" class="uri">https://news.ycombinator.com/item?id=29743452</a></p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

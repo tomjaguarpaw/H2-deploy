@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>good-design-and-type-safety-in-yahtzee</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>good-design-and-type-safety-in-yahtzee</h3>
+  <h1 id="good-design-and-type-safety-in-yahtzee">Good design and type safety in Yahtzee</h1>
+<p>Mark Dominus wrote <a href="https://blog.plover.com/prog/haskell/type-markers.html">an article asking how to take advantage of
+Haskell’s type safety in a simple dice-rolling simulation
+function</a> for
+the game Yahtzee. He added wrapper types so that one cannot
+mistakenly apply the function to values that merely have the correct
+type “by accident”. He says the result is “unreadable” and
+“unmaintainable”. It certainly doesn’t look nice! I’d claim it’s not
+even of much practical safety benefit (although I suppose that depends
+on what the rest of the program looks like).</p>
+<p>Mark says</p>
+<blockquote>
+<p>I don’t claim this code is any good; I was just hacking around
+exploring the problem space. But it does do what I wanted.</p>
+</blockquote>
+<p>But we can’t just expect to sprinkle type safety on a bad design and
+get something good. Type safety and good design are qualities that
+evolve symbiotically. By using type safety merely to make things
+safer for our callers we miss out on a host of benefits. Type safety
+should be used to guide us in the design of our <em>implementations</em>,
+which our callers never see. In fact I would argue that Mark is
+trying to add type safety in exactly the wrong way.</p>
+<p>If there is an interface whose implementation we don’t control then
+all we can do is to slap a type safe wrapper on it and be done with
+it. That is of some benefit. On the other hand, if we <em>do</em> control
+the implementation then the type safe wrapper specifies invariants
+that we can take advantage of inside the implementation. They can
+help us <em>write</em> the implementation.</p>
+<p>We should build type safe structures and combinators relevant to our
+domain and implement our solution in terms of those. Likewise we
+should look at our solution and factor out repeated patterns into type
+safe structures and combinators relevant to our domain. This is
+symbiotic evolution!</p>
+<p>Type safety and good design proceed hand-in-hand along the road of
+implementation evolution. Type safety nudges us in the direction of
+good design and good design nudges us in the direction of type safety.
+One of the reasons I prefer Haskell to other languages is that the
+compiler can enforce the type safety end of this bargain. On the
+other hand, there’s no reason a design in Python, say, can’t be guided
+by “type safety” in the same sense as a design in Haskell. It’s just
+that the “type safety” won’t be checked by any tooling and so there’s
+no evolutionary pressure in that direction (Python’s recent type
+annotations notwithstanding).</p>
+<p>Let’s evolve Mark’s program in the direction of good design and see
+what arises. In this case, as we’ll see, I’m not sure there’s much to
+be gained by trying to “add type safety”. On the other hand, that
+there <em>is</em> much to be gained by improving the design <em>guided by</em>
+considerations of type safety. The design improvements would apply
+equally well to an implementation in Python.</p>
+<p>I’ve shown the stages of program evolution as diffs. Sometimes
+they’re easy to read and sometimes they’re difficult. If anyone knows
+how to get diffs to render nicely in Pandoc (perhaps like GitHub
+renders them) then please <a href="http://web.jaguarpaw.co.uk/~tom/contact/">contact
+me</a>.</p>
+<h3 id="original-implementation">Original implementation</h3>
+<p>This is the original implementation, before Mark added wrapper types.
+Most of the refactorings that I will perform are independent of what
+the implementation actually does; they are simply small changes that
+are obviously correct. Some are not obviously correct unless you know
+what the program does, so let’s explain that <code>allRolls</code> does the
+following</p>
+<ul>
+<li>takes <code>DiceState</code> (a list of dice values and an <code>Integer</code> <code>n</code> of
+rolls left to perform), and also</li>
+<li>takes <code>DiceChoice</code> (a choice of which dice to reroll), and</li>
+<li>returns a list of all the possible rerolls along with an <code>Integer</code>
+of rolls left to perform.</li>
+</ul>
+<p>Instead of adding wrapper types let’s just try to improve the design
+and see what happens.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">DiceChoice</span> <span class="ot">=</span> [ <span class="dt">Bool</span> ]</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">DiceVals</span>   <span class="ot">=</span> [ <span class="dt">Integer</span> ]</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">DiceState</span> <span class="ot">=</span> (<span class="dt">DiceVals</span>, <span class="dt">Integer</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ot">allRolls ::</span> <span class="dt">DiceChoice</span> <span class="ot">-&gt;</span> <span class="dt">DiceState</span> <span class="ot">-&gt;</span> [ <span class="dt">DiceState</span> ]</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>allRolls [] ([], n) <span class="ot">=</span> [ ([], n<span class="op">-</span><span class="dv">1</span>) ]</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>allRolls [] _ <span class="ot">=</span> <span class="fu">undefined</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>allRolls (chosen<span class="op">:</span>choices) (v<span class="op">:</span>vs, n) <span class="ot">=</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    allRolls choices (vs, n<span class="op">-</span><span class="dv">1</span>) <span class="op">&gt;&gt;=</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        \(roll,_) <span class="ot">-&gt;</span> [ (d<span class="op">:</span>roll,  n<span class="op">-</span><span class="dv">1</span>) <span class="op">|</span> d <span class="ot">&lt;-</span> rollList ]</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>          <span class="kw">where</span> rollList <span class="ot">=</span> <span class="kw">if</span> chosen <span class="kw">then</span> [v] <span class="kw">else</span> [ <span class="dv">1</span><span class="op">..</span><span class="dv">6</span> ]</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>example <span class="ot">=</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> diceChoices <span class="ot">=</span> [ <span class="dt">False</span>, <span class="dt">True</span>, <span class="dt">True</span>, <span class="dt">False</span>, <span class="dt">False</span> ]</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      diceVals <span class="ot">=</span> [ <span class="dv">6</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">3</span>, <span class="dv">1</span> ]</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">in</span> <span class="fu">mapM_</span> <span class="fu">print</span> <span class="op">$</span> allRolls diceChoices (diceVals, <span class="dv">2</span>)</span></code></pre></div>
+<h3 id="explain-the-invariant">Explain the invariant</h3>
+<p>There’s a <code>undefined</code> in there. That is always a red flag. In this
+case <code>undefined</code> occurs when there are dice we could reroll but we
+haven’t specifed whether or not to reroll them: the choice list is too
+short. Let’s explain that in an error message. It communicates
+better to both the end user of the program and the developer.</p>
+<p>We don’t need to know what the program does to apply this refactoring
+but knowing it does give us more confidence that we are doing the
+right thing.</p>
+<pre><code> allRolls :: DiceChoice -&gt; DiceState -&gt; [ DiceState ]
+ allRolls [] ([], n) = [ ([], n-1) ]
+-allRolls [] _ = undefined
++allRolls [] _ =
++  error &quot;Invariant violated: choices must be same length as vals&quot;
+ allRolls (chosen:choices) (v:vs, n) =
+     allRolls choices (vs, n-1) &gt;&gt;=
+         \(roll,_) -&gt; [ (d:roll,  n-1) | d &lt;- rollList ]</code></pre>
+<h3 id="avoid-catch-all-pattern">Avoid catch-all pattern</h3>
+<p>I prefer to have as few overlapping patterns as possible, even
+“catch-all” (<code>_</code>) patterns. This is a fairly minor change, but let’s
+do it anyway. I think it modestly improves the design.</p>
+<p>We don’t need to know what the program does to apply this refactoring.</p>
+<pre><code> allRolls :: DiceChoice -&gt; DiceState -&gt; [ DiceState ]
+ allRolls [] ([], n) = [ ([], n-1) ]
+-allRolls [] _ =
++allRolls [] (_:_, _) =
+   error &quot;Invariant violated: choices must be same length as vals&quot;</code></pre>
+<h3 id="add-another-invariant-check">Add another invariant check</h3>
+<p>There’s actually a missing pattern (which <code>-Wall</code> will pick up).
+Let’s add it. Another modest improvement.</p>
+<p>Like with the first invariant check, we don’t need to know what the
+program does to apply this refactoring but knowing it does give us
+more confidence that we are doing the right thing.</p>
+<pre><code> allRolls :: DiceChoice -&gt; DiceState -&gt; [ DiceState ]
+ allRolls [] ([], n) = [ ([], n-1) ]
+ allRolls [] (_:_, _) =
+   error &quot;Invariant violated: choices must be same length as vals&quot;
++allRolls (_:_) ([], _) =
++  error &quot;Invariant violated: choices must be same length as vals&quot;</code></pre>
+<h3 id="add-pop-function">Add <code>pop</code> function</h3>
+<p>There are two distinct things that <code>allRolls</code> does.</p>
+<ol type="1">
+<li>It checks the invariant and if the invariant holds extracts
+relevant inputs.</li>
+<li>It runs the algorithm on the relevant inputs.</li>
+</ol>
+<p>Let’s separate the concerns by adding a <code>pop</code> function that does 1.
+Note that the interface between <code>pop</code> and <code>allRolls</code> has type safety!
+Once <code>pop</code> returns, an invalid state is not possible. <code>allRolls</code> does
+not change, except to pass its argument through <code>pop</code>.</p>
+<p>We don’t need to know what the program does to apply this refactoring.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ot">pop ::</span> <span class="dt">DiceChoice</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="ot">-&gt;</span> <span class="dt">DiceVals</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="ot">-&gt;</span> <span class="dt">Maybe</span> ((<span class="dt">Bool</span>, <span class="dt">Integer</span>), (<span class="dt">DiceChoice</span>, <span class="dt">DiceVals</span>))</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>pop [] [] <span class="ot">=</span> <span class="dt">Nothing</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>pop (chosen<span class="op">:</span>choices) (v<span class="op">:</span>vs) <span class="ot">=</span> <span class="dt">Just</span> ((chosen, v), (choices, vs))</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>pop (_<span class="op">:</span>_) [] <span class="ot">=</span> <span class="fu">error</span> <span class="st">&quot;Invariant violated: missing val&quot;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>pop [] (_<span class="op">:</span>_) <span class="ot">=</span> <span class="fu">error</span> <span class="st">&quot;Invariant violated: missing choice&quot;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="ot">allRolls ::</span> <span class="dt">DiceChoice</span> <span class="ot">-&gt;</span> <span class="dt">DiceState</span> <span class="ot">-&gt;</span> [ <span class="dt">DiceState</span> ]</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>allRolls choices (vs, n) <span class="ot">=</span> <span class="kw">case</span> pop choices vs <span class="kw">of</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Nothing</span> <span class="ot">-&gt;</span> [ ([], n<span class="op">-</span><span class="dv">1</span>) ]</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Just</span> ((chosen, v), (choices, vs)) <span class="ot">-&gt;</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    allRolls choices (vs, n<span class="op">-</span><span class="dv">1</span>) <span class="op">&gt;&gt;=</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        \(roll,_) <span class="ot">-&gt;</span> [ (d<span class="op">:</span>roll,  n<span class="op">-</span><span class="dv">1</span>) <span class="op">|</span> d <span class="ot">&lt;-</span> rollList ]</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>          <span class="kw">where</span> rollList <span class="ot">=</span> <span class="kw">if</span> chosen <span class="kw">then</span> [v] <span class="kw">else</span> [ <span class="dv">1</span><span class="op">..</span><span class="dv">6</span> ]</span></code></pre></div>
+<h3 id="indicate-that-a-value-is-unused">Indicate that a value is unused</h3>
+<p>This is the first time we have to apply real thinking to the design
+process. Weirdly, the <code>n-1</code> argument to the recursive call to
+<code>allRolls</code> is not used in the final result. The only way I can
+suggest that one discovers this is to think through how the the code
+actually works. Unlike the above changes, this is not just a simple
+refactoring.</p>
+<p>Let’s indicate that the argument is unused by applying an <code>error</code>
+instead. In a language without lazy evaluation you might like to
+apply some nonsense value like <code>-999999999</code> instead, and check that
+the results of the function call are not nonsense!</p>
+<p>When we run this we don’t get a crash, which implies that that
+argument was indeed not used.</p>
+<pre><code> allRolls choices (vs, n) = case pop choices vs of
+   Nothing -&gt; [ ([], n-1) ]
+   Just ((chosen, v), (choices, vs)) -&gt;
+-    allRolls choices (vs, n-1) &gt;&gt;=
++    allRolls choices (vs, error &quot;Didn't expect to use&quot;) &gt;&gt;=
+         \(roll,_) -&gt; [ (d:roll,  n-1) | d &lt;- rollList ]
+           where rollList = if chosen then [v] else [ 1..6 ]</code></pre>
+<h3 id="prepare-to-rearrange-arguments">Prepare to rearrange arguments</h3>
+<p>Given the observation above I see no reason to package the <code>DiceVals</code>
+and the <code>Integer</code> together. Let’s prepare to separate them.</p>
+<p>We don’t need to know what the program does to apply this refactoring.
+We just have to observe that the <code>DiceVals</code> and the <code>Integer</code> are not
+really used together.</p>
+<pre><code> type DiceChoice = [ Bool ]
+ type DiceVals   = [ Integer ]
+-type DiceState = (DiceVals, Integer)
+
+...
+
+-allRolls :: DiceChoice -&gt; DiceState -&gt; [ DiceState ]
++allRolls :: DiceChoice
++         -&gt; (DiceVals, Integer)
++         -&gt; [ (DiceVals, Integer) ]</code></pre>
+<h3 id="rearrange-arguments">Rearrange arguments</h3>
+<p>Now let’s do the separation of the arguments. The size of the diff
+makes the change seem bigger than it is. It is merely passing two
+arguments instead of a tuple!</p>
+<p>We don’t need to know what the program does to apply this refactoring.</p>
+<pre><code> allRolls :: DiceChoice
+-         -&gt; (DiceVals, Integer)
++         -&gt; DiceVals
++         -&gt; Integer
+          -&gt; [ (DiceVals, Integer) ]
+-allRolls choices (vs, n) = case pop choices vs of
++allRolls choices vs n = case pop choices vs of
+   Nothing -&gt; [ ([], n-1) ]
+   Just ((chosen, v), (choices, vs)) -&gt;
+-    allRolls choices (vs, error &quot;Didn't expect to use&quot;) &gt;&gt;=
++    allRolls choices vs (error &quot;Didn't expect to use&quot;) &gt;&gt;=
+         \(roll,_) -&gt; [ (d:roll,  n-1) | d &lt;- rollList ]
+           where rollList = if chosen then [v] else [ 1..6 ]
+
+ example =
+   let diceChoices = [ False, True, True, False, False ]
+       diceVals = [ 6, 4, 4, 3, 1 ]
+-  in mapM_ print $ allRolls diceChoices (diceVals, 2)
++  in mapM_ print $ allRolls diceChoices diceVals 2</code></pre>
+<h3 id="rearrange-arguments-further">Rearrange arguments further</h3>
+<p>Once we have separated <code>DiceVals</code> from the <code>Integer</code> we notice that
+<code>DiceChoice</code> and <code>DiceVals</code> seem to naturally belong together. Again
+the diff makes the change look bigger than it is. We’re just passing
+<code>DiceChoice</code> and <code>DiceVals</code> as a tuple rather than two arguments.</p>
+<p>We don’t need to know what the program does to apply this refactoring.</p>
+<pre><code>-pop :: DiceChoice
+-    -&gt; DiceVals
++pop :: (DiceChoice, DiceVals)
+     -&gt; Maybe ((Bool, Integer), (DiceChoice, DiceVals))
+-pop [] [] = Nothing
+-pop (chosen:choices) (v:vs) = Just ((chosen, v), (choices, vs))
+-pop (_:_) [] = error &quot;Invariant violated: missing val&quot;
+-pop [] (_:_) = error &quot;Invariant violated: missing choice&quot;
++pop ([], []) = Nothing
++pop (chosen:choices, v:vs) = Just ((chosen, v), (choices, vs))
++pop (_:_, []) = error &quot;Invariant violated: missing val&quot;
++pop ([], _:_) = error &quot;Invariant violated: missing choice&quot;
+
+-allRolls :: DiceChoice
+-         -&gt; DiceVals
++allRolls :: (DiceChoice, DiceVals)
+          -&gt; Integer
+          -&gt; [ (DiceVals, Integer) ]
+-allRolls choices vs n = case pop choices vs of
++allRolls (choices, vs) n = case pop (choices, vs) of
+   Nothing -&gt; [ ([], n-1) ]
+   Just ((chosen, v), (choices, vs)) -&gt;
+-    allRolls choices vs (error &quot;Didn't expect to use&quot;) &gt;&gt;=
++    allRolls (choices, vs) (error &quot;Didn't expect to use&quot;) &gt;&gt;=
+         \(roll,_) -&gt; [ (d:roll,  n-1) | d &lt;- rollList ]
+           where rollList = if chosen then [v] else [ 1..6 ]
+
+ example =
+   let diceChoices = [ False, True, True, False, False ]
+       diceVals = [ 6, 4, 4, 3, 1 ]
+-  in mapM_ print $ allRolls diceChoices diceVals 2
++  in mapM_ print $ allRolls (diceChoices, diceVals) 2</code></pre>
+<h3 id="avoid-unpacking-tuple">Avoid unpacking tuple</h3>
+<p>We no longer need to unpack the tuple!</p>
+<p>We don’t need to know what the program does to apply this refactoring.</p>
+<pre><code>-allRolls (choices, vs) n = case pop (choices, vs) of
++allRolls t n = case pop t of
+   Nothing -&gt; [ ([], n-1) ]
+-  Just ((chosen, v), (choices, vs)) -&gt;
+-    allRolls (choices, vs) (error &quot;Didn't expect to use&quot;) &gt;&gt;=
++  Just ((chosen, v), t) -&gt;
++    allRolls t (error &quot;Didn't expect to use&quot;) &gt;&gt;=</code></pre>
+<h3 id="we-dont-use-the-integer.-make-this-structural.">We don’t use the <code>Integer</code>. Make this structural.</h3>
+<p>Given that we have an unused argument in the recursive call let’s see
+if we can change our design to make this obvious, i.e. make the fact
+that we don’t use it an essential part of the structure of the
+program, not just a property. In this case it amounts to pairing the
+rolls with <code>n-1</code> <em>after</em> the bulk of the algorithm (<code>allRollsNoN</code>) has
+finished.</p>
+<p>This is the second time we have to actually analyse how our program
+works rather than just apply a mechanical translation.</p>
+<pre><code> allRolls :: (DiceChoice, DiceVals)
+          -&gt; Integer
+          -&gt; [ (DiceVals, Integer) ]
+-allRolls t n = case pop t of
+-  Nothing -&gt; [ ([], n-1) ]
++allRolls t n = [ (vals, n-1) | vals &lt;- allRollsNoN t ]
++
++allRollsNoN :: (DiceChoice, DiceVals) -&gt; [ DiceVals ]
++allRollsNoN t = case pop t of
++  Nothing -&gt; [ [] ]
+   Just ((chosen, v), t) -&gt;
+-    allRolls t (error &quot;Didn't expect to use&quot;) &gt;&gt;=
+-        \(roll,_) -&gt; [ (d:roll,  n-1) | d &lt;- rollList ]
++    allRollsNoN t &gt;&gt;=
++        \roll -&gt; [ d:roll | d &lt;- rollList ]
+           where rollList = if chosen then [v] else [ 1..6 ]</code></pre>
+<h3 id="introduce-a-type-synonym">Introduce a type synonym</h3>
+<p>Given that <code>DiceChoice</code> and <code>DiceVals</code> seem to belong together
+let’s add a type synonym (<code>DiceTurn</code>) for that.</p>
+<p>We don’t need to know what the program does to apply this refactoring.
+We just observe that the pair of things are always used together.</p>
+<pre><code>+type DiceTurn  = (DiceChoice, DiceVals)
+
+-pop :: (DiceChoice, DiceVals)
+-    -&gt; Maybe ((Bool, Integer), (DiceChoice, DiceVals))
++pop :: DiceTurn
++    -&gt; Maybe ((Bool, Integer), DiceTurn)
+ pop ([], []) = Nothing
+ pop (chosen:choices, v:vs) = Just ((chosen, v), (choices, vs))
+ pop (_:_, []) = error &quot;Invariant violated: missing val&quot;
+ pop ([], _:_) = error &quot;Invariant violated: missing choice&quot;
+
+-allRolls :: (DiceChoice, DiceVals)
++allRolls :: DiceTurn
+          -&gt; Integer
+          -&gt; [ (DiceVals, Integer) ]
+ allRolls t n = [ (vals, n-1) | vals &lt;- allRollsNoN t ]
+
+-allRollsNoN :: (DiceChoice, DiceVals) -&gt; [ DiceVals ]
++allRollsNoN :: DiceTurn -&gt; [ DiceVals ]</code></pre>
+<h3 id="make-illegal-states-unrepresentable">Make illegal states unrepresentable</h3>
+<p>Our invariant is that the number of <code>DiceChoice</code>s must be the same as the
+number of <code>DiceVals</code>. Semantically, we actually want something
+stronger: each of the <code>DiceChoice</code>s corresponds to exactly one of the
+<code>DiceVals</code>. In my experience this is the single most common
+non-trival failure to structurally enforce program behaviour (and <a href="https://twitter.com/fried_brice/status/1178140883633479680">I’m
+not the only one to see
+it</a>).</p>
+<p>The fix is to put pairs of dice choice and dice vals in the same list!
+We can entirely remove our invariant check. The invariant is enforced
+by the type.</p>
+<p>Consumers will have to change too but they’ll be better off for it!
+In <code>example</code> I just <code>zip</code>ped the args. It could also be something
+much better.</p>
+<pre><code>-type DiceChoice = [ Bool ]
+ type DiceVals   = [ Integer ]
+-type DiceTurn  = (DiceChoice, DiceVals)
++type DiceTurn  = [(Bool, Integer)]
+
+ pop :: DiceTurn
+     -&gt; Maybe ((Bool, Integer), DiceTurn)
+-pop ([], []) = Nothing
+-pop (chosen:choices, v:vs) = Just ((chosen, v), (choices, vs))
+-pop (_:_, []) = error &quot;Invariant violated: missing val&quot;
+-pop ([], _:_) = error &quot;Invariant violated: missing choice&quot;
++pop [] = Nothing
++pop (a:as) = Just (a, as)
+
+ allRolls :: DiceTurn
+          -&gt; Integer
+@@ -25,4 +22,4 @@ allRollsNoN t = case pop t of
+ example =
+   let diceChoices = [ False, True, True, False, False ]
+       diceVals = [ 6, 4, 4, 3, 1 ]
+-  in mapM_ print $ allRolls (diceChoices, diceVals) 2
++  in mapM_ print $ allRolls (zip diceChoices diceVals) 2</code></pre>
+<h3 id="use-uncons">Use <code>uncons</code></h3>
+<p>Having done that we see that <code>pop</code> is just the standard function
+“<code>uncons</code>”.</p>
+<p>We don’t need to know what the program does to apply this refactoring.</p>
+<pre><code>+import Data.List (uncons)
++
+ type DiceVals   = [ Integer ]
+ type DiceTurn  = [(Bool, Integer)]
+
+-pop :: DiceTurn
+-    -&gt; Maybe ((Bool, Integer), DiceTurn)
+-pop [] = Nothing
+-pop (a:as) = Just (a, as)
+-
+ allRolls :: DiceTurn
+          -&gt; Integer
+          -&gt; [ (DiceVals, Integer) ]
+ allRolls t n = [ (vals, n-1) | vals &lt;- allRollsNoN t ]
+
+ allRollsNoN :: DiceTurn -&gt; [ DiceVals ]
+-allRollsNoN t = case pop t of
++allRollsNoN t = case uncons t of</code></pre>
+<h3 id="dont-need-uncons">Don’t need uncons</h3>
+<p>Having said that, we don’t actually need <code>uncons</code>. We can just
+pattern match directly.</p>
+<p>We don’t need to know what the program does to apply this refactoring.</p>
+<pre><code> allRollsNoN :: DiceTurn -&gt; [ DiceVals ]
+-allRollsNoN t = case uncons t of
+-  Nothing -&gt; [ [] ]
+-  Just ((chosen, v), t) -&gt;
++allRollsNoN t = case t of
++  [] -&gt; [ [] ]
++  (chosen, v):t -&gt;</code></pre>
+<h3 id="use-do-notation">Use do notation</h3>
+<p>The use of the bind operator (<code>&gt;&gt;=</code>) and list comprehension are not
+particularly clear. Let’s rewrite it to use do notation. (In fact I
+recommend defaulting to do notation over operators unless there’s some
+compelling readability benefit to using the latter.)</p>
+<p>We don’t need to know what the program does to apply this refactoring.</p>
+<pre><code> allRollsNoN :: DiceTurn -&gt; [ DiceVals ]
+ allRollsNoN t = case t of
+   [] -&gt; [ [] ]
+-  (chosen, v):t -&gt;
+-    allRollsNoN t &gt;&gt;=
+-        \roll -&gt; [ d:roll | d &lt;- rollList ]
++  (chosen, v):t -&gt; do
++    roll &lt;- allRollsNoN t
++    d    &lt;- rollList
++    [ d:roll ]</code></pre>
+<h3 id="prepare-for-mapm">Prepare for <code>mapM</code></h3>
+<p>We can see from the above that what our program does is takes the head
+of a list, runs recursively on the tail, does something to the head,
+and then puts it back on the tail. This is a “map” operation.
+Specifically in this case we are mapping in a monad so we use <code>mapM</code>.
+In modern Haskell you’d use <code>traverse</code>, but I’m going to stick to
+<code>mapM</code> because <code>traverse</code> does not read so well. (In my opinion <code>traverse</code> really
+ought to be called <code>mapA</code> but <a href="https://www.reddit.com/r/haskell/comments/68w09h/proposal_to_add_mapa_as_synonym_for_traverse/">others don’t like the idea of that
+change</a>.)</p>
+<p>In this change we just make the function we are mapping take explicit
+arguments. We’ll switch to use <code>mapM</code> in the next change.</p>
+<p>We don’t need to know what the program does to apply this refactoring.</p>
+<pre><code>   (chosen, v):t -&gt; do
+     roll &lt;- allRollsNoN t
+-    d    &lt;- rollList
++    d    &lt;- rollList (chosen, v)
+     [ d:roll ]
+-          where rollList = if chosen then [v] else [ 1..6 ]
++          where rollList (chosen, v)
++                    = if chosen then [v] else [ 1..6 ]</code></pre>
+<h3 id="use-mapm">Use <code>mapM</code></h3>
+<p>Now we can just use <code>mapM</code> directly.</p>
+<p>We don’t need to know what the program does to apply this refactoring
+but we do need to know the general concept of “mapping” and the
+specific implementation <code>mapM</code>. Be careful! This particular
+“refactoring” actually reverses the order of effects – the list of
+dice rolls will come out in a different order.</p>
+<pre><code>-allRollsNoN t = case t of
+-  [] -&gt; [ [] ]
+-  (chosen, v):t -&gt; do
+-    roll &lt;- allRollsNoN t
+-    d    &lt;- rollList (chosen, v)
+-    [ d:roll ]
+-          where rollList (chosen, v)
+-                    = if chosen then [v] else [ 1..6 ]
++allRollsNoN =
++    mapM (\(chosen, v) -&gt; if chosen then [v] else [ 1..6 ])</code></pre>
+<h3 id="avoid-boolean-blindness">Avoid boolean blindness</h3>
+<p>There’s ambiguity in the type <code>DiceTurn = [(Bool, Integer)]</code>. Does
+the <code>Bool</code> refer to whether we keep the dice or to whether we reroll
+them? There’s no way for me to tell without seeing this conditional
+inside the function:</p>
+<pre><code>if chosen then [v] else [ 1..6 ]</code></pre>
+<p>Ah, so the <code>Bool</code> refers to whether we <em>keep</em> the dice. Perhaps this
+is written in the documentation somewhere, but why do I believe that
+the documentation is kept in line with the implementation? I want a
+single source of truth!</p>
+<p>Let’s add a type to avoid “boolean blindness”. The type of
+<code>allRollsBetter</code> still does not guarantee that the implementation does
+the right thing with its argument but it does make any deviation
+glaringly obvious.</p>
+<p>We don’t need to know what the program does to apply this refactoring.
+It requires the uncontroversial <code>LambdaCase</code> language extension.</p>
+<pre><code>-allRollsNoN =
+-    mapM (\(chosen, v) -&gt; if chosen then [v] else [ 1..6 ])
++allRollsNoN = allRollsBetter . map fromTurn
++
++data DiceChoice = Keep Integer | Reroll
++
++fromTurn :: (Bool, Integer) -&gt; DiceChoice
++fromTurn (chosen, v) = if chosen then Keep v else Reroll
++
++allRollsBetter :: [DiceChoice] -&gt; [ DiceVals ]
++allRollsBetter = mapM $ \case
++  Reroll -&gt; [ 1..6 ]
++  Keep v -&gt; [v]</code></pre>
+<h3 id="keep-the-better-version">Keep the better version</h3>
+<p>Let’s get rid of all vestiges of the old version. What <code>allRolls</code>
+does could be done more clearly at the call site. At this point I
+wouldn’t add wrapper types for “type safety”. The rest of the program
+might be sufficiently complex that they would help, but they certainly
+don’t add anything in this simple example.</p>
+<p>The new version communicates <em>much</em> better. We “map” over our
+<code>DiceVals</code> list, that is, apply a function to each element in turn.
+In this case we’re taking advantage of the <code>Monad</code> instance for lists,
+so we use <code>mapM</code>. The function we map simply says</p>
+<ul>
+<li>Do we want to <code>Reroll</code>? If so, the possible results are <code>[1..6]</code></li>
+<li>Do we want to <code>Keep v</code>? If so, the possible results are just
+<code>[v]</code>”</li>
+</ul>
+<div class="sourceCode" id="cb21"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE LambdaCase #-}</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">DiceVals</span>   <span class="ot">=</span> [<span class="dt">Integer</span>]</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">DiceChoice</span> <span class="ot">=</span> <span class="dt">Keep</span> <span class="dt">Integer</span> <span class="op">|</span> <span class="dt">Reroll</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="ot">allRollsBetter ::</span> [<span class="dt">DiceChoice</span>] <span class="ot">-&gt;</span> [<span class="dt">DiceVals</span>]</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>allRollsBetter <span class="ot">=</span> <span class="fu">mapM</span> <span class="op">$</span> \<span class="kw">case</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Reroll</span> <span class="ot">-&gt;</span> [<span class="dv">1</span><span class="op">..</span><span class="dv">6</span>]</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Keep</span> v <span class="ot">-&gt;</span> [v]</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>example <span class="ot">=</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> diceVals <span class="ot">=</span> [ <span class="dt">Reroll</span>, <span class="dt">Keep</span> <span class="dv">4</span>, <span class="dt">Keep</span> <span class="dv">4</span>, <span class="dt">Reroll</span>, <span class="dt">Reroll</span> ]</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">in</span> <span class="fu">mapM_</span> <span class="fu">print</span> <span class="op">$</span> allRollsBetter diceVals</span></code></pre></div>
+<p>Look at <code>allRollsBetter</code> in comparison to the original <code>allRolls</code>!</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="ot">allRolls ::</span> <span class="dt">DiceChoice</span> <span class="ot">-&gt;</span> <span class="dt">DiceState</span> <span class="ot">-&gt;</span> [ <span class="dt">DiceState</span> ]</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>allRolls [] ([], n) <span class="ot">=</span> [ ([], n<span class="op">-</span><span class="dv">1</span>) ]</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>allRolls [] _ <span class="ot">=</span> <span class="fu">undefined</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>allRolls (chosen<span class="op">:</span>choices) (v<span class="op">:</span>vs, n) <span class="ot">=</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>    allRolls choices (vs, n<span class="op">-</span><span class="dv">1</span>) <span class="op">&gt;&gt;=</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>        \(roll,_) <span class="ot">-&gt;</span> [ (d<span class="op">:</span>roll,  n<span class="op">-</span><span class="dv">1</span>) <span class="op">|</span> d <span class="ot">&lt;-</span> rollList ]</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>          <span class="kw">where</span> rollList <span class="ot">=</span> <span class="kw">if</span> chosen <span class="kw">then</span> [v] <span class="kw">else</span> [ <span class="dv">1</span><span class="op">..</span><span class="dv">6</span> ]</span></code></pre></div>
+<p>How did we end up with something so much clearer? We applied a
+sequence of transformations to improve the design, almost all of which
+are applicable in any language. The transformations were partly
+informed by a notion of “type safety”. Specifically, we aimed to
+model our domain using types and functions that make illegal states
+unrepresentable.</p>
+<p>None of this <em>requires</em> a language like Haskell. It would be good
+design in Python as well. One of Python’s weaknesses is that it makes
+dealing with sum types awkward. We would have had to take a slightly
+different approach for the <code>Maybe</code> returned by <code>pop</code> (probably <code>None</code>
+or a tuple), the <code>DiceChoice</code> type (probably a pair of classes) and
+the list monad (probably just a recursive generator function).
+Ultimately though, the benefit of Haskell is not that it allows us to
+implement well-typed designs, nor particularly that it forbids us from
+implementing ill-typed designs. The benefit is that it nudges us away
+from poorly-typed, poorly-structured designs <em>and holds our hand as it
+does so</em>.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

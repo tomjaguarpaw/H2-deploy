@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>ghc-8.10-9.6-experience-report</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>ghc-8.10-9.6-experience-report</h3>
+  <h1 id="upgrading-from-ghc-8.10-to-ghc-9.6">Upgrading from GHC 8.10 to GHC 9.6</h1>
+<p>– An experience report</p>
+<p>At work (<a href="https://groq.com/">Groq</a>) we recently upgraded the version
+of GHC that we use from 8.10 to 9.6, along with many of the Haskell
+packages we depend on. Some of the changes to GHC and the packages we
+depend on were “breaking changes”, that is, changes which forced us to
+change our own code in response. This document details all such
+changes that we had to make to our own code. Hopefully it serves as a
+measure of the effort required to keep up with breaking changes in the
+Haskell ecosystem, encourages library and compiler maintainers to
+avoid making breaking changes where reasonable, and where breaking
+changes are made, to make them in a way that allows forward-compatible
+mitigations rather than breaking fixes.</p>
+<h2 id="forward-compatible-mitigations-versus-breaking-fixes">Forward-compatible mitigations versus breaking fixes</h2>
+<p>I distinguish two kinds of behavior-preserving changes that are
+required in response to an upgrade which contains breaking changes:
+“forward-compatible mitigations” and “breaking fixes”.
+<em>Foward-compatible mitigations</em> are those changes that can be made to
+the codebase before the upgrade such that no further changes need to
+be made at the same time as the upgrade. For example, suppose that
+library “<code>mylibrary</code>” version 1 exports <code>functionOld</code>, which is
+deprecated, and <code>functionNew</code> which is identical except it is not
+deprecated. Further suppose that <code>mylibrary</code> version 2 removes
+<code>functionOld</code>. A forward-compatible mitigation would be to replace
+uses of <code>functionOld</code> with <code>functionNew</code>. Subsequently, the code
+works equally well with <code>mylibrary</code> version 1 and with <code>mylibrary</code>
+version 2, so no change needs to be made at the same time as the
+upgrade of <code>mylibrary</code> from version 1 to version 2.</p>
+<p>By contrast, <em>breaking fixes</em> are those changes that only work after
+an upgrade. For example, suppose that library “<code>anotherlibrary</code>”
+version 1 exports <code>anotherFunction :: A -&gt; B -&gt; C</code>, and
+<code>anotherlibrary</code> version 2 exports <code>anotherFunction :: B -&gt; A -&gt; C</code>,
+which is identical except that the argument order is switched. A
+breaking fix would be to replace all uses of <code>anotherFunction</code> by
+<code>flip anotherFunction</code>. Breaking fixes complicate an upgrade because
+they can’t be made before or after the upgrade but must be made at
+exactly the same time.</p>
+<h3 id="turning-breaking-fixes-into-forward-compatible-mitigations">Turning breaking fixes into forward-compatible mitigations</h3>
+<p>Every breaking fix can be made forward-compatible by wrapping it in
+CPP, but that introduces its own complexity, not least because CPP
+only works on a per-line basis rather than a per-expression basis. We
+didn’t use CPP in our upgrade. Another technique for making some
+breaking fixes into forward-compatible mitigations is the
+“compatibility shim”. For example, in the case of <code>anotherlibrary</code>
+above, the author could have added <code>anotherFunctionNew :: B -&gt; A -&gt; C</code>
+to version 1 and retained it in version 2, allowing users to make the
+forward-compatible mitigation of switching from <code>anotherFunction</code> to
+<code>anotherFunctionNew</code> before the upgrade. At their leisure, any time
+after the upgrade, they could switch to <code>flip anotherFunction</code>.
+Critically, they are not forced to make the switch <em>at the same time
+as the upgrade</em><a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>.</p>
+<h2 id="the-changes">The changes</h2>
+<h3 id="changes-to-libraries">Changes to libraries</h3>
+<h4 id="new-export-from-prelude">New export from <code>Prelude</code></h4>
+<p>Newer versions of <code>base</code> re-export <code>liftA2</code> from the <code>Prelude</code>
+therefore explicit imports from <code>Control.Applicative</code>emit warnings.
+The <em>forward-compatible mitigation</em> is to turn on
+<code>-Wwarn=unused-imports</code> but we chose the <em>breaking fix</em> of removing
+the explicit import.</p>
+<h4 id="st-instance-of-monadfail-removed"><code>ST</code> instance of <code>MonadFail</code> removed</h4>
+<p>The <code>instance MonadFail (ST s)</code> was removed in a recent <code>base</code>
+version. The <em>forward-compatible mitigation</em> is to use <code>error</code>
+instead of <code>fail</code> when in <code>ST</code>.</p>
+<h4 id="removed-exports-from-mtl-modules">Removed exports from <code>mtl</code> modules</h4>
+<p>Some <code>mtl</code> modules, for example <code>Control.Monad.Except</code>, previously
+re-exported transformer-related functionality such as <code>lift</code> and
+<code>MonadTrans</code>. More recent <code>mtl</code> versions do not so the imports must
+come from elsewhere, such as <code>Control.Monad.Trans</code>. This is a
+<em>forward-compatible mitigation</em>.</p>
+<h4 id="aeson-api-change"><code>aeson</code> API change</h4>
+<p>Version two of <code>aeson</code> changed its representation of JSON objects from
+<code>HashMap Text Value</code> to <code>KeyMap Value</code> because the former is
+vulnerable to denial-of-service attacks. The <em>breaking fix</em> is to use
+the new API, and conversion functions where necessary, for example
+<code>Data.Aeson.KeyMap.lookup</code> instead of <code>Data.HashMap.Strict.lookup</code>,
+and <code>fromText</code> and <code>toText</code> to convert between <code>Text</code> and <code>Key</code>.</p>
+<p>Parts of the breaking fix can be made <em>forward-compatible</em> by clever
+use of imports and local definitions as a sort of compatibility shim.
+For example, if you write this code, which works under <code>aeson-1</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE OverloadedStrings #-}</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.Aeson</span> (<span class="dt">Value</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.HashMap.Strict</span> <span class="kw">qualified</span> <span class="kw">as</span> <span class="dt">Aeson</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">Key</span> <span class="ot">=</span> <span class="dt">Text</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">KeyMap</span> <span class="ot">=</span> <span class="dt">Aeson.HashMap</span> <span class="dt">Key</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="ot">fromText ::</span> <span class="dt">Text</span> <span class="ot">-&gt;</span> <span class="dt">Key</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>fromText <span class="ot">=</span> <span class="fu">id</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="ot">lookupColor ::</span> <span class="dt">KeyMap</span> <span class="ot">-&gt;</span> <span class="dt">Value</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>lookupColor m <span class="ot">=</span> Aeson.lookup (fromText <span class="st">&quot;color&quot;</span>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="op">...</span> more code</span></code></pre></div>
+<p>then converting it to <code>aeson-2</code> only requires tweaking imports, not
+the bulk of the code:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE OverloadedStrings #-}</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.Aeson</span> (<span class="dt">Value</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.Aeson.Key</span> (<span class="dt">Key</span>, fromText)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.Aeson.KeyMap</span> (<span class="dt">KeyMap</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.Aeson.KeyMap</span> <span class="kw">qualified</span> <span class="kw">as</span> <span class="dt">Aeson</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="ot">lookupColor ::</span> <span class="dt">KeyMap</span> <span class="ot">-&gt;</span> <span class="dt">Value</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>lookupColor m <span class="ot">=</span> Aeson.lookup (fromText <span class="st">&quot;color&quot;</span>)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">...</span> more code (unchanged)</span></code></pre></div>
+<p>A team could reduce the churn even further by creating a compatibility
+module in their codebase, <code>Data.Aeson.Compat</code> say, which contains
+those definitions. Then the client code would look like the following
+and not need to change at all when switching to <code>aeson-2</code>! Only
+<code>Data.Aeson.Compat</code> would need to change.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE OverloadedStrings #-}</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.Aeson</span> (<span class="dt">Value</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.Aeson.Compat</span> <span class="kw">qualified</span> <span class="kw">as</span> <span class="dt">Aeson</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.Aeson.Compat</span> (<span class="dt">Key</span>, <span class="dt">KeyMap</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="ot">lookupColor ::</span> <span class="dt">KeyMap</span> <span class="ot">-&gt;</span> <span class="dt">Value</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>lookupColor m <span class="ot">=</span> Aeson.lookup (fromText <span class="st">&quot;color&quot;</span>)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="op">...</span></span></code></pre></div>
+<p>In fact, this kind of compatibility module could have been placed in
+an <code>aeson-compat</code> package on Hackage for everyone to use, or even
+officially included in <code>aeson</code> itself.</p>
+<h4 id="i64-change"><code>I64#</code> change</h4>
+<p>The <a href="https://hackage.haskell.org/package/base-4.14.3.0/docs/GHC-Int.html#t:Int64">definition of <code>Int64</code> used to
+be</a>
+<code>data Int64 = I64# Int#</code> but more recently <a href="https://hackage.haskell.org/package/base-4.20.0.0/docs/GHC-Int.html#t:Int64">it
+became</a>
+<code>data Int64 = I64# Int64#</code>. This requires a <em>breaking fix</em>. In our
+case we shouldn’t have been using this low-level representation in the
+first place, and it turned out the code that was using it was not
+itself used, so we deleted it (which luckily for us is a
+<em>forward-compatible mitigation</em>).</p>
+<h4 id="xls-api-change"><code>xls</code> API change</h4>
+<p>The <code>xls</code> library introduced <code>RowIndex</code> and <code>ColumnIndex</code> abstract
+types where it previously used <code>Int</code>. As with <code>aeson</code> this required a
+<em>breaking fix</em> which could be implemented partially as a
+<em>forward-compatible mitigation</em> by defining type synonyms locally as a
+sort of compatibility shim. The upgrade would have been easier if the
+library itself had introduced those synonyms before making the
+breaking change.</p>
+<p>The library also added <code>wsState</code> as a field to its <code>Worksheet</code> type,
+which required a <em>breaking fix</em> when constructing values of that type.</p>
+<h4 id="flatparse-api-change"><code>flatparse</code> API change</h4>
+<p><a href="https://hackage.haskell.org/package/flatparse-0.3.5.1/docs/FlatParse-Basic.html#v:anyCharASCII"><code>anyCharASCII</code></a>
+became
+<a href="https://hackage.haskell.org/package/flatparse-0.5.1.0/docs/FlatParse-Basic.html#v:anyAsciiChar"><code>anyAsciiChar</code></a>,
+along with many similar API changes. If we had a large amount of
+<code>flatparse</code> code we might have used the compatibility module approach
+in order to make a partially <em>forward-compatible mitigation</em> but
+instead we made the <em>breaking fix</em>.</p>
+<h4 id="constraints-extras-api-change"><code>constraints-extras</code> API change</h4>
+<p>In <a href="https://hackage.haskell.org/package/constraints-extras-0.3.0.2/docs/Data-Constraint-Extras.html#t:Has">previous versions of
+<code>constraints-extras</code></a>
+<code>Has</code> was a type synonym whereas in later versions <a href="https://hackage.haskell.org/package/constraints-extras-0.4.0.0/docs/Data-Constraint-Extras.html#t:Has">it became a type
+class</a>.
+This required a <em>breaking fix</em>.</p>
+<h4 id="gensingletons"><code>genSingletons</code></h4>
+<p>We couldn’t get
+<a href="https://hackage.haskell.org/package/singletons-2.6/docs/Data-Singletons-TH.html#v:genSingletons"><code>genSingletons</code></a>,
+from the <code>singletons</code> family of packages, to work after the upgrade.
+The <em>breaking fix</em> we applied was to write out by hand what would have
+been generated by Template Haskell.</p>
+<h3 id="changes-to-ghc">Changes to GHC</h3>
+<h4 id="simplified-subsumption">Simplified subsumption</h4>
+<p>GHC 9.0 made a switch to a type inference scheme for higher rank
+polymorphism called <a href="https://github.com/ghc-proposals/ghc-proposals/pull/287">simplified
+subsumption</a>.
+Consquently, expressions like <code>g f</code> in the below, which passed the
+type checker in the GHC 8 series, stopped passing the type checker in
+the GHC 9 series.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE RankNTypes #-}</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="ot">f ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> (<span class="kw">forall</span> a<span class="op">.</span> a <span class="ot">-&gt;</span> a)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>f _ <span class="ot">=</span> <span class="fu">id</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="ot">g ::</span> (<span class="kw">forall</span> a<span class="op">.</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> ()</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>g _ <span class="ot">=</span> ()</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="ot">main ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>main <span class="ot">=</span> <span class="fu">print</span> (g f)</span></code></pre></div>
+<p>The <em>forward-compatible mitigation</em> is to manually eta-expand <code>f</code> to
+obtain <code>g (\x -&gt; f x)</code>, as in the below.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>main <span class="ot">=</span> <span class="fu">print</span> (g (\x <span class="ot">-&gt;</span> f x))</span></code></pre></div>
+<p>The <em>breaking fix</em> is to disable simplified subsumption by using the
+<code>DeepSubsumption</code> language pragma (available in GHC 9.2 and later).</p>
+<h4 id="ghc-bug">GHC bug</h4>
+<p>We came across a bug where GHC errored out with “The impossible
+happened” in some code related to existential types. We had to pull
+an inner binding to the top-level and mark it <code>NOINLINE</code> to avoid
+triggering the bug. This was a <em>forward-compatible mitigation</em>.</p>
+<h4 id="overlapping-patterns">Overlapping patterns</h4>
+<p>Improvements to GHC’s pattern match checker mean that some patterns
+are now detected as redundant where they weren’t previously. The
+<em>forward-compatible mitigation</em> of using <code>-Wwarn=overlapping-patterns</code>
+has too big a downside so we used the <em>breaking fix</em> of removing the
+redundant patterns.</p>
+<h4 id="kind-becomes-type">Kind <code>*</code> becomes <code>Type</code></h4>
+<p>The GHC 9 series introduces a warning in <code>-Wall</code> about using <code>*</code> as
+the kind of types. The <em>forward-compatible mitigation</em> is to replace
+<code>*</code> with <code>Data.Kind.Type</code>.</p>
+<h4 id="gadt-mono-local-binds">GADT mono local binds</h4>
+<p>The GHC 9 series introduces a warning in <code>-Wall</code> about pattern
+matching on a GADT without <code>MonoLocalBinds</code>. The <em>forward-compatible</em>
+mitigation is to enable <code>MonoLocalBinds</code>. Alternatively there is a
+<em>breaking fix</em> which is to disable the <code>gadt-mono-local-binds</code>
+warning.</p>
+<h3 id="changes-to-tools">Changes to tools</h3>
+<h4 id="brittany-is-no-longer-maintained"><code>brittany</code> is no longer maintained</h4>
+<p>The formatter <code>brittany</code> is no longer maintained. We applied the
+<em>forward-compatible mitigation</em> of no longer using <code>brittany</code> to
+format a subset of our code.</p>
+<h4 id="hadrian">Hadrian</h4>
+<p>Hadrian, the (relatively) new GHC build system, refuses to build
+<code>ghci</code> when cross-compilation is enabled. We applied the
+<em>forward-compatible</em> mitigation of no longer building cross-compiled
+GHC.</p>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1"><p><a href="http://h2.jaguarpaw.co.uk/posts/opaleyes-api-breakage-policy/">The Opaleye API breakage
+policy</a>
+is upheld by the heavy use of compatibility shims.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

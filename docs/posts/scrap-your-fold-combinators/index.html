@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>scrap-your-fold-combinators</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>scrap-your-fold-combinators</h3>
+  <h1 id="scrap-your-fold-combinators">Scrap your fold combinators</h1>
+<p>In my article “<a href="../foldl-traverses-state-foldr-traverses-anything/"><code>foldl</code> traverses with <code>State</code>, <code>foldr</code> traverses with
+anything</a>”, I
+showed that every use of <code>foldr</code> on a list is equivalent to using
+<code>traverse_</code> (or <code>for_</code>) on the list, with a particular choice of
+<code>Applicative</code>. Haskell libraries contain a wide variety of list
+“recursion combinators” that</p>
+<p>That implies that the fold combinators we know and love can be
+replaced with uses of <code>for_</code></p>
+<p>The pure versions of the combinators are too convenient to avoid, but
+it becomes increasingly difficult to justify combinators once they
+proliferate and especially once they become effectful (because you
+want the results to stream!).</p>
+<h3 id="foldl"><code>foldl</code></h3>
+<p>Don’t use it</p>
+<h3 id="foldl-1"><code>foldl'</code></h3>
+<p><a href="https://hackage.haskell.org/package/base-4.19.1.0/docs/Data-List.html#v:foldl-39-"><code>Data.List.foldl'</code></a></p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">foldl' ::</span> (s <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> s) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> s</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>foldl' f s0 as <span class="ot">=</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">flip</span> evalState s0 <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    for_ as <span class="op">$</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      s <span class="ot">&lt;-</span> get</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> s' <span class="ot">=</span> f s a</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      put <span class="op">$!</span> s'</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    get</span></code></pre></div>
+<h3 id="foldm"><code>foldM</code></h3>
+<p><a href="https://hackage.haskell.org/package/base-4.19.1.0/docs/Control-Monad.html#v:foldM"><code>Control.Monad.foldM</code></a></p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">foldM ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> (s <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> m s) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> m s</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>foldM f s0 as <span class="ot">=</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">flip</span> evalStateT s0 <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    for_ as <span class="op">$</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      s <span class="ot">&lt;-</span> get</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      s' <span class="ot">&lt;-</span> lift (f s a)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      put s'</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    get</span></code></pre></div>
+<h3 id="mapaccuml"><code>mapAccumL</code></h3>
+<p><a href="https://hackage.haskell.org/package/base-4.19.1.0/docs/Data-List.html#v:mapAccumL"><code>Data.List.mapAccumL</code></a></p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">mapAccumL ::</span> (s <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> (s, b)) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> (s, [b])</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>mapAccumL f s0 as <span class="ot">=</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  swap <span class="op">$</span> <span class="fu">flip</span> runState s0 <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    for as <span class="op">$</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>      s <span class="ot">&lt;-</span> get</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> (s', b) <span class="ot">=</span> f s a</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      put s'</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pure</span> b</span></code></pre></div>
+<h3 id="mapaccumr"><code>mapAccumR</code></h3>
+<p>Too mind-bending. I really don’t understand what this is.</p>
+<h3 id="mapaccumlm"><code>mapAccumLM</code></h3>
+<p><a href="https://www.stackage.org/haddock/lts-22.14/ghc-9.6.4/GHC-Utils-Monad.html#v:mapAccumLM"><code>GHC.Utils.Monad.mapAccumLM</code></a>.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">mapAccumLM ::</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  (<span class="dt">Monad</span> m) <span class="ot">=&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  (s <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> m (s, b)) <span class="ot">-&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  s <span class="ot">-&gt;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  [a] <span class="ot">-&gt;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  m (s, [b])</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>mapAccumLM f s0 as <span class="ot">=</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmap</span> swap <span class="op">$</span> <span class="fu">flip</span> runStateT s0 <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    for as <span class="op">$</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>      s <span class="ot">&lt;-</span> get</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>      (s', b) <span class="ot">&lt;-</span> lift (f s a)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>      put s'</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pure</span> b</span></code></pre></div>
+<p><a href="https://discourse.haskell.org/t/break-with-traverse-traverse/9152/19?u=tomjaguarpaw" class="uri">https://discourse.haskell.org/t/break-with-traverse-traverse/9152/19?u=tomjaguarpaw</a></p>
+<h3 id="concatmap"><code>concatMap</code></h3>
+<h3 id="loop"><code>loop</code></h3>
+<p><a href="https://hackage.haskell.org/package/extra-1.7.14/docs/Extra.html#v:loop"><code>Extra.loop</code></a></p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ot">loop ::</span> (s <span class="ot">-&gt;</span> <span class="dt">Either</span> r s) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> r</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>loop f s0 <span class="ot">=</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  runEarlyReturn <span class="op">$</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">flip</span> evalStateT s0 <span class="op">$</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>      forever <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        s <span class="ot">&lt;-</span> get</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        s' <span class="ot">&lt;-</span> lift (f s)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        put s'</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="ot">runEarlyReturn ::</span> <span class="dt">Either</span> r r <span class="ot">-&gt;</span> r</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>runEarlyReturn <span class="ot">=</span> <span class="fu">either</span> <span class="fu">id</span> <span class="fu">id</span></span></code></pre></div>
+<h3 id="loopm"><code>loopM</code></h3>
+<p><a href="https://hackage.haskell.org/package/extra-1.7.14/docs/Extra.html#v:loopM"><code>Extra.loopM</code></a></p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ot">loopM ::</span> (<span class="dt">Monad</span> m) <span class="ot">=&gt;</span> (s <span class="ot">-&gt;</span> m (<span class="dt">Either</span> r s)) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> m r</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>loopM f s0 <span class="ot">=</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  runEarlyReturnT <span class="op">$</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">flip</span> evalStateT s0 <span class="op">$</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>      forever <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        s <span class="ot">&lt;-</span> get</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        fs <span class="ot">&lt;-</span> (lift <span class="op">.</span> lift) (f s)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        s' <span class="ot">&lt;-</span> lift (except fs)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>        put s'</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="ot">runEarlyReturnT ::</span> (<span class="dt">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> r m r <span class="ot">-&gt;</span> m r</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>runEarlyReturnT <span class="ot">=</span> <span class="fu">fmap</span> (<span class="fu">either</span> <span class="fu">id</span> <span class="fu">id</span>) <span class="op">.</span> runExceptT</span></code></pre></div>
+<h3 id="mapmaybe"><code>mapMaybe</code></h3>
+<h3 id="mapmaybem"><code>mapMaybeM</code></h3>
+<p><a href="https://www.stackage.org/haddock/lts-22.15/extra-1.7.14/Control-Monad-Extra.html#v:mapMaybeM" class="uri">https://www.stackage.org/haddock/lts-22.15/extra-1.7.14/Control-Monad-Extra.html#v:mapMaybeM</a></p>
+<h3 id="any"><code>any</code></h3>
+<h3 id="anym"><code>anyM</code></h3>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

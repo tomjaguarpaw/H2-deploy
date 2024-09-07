@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>automatic-differentiation-worked-examples</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>automatic-differentiation-worked-examples</h3>
+  <h1 id="automatic-differentiation-source-to-source-worked-examples">Automatic differentiation: source-to-source worked examples</h1>
+<p>– forwards and reverse</p>
+<h2 id="introduction">Introduction</h2>
+<p>This article demonstrates how to perform source transformations on a
+program to generate forward mode and reverse mode derivative programs
+(automatic differentiation, or “AD”). My aim is to write the shortest
+possible article that communicates all the essential features of a
+source-to-source AD system with a particular focus on making the
+reverse mode transformation clear.</p>
+<p>The goal of brevity means that a lot of possible commentary has been
+omitted. If you find this makes some part of the article hard to
+understand then please <a href="http://web.jaguarpaw.co.uk/~tom/contact">contact
+me</a> and I’ll do my best to
+clarify. In particular this article contains hardly any mathematical
+content at all. I hope that the reader who is familiar with
+multivariate calculus will be able to obtain an intuitive
+understanding of how AD relates to mathematical techniques he or she
+is already familiar with. A more in-depth description of the
+relationship will have to wait for another article.</p>
+<h2 id="the-program">The program</h2>
+<p>Let’s consider the following pseudocode program that performs some
+elementary arithmetic through a sequence of assignment statements.</p>
+<pre><code>p = 7 * x
+r = 1 / y
+q = p * x * 5
+v = 2 * p * q + 3 * r</code></pre>
+<p><code>x</code> and <code>y</code> are not defined in the program so I’m going to informally
+consider them to be “inputs”; <code>v</code> is not used anywhere so I’m going to
+consider it to be the “output”. (I won’t burden the article by
+formalising these notions here.)</p>
+<h2 id="preparation">Preparation</h2>
+<p>We’ll do a small amount of preparation to our original program which
+will preserve its behaviour and get it into a form in which it is
+straightforward to apply the automatic differentiation (AD)
+algorithms. It is possible to apply AD algorithms without doing these
+transformations first but then the AD algorithms would have to do
+equivalent operations implicitly. Doing these transformations first
+is a kind of <a href="https://en.wikipedia.org/wiki/Separation_of_concerns">separation of
+concerns</a>.</p>
+<h3 id="use-prefix-functions-with-exactly-one-argument">Use prefix functions with exactly one argument</h3>
+<p>Let’s use prefix functions instead of <a href="https://en.wikipedia.org/wiki/Infix_notation">infix
+operators</a>. Infix
+operators are more familiar for arithmetic but the AD algorithms will
+be clearer to present if we use prefix functions. Additionally I want
+every function to have exactly one argument (although that argument
+may be a tuple). Single-argument style will make the reverse mode
+transformation much clearer (although it does not make any difference
+for forward mode). For example, <code>x1 + x2</code> would become <code>add (x1, x2)</code>. Our program becomes</p>
+<pre><code>p = mul (7, x)
+r = div (1, y)
+q = mul (mul (p, x), 5)
+v = add (mul (mul (2, p), q), mul (3, r))</code></pre>
+<h3 id="no-nested-subexpressions">No nested subexpressions</h3>
+<p>Next let’s convert to a form where every function is applied to
+(tuples of) variables and constants only, i.e. where there are no
+nested sub-expressions (besides potentially nested tuples). We assign
+each nested sub-expression to an intermediate variable. For example</p>
+<pre><code>a = add (add (b, c), d)</code></pre>
+<p>would become</p>
+<pre><code>i = add (b, c)
+a = add (i, d)</code></pre>
+<p>The choice of <code>i</code> is arbitrary; it just has to be a variable that’s
+not used elsewhere in our program. This form without nested
+subexpressions is a lot like
+<a href="https://en.wikipedia.org/wiki/A-normal_form">ANF</a> from the field of
+functional compiler construction. It’s also a lot like the <a href="https://en.wikipedia.org/wiki/Static_single_assignment_form">SSA
+form</a> of
+assembly language. After removing nested subexpressions, our program
+becomes</p>
+<pre><code>p = mul (7, x)
+r = div (1, y)
+i1 = mul (p, x)
+q = mul (i1, 5)
+i2 = mul (2, p)
+i3 = mul (i2, q)
+i4 = mul (3, r)
+v = add (i3, i4)</code></pre>
+<h2 id="differentiation-line-by-line">Differentiation line-by-line</h2>
+<p>We have performed all the transformations needed to prepare our
+program and we are ready to proceed to differentiation. We will
+differentiate the program line-by-line, that is, both the forward mode
+and reverse mode differentiation algorithms will generate one line of
+derivative code for each line of input code. But what <em>is</em> the
+derivative of an assignment statement? For forward mode, the
+derivatives correspond quite closely to what you might be familiar
+with from a first multivariate calculus course..</p>
+<h3 id="examples">Examples</h3>
+<h4 id="addition">Addition</h4>
+<p>If a line of our pseudocode program is</p>
+<pre><code>y = add (x1, x2)</code></pre>
+<p>then the derivative line is</p>
+<pre><code>dy = add (dx1, dx2)</code></pre>
+<h4 id="multiplication">Multiplication</h4>
+<p>If a line of our pseudocode program is</p>
+<pre><code>y = mul (x1, x2)</code></pre>
+<p>then the derivative line is</p>
+<pre><code>dy = add (mul (x2, dx1), mul (x1, dx2))</code></pre>
+<h4 id="division">Division</h4>
+<p>If a line of our pseudocode program is</p>
+<pre><code>y = div (x1, x2)</code></pre>
+<p>then the derivative line is</p>
+<pre><code>dy = add (div (dx1, x2), negate (mul (div (x1, mul (x2, x2)), dx2)))</code></pre>
+<h2 id="forward-mode">Forward mode</h2>
+<p>The forward mode transformation applies the appropriate
+differentiation rule to each line in the input program (listed on the
+left) to obtain a derivative line (listed on the right). To each line
+we apply exactly one rule and the form of the rule does not depend on
+any of the other lines.</p>
+<pre><code>p = mul (7, x)   | dp = mul (7, dx)
+r = div (1, y)   | dr = negate (div (dy, mul (y, y)))
+i1 = mul (p, x)  | di1 = add (mul (dp, x), mul (p, dx))
+q = mul (i1, 5)  | dq = mul (di1, 5)
+i2 = mul (2, p)  | di2 = mul (2, dp)
+i3 = mul (i2, q) | di3 = add (mul (di2, q), mul (i2, dq))
+i4 = mul (3, r)  | di4 = mul (3, dr)
+v = add (i3, i4) | dv = add (di3, di4)</code></pre>
+<p>If we form a new program consisting of the sequence of assignments on
+the left followed by the sequence of assignments on the right then we
+have a program that calculates the forward derivative! The “inputs”
+of this program are <code>x</code>, <code>y</code>, <code>dx</code> and <code>dy</code>. The “outputs” are <code>v</code>
+and <code>dv</code>.</p>
+<p>(The derivatives of constants are zero and I’ve left terms that are
+zero out for simplicity.)</p>
+<p>In fact we can be a little more clever. We can interleave the
+assignments, so an assignment from the left is immediately followed by
+its corresponding assignment from the right, that is</p>
+<pre><code>p = mul (7, x)
+dp = mul (7, dx)
+r = div (1, y)
+dr = negate (div (dy, mul (y, y)))
+i1 = mul (p, x)
+di1 = add (mul (dp, x), mul (p, dx))
+q = mul (i1, 5)
+dq = mul (di1, 5)
+i2 = mul (2, p)
+di2 = mul (2, dp)
+i3 = mul (i2, q)
+di3 = add (mul (di2, q), mul (i2, dq))
+i4 = mul (3, r)
+di4 = mul (3, dr)
+v = add (i3, i4)
+dv = add (di3, di4)</code></pre>
+<p>This interleaving demonstrates an important property of the automatic
+derivative: that it uses space proportional to the space usage of the
+original program. Specifically, as soon as we no longer need a
+variable that was assigned in the original program we no longer need
+the corresponding <code>d</code> version either.</p>
+<p>We can also see another important property of the forward derivative:
+it runs in time proportional to the run time of the original program
+(assuming that the derivative of every primitive runs in time
+proportional to the run time of the primitive itself).</p>
+<h2 id="reverse-mode-requires-two-additional-ideas">Reverse mode requires two additional ideas</h2>
+<p>Now that we’ve shown how to generate the forward mode derivative we
+can move on to the reverse mode derivative. Reverse mode requires two
+additional ideas:</p>
+<ol type="1">
+<li><p>We need to convert our original program to “explicit duplication”
+form: if a variable is used more than once then we make that
+explicit in the structure of the program. This is unusual but
+straightforward.</p></li>
+<li><p>We need to use a form of the derivative that will be unfamiliar to
+most readers. It will appear quite bizarre when seeing it for the
+first time but it is crucial to implementing the reverse mode
+derivative.</p></li>
+</ol>
+<h2 id="explicit-duplication-form">Explicit duplication form</h2>
+<p>Before applying the reverse mode AD transformation we will convert to
+“explicit duplication” form. Again, the transformation is not
+strictly required but if we omit it then the differentiation pass will
+have to do it implicitly. We take the ANF form of the program and
+insert explicit duplications (<code>dup</code>) for any variable that is used
+more that once. Recall that after removing nested subexpressions our
+program was</p>
+<pre><code>p = mul (7, x)
+r = div (1, y)
+i1 = mul (p, x)
+q = mul (i1, 5)
+i2 = mul (2, p)
+i3 = mul (i2, q)
+i4 = mul (3, r)
+v = add (i3, i4)</code></pre>
+<p>We can see that <code>x</code> and <code>p</code> appear on the right hand side (i.e. are
+consumed) twice each. Therefore, they will need explicit duplication,
+so that each variable in the resulting program is used only once.
+With explicit duplication the program looks like</p>
+<pre><code>(x1, x2) = dup x
+p = mul (7, x1)
+(p1, p2) = dup p
+r = div (1, y)
+i1 = mul (p1, x2)
+q = mul (i1, 5)
+i2 = mul (2, p2)
+i3 = mul (i2, q)
+i4 = mul (3, r)
+v = add (i3, i4)</code></pre>
+<p>(If a variable were used <span class="math inline">\(n\)</span> times then we would have to insert <span class="math inline">\(n-1\)</span>
+<code>dup</code>s for it. In our example no variable is used more than twice.)</p>
+<p>Notice that now not only is every variable defined exactly once, but
+every variable is also <em>used</em> exactly once (except the inputs and
+outputs, <code>x</code>, <code>y</code> and <code>v</code> – I won’t say more here about how exactly
+these seemingly special cases fit into the story). This property is
+important for a reason which will be explained when we come to
+generate the reverse mode program.</p>
+<h2 id="differentiation-line-by-line-1">Differentiation line-by-line</h2>
+<p>The line-by-line differentiation rules for generating the reverse mode
+need another article to explain thoroughly, but in this article I will
+hope to provide some basic intuition via examples and the informal
+notion that the reverse mode program calculates how sensitive the
+output is to different variables. For example, if the variable <code>y</code>
+appears in the original program then the variable <code>d_dy</code> will appear
+in the reverse mode program and measures “how sensitive the output is
+to small changes in <code>y</code>”. (I’ll abbreviate this to “<code>d_dy</code> is the
+sensitivity to <code>y</code>”.)</p>
+<h3 id="examples-1">Examples</h3>
+<h4 id="addition-1">Addition</h4>
+<p>If a line of our pseudocode program is</p>
+<pre><code>y = add (x1, x2)</code></pre>
+<p>then the derivatives are</p>
+<pre><code>d_dx1 = d_dy
+d_dx2 = d_dy</code></pre>
+<p>because the sensitivity to <code>x1</code> is the same as the sensitivity to <code>y</code>
+(and likewise for <code>x2</code>). This is written on a single line as</p>
+<pre><code>(d_dx1, d_dx2) = dup (d_dy)</code></pre>
+<h4 id="multiplication-1">Multiplication</h4>
+<p>If a line of our program was</p>
+<pre><code>y = mul (x1, x2)</code></pre>
+<p>then the derivative line is</p>
+<pre><code>(d_dx1, d_dx2) = (mul (x2, d_dy), mul (x1, d_dy))</code></pre>
+<p>because the sensitivity to <code>x1</code> is <code>x2</code> times the sensitivity to <code>y</code>
+(and similarly for <code>x2</code>).</p>
+<h4 id="duplication">Duplication</h4>
+<p>If a line of our program was</p>
+<pre><code>(x1, x2) = dup (x)</code></pre>
+<p>then the derivative line is</p>
+<pre><code>d_dx = add (d_dx1, d_dx2)</code></pre>
+<p>because the sensitivity to <code>x</code> is the sensitivity to <code>x1</code> plus the
+sensitivity to <code>x2</code>.</p>
+<h2 id="generating-reverse-mode-code">Generating reverse mode code</h2>
+<p>Like forward mode before it, the reverse mode transformation applies the
+appropriate differentiation rule to each line in the input program
+(listed on the left) to obtain a derivative line (listed on the
+right). To each line we apply exactly one rule and the form of the
+rule does not depend on any of the other lines.</p>
+<pre><code>(x1, x2) = dup x  | d_dx = add (d_x1, d_dx2)
+p = mul (7, x1)   | (_, d_dx) = mul (d_dp, (x1, 7))
+(p1, p2) = dup p  | d_dp = add (d_dp1, d_dp2)
+r = div (1, y)    | d_dy = negate (div (d_dr, mul (y, y)))
+i1 = mul (p1, x2) | (d_dp1, d_dx1) = mul (d_di1, (x, p1))
+q = mul (i1, 5)   | (d_di1, _) = mul (d_dq, (5, di1)
+i2 = mul (2, p2)  | (_, d_dp2) = mul (d_di2, (p2, 2))
+i3 = mul (i2, q)  | (d_di2, d_dq) = mul (d_di3, (q, i2))
+i4 = mul (3, r)   | (_, d_dr) = mul (d_di4, (r, 3))
+v = add (i3, i4)  | (d_di3, d_di4) = dup(d_dv)</code></pre>
+<p>If we form a new program consisting of the sequence of assignments on
+the left followed by the sequence of assignments on the right <em>in
+reverse order</em> then we have a program that calculates the reverse
+derivative! The “inputs” of this program are <code>x</code>, <code>y</code> and <code>d_dv</code>.
+The “outputs” are <code>v</code>, <code>d_dx</code> and <code>d_dy</code>.</p>
+<p>(Note that, similar to how in forward mode we omitted derivatives of
+constants because they are zero, in reverse mode we omit the
+calculation of derivatives <em>with respect to</em> constants because they
+have no effect on the rest of the program.)</p>
+<h3 id="the-use-of-the-duplication-property">The use of the duplication property</h3>
+<p>The explicit duplication property is important because in the code
+generated by the reverse mode transformation, usages in the original
+program become definitions in the reverse mode program;
+correspondingly, definitions in the original program become usages in
+the reverse mode program. Therefore it is important that there is
+exactly one of each: a variable cannot have two definitions! For
+example, consider the original source assignment <code>(x1, x2) = dup x</code>.
+<code>x</code> is “used” in this line, and <code>x1</code> and <code>x2</code> are “defined”. It gives
+rise to the assignment <code>d_dx = add (d_x1, d_dx2)</code> in the reverse mode
+program. <code>d_dx</code> is “defined” in this line and <code>d_dx1</code> and <code>d_dx2</code> are
+“used”.</p>
+<h3 id="properties-of-the-reverse-derivative">Properties of the reverse derivative</h3>
+<p>Again we see an important property of the automatic derivative: it
+runs in time proportional to the run time of the original program
+(assuming that the derivative of every primitive runs in time
+proportional to the run time of the primitive itself).</p>
+<p>If we look carefully we can also see another property of the
+reverse derivative: it might use space proportional to the run time of
+the original program! Notice that the value of <code>x1</code> needs to be kept
+around throughout the lifetime of the program so that we can calculate
+<code>d_dx</code>. Once we’ve calculated a value we can’t just use it and throw
+it away, like we could in forward mode. (There’s a technique called
+“checkpointing” to address this which prefers to rerun computations
+rather than store their results, decreasing space usage but increasing
+run time. <a href="https://arxiv.org/abs/1708.06799">Siskind and Pearlmutter</a>
+have a useful introduction to checkpointing.)</p>
+<h2 id="what-this-does-not-cover">What this does not cover</h2>
+<p>This is a description of how to differentiate what are called
+“straight-line” programs, that is it does not cover recursion or
+loops, or conditionals. Arrays are not explicitly treated here
+either, although they fit naturally into this framework. Dealing
+properly with those concepts requires extending the presentation given
+here into something which would require a significantly longer
+article.</p>
+<p>An in-depth analysis of the sense in which the resulting programs are
+the “derivative” of the input program will have to wait for another
+article.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Source-to-source forward and reverse mode automatic differentiation
+can be expressed as follows</p>
+<ol type="1">
+<li><p>Apply simple transformations to get your program into a form where
+it can be differentiated line-by-line.</p></li>
+<li><p>Apply the differentiation rule for each line separately.</p>
+<p>The forward mode differentiation rules are quite close to what you
+might already be familiar with. The reverse mode rules are
+probably not, which might go some way to explaining why the reverse
+mode derivative has a reputation for being very mysterious.</p></li>
+</ol>
+<h2 id="questions">Questions?</h2>
+<p>If you have any questions then please <a href="http://web.jaguarpaw.co.uk/~tom/contact">contact
+me</a>.</p>
+<h2 id="acknowledgements">Acknowledgements</h2>
+<p>I learned the “explicit duplication form” from <a href="https://tminka.github.io/">Tom
+Minka</a>’s talk <a href="https://tminka.github.io/papers/acmll2019/">From automatic
+differentiation to message
+passing</a>. Thanks to Mark
+Saroufim and Pashmina Cameron for helpful feedback.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

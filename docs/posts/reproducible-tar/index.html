@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>reproducible-tar</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>reproducible-tar</h3>
+  <h1 id="reproducible-tar">Reproducible <code>tar</code></h1>
+<p>If you want to build a tar file in a reproducible way how would you do it?
+For the sake of argument say you want to preserve</p>
+<ul>
+<li>directory structure,</li>
+<li>directory and file names, and</li>
+<li>whether the file is executable or not.</li>
+</ul>
+<p><a href="https://reproducible-builds.org/docs/archives/">reproducible-builds.org
+suggests</a></p>
+<pre><code># requires GNU Tar 1.28+
+$ tar --sort=name \
+      --mtime=&quot;@${SOURCE_DATE_EPOCH}&quot; \
+      --owner=0 --group=0 --numeric-owner \
+      -cf product.tar build</code></pre>
+<p>If you have GNU Tar &lt; 1.28 then you can replace the <code>--sort</code> flag with
+<code>find</code> and <code>sort</code>. You might also want to use <code>--mode="go-rwx,u-rw"</code> to
+preserve only the executable bit of the file permissions. Additionally, I
+see no reason to allow the <code>mtime</code> to vary at all. All in, I suggest</p>
+<pre><code>find &lt;files&gt; -print0 \
+| sort -z \
+| tar -cf &lt;output&gt;.tar \
+      --format=posix \
+      --numeric-owner \
+      --owner=0 \
+      --group=0 \
+      --mode=&quot;go-rwx,u-rw&quot; \
+      --mtime='1970-01-01' \
+      --no-recursion \
+      --null \
+      --files-from -</code></pre>
+<h2 id="pax">Pax</h2>
+<p>GNU Tar uses a GNU-specific file format. There’s a somewhat more capable
+format called “pax” and it’s defined in the POSIX.1-2001 specification.
+<a href="https://www.gnu.org/software/tar/manual/html_node/Formats.html#SEC134">The GNU Tar
+manual</a>
+is somewhat worrying because it says that</p>
+<blockquote>
+<p>[The posix] archive format will be the default format for future versions
+of GNU tar.</p>
+</blockquote>
+<p>If you don’t want to use a file format that’s losing its default status in
+the future you might be tempted to switch to pax now. Unfortunately, pax
+seems to have a lot of downsides for reproducible builds. <a href="https://en.wikipedia.org/wiki/Tar_(computing)">The Wikipedia
+entry</a> doesn’t describe the
+format and <a href="https://en.wikipedia.org/wiki/Pax_(Unix)#Format_support">the <code>pax</code> tool does not even support the pax
+format</a>! The best
+place to learn about the pax specification is possibly from the <a href="http://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html">Open Group
+Base Specification Issue
+7</a>.</p>
+<p>The single biggest downside is that pax can contain a lot of additional
+fields and it might be hard to persuade your archive creation program to
+create a file in a reproducible way. For example, if you try to create a
+pax archive containing one empty file, thus</p>
+<pre><code>touch example \
+ &amp;&amp; tar -cf - \
+        --format=posix \
+        --numeric-owner \
+        --owner=0 \
+        --group=0 \
+        --mode=&quot;go-rwx,u-rw&quot; \
+        --mtime='1970-01-01 00:00:00Z' \
+        example \
+  | hexdump -C</code></pre>
+<p>then you will see that pax creates <code>atime</code> and <code>ctime</code> fields in extended
+pax headers. I cannot find any way to tell GNU Tar to turn these off.</p>
+<p>In conclusion, reproducible builds are currently best done with GNU Tar
+format.</p>
+<h2 id="addendum">Addendum</h2>
+<p><em>ivfsurtm</em> contacted me to point out that it is possible to omit the
+<code>atime</code> and <code>ctime</code> fields with the following command</p>
+<pre><code>touch example \
+&amp;&amp; tar --format=posix \
+       --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime,delete=mtime \
+       --mtime='1970-01-01 00:00:00Z' \
+       --sort=name \
+       --numeric-owner \
+       --owner=0 \
+       --group=0 \
+       --mode=&quot;go-rwx,u-rw&quot; \
+       -cvf - \
+       example \
+  | hexdump -C</code></pre>
+<p>The options are documented in <a href="https://www.gnu.org/software/tar/manual/html_section/tar_70.html">the Gnu tar
+manual</a>.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

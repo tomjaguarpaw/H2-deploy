@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>modules-for-lennart</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>modules-for-lennart</h3>
+  <h1 id="faking-modules-in-haskell-via-implicit-parameters">Faking modules in Haskell via implicit parameters</h1>
+<p>Many years ago <a href="http://augustss.blogspot.se/2008/12/somewhat-failed-adventure-in-haskell.html">Lennart Augustsson wrote about the difficulty of
+faking an ML-module-like structure in
+Haskell</a>.
+The aim is to define an abstract “signature” of types and operations,
+allow users to write derived functionality based on this signature,
+and then later instantiate the derived functionality by providing an
+instantiation for the signature.</p>
+<p>Let’s take an example where the module signature declares a
+string-like and a double-like type, and declares operations to
+concatenate the strings and to “show” the doubles by converting them
+to strings. Lennart’s overall idea is to write something like the
+following.</p>
+<pre><code>-- Our module &quot;signature&quot; represented by a package of operations
+-- parametrised on types
+data DOps xstring xdouble = DOps {
+   (+++) :: xstring -&gt; xstring -&gt; xstring,
+   xshow :: xdouble -&gt; xstring
+   }
+
+-- Class for passing the package of operations to our derived
+-- functions
+class (IsString xstring, Num xdouble) =&gt; Ops xstring xdouble where
+   ops :: DOps xstring xdouble
+
+-- Derived datatypes parametrised on the types introduced by our
+-- module
+data Person xstring xdouble = Person {
+   firstName :: xstring,
+   lastName  :: xstring,
+   height    :: xdouble
+   }
+
+-- Derived functions use the `Ops` class to receive the package of
+-- operations
+display :: (Ops xstring xdouble) =&gt;
+           Person xstring xdouble -&gt; xstring
+display p = let DOps{..} = ops
+            in  firstName p +++ &quot; &quot; +++ lastName p
+                            +++ &quot; &quot; +++ xshow (height p + 1)
+
+-- Instantiate the signature by providing concrete types and
+-- operations
+instance Ops String Double where
+   ops = DOps (++) show</code></pre>
+<p>This is actually a partially decent solution. The drawback that
+Lennart points out is that having to mention the type parameters
+everywhere is an impediment to modularity. In particular, if we need
+to add another datatype to our module every single call site needs to
+be updated to reflect that change.</p>
+<p>Furthermore, because <code>Ops</code> is only parametrised on <code>xstring</code> and
+<code>xdouble</code> we cannot provide two different packages of functions with
+the same concrete types.</p>
+<p>The obvious trick to try to get around these two problems is
+identifying the typeclass using a single parameter, like the following</p>
+<pre><code>class (IsString (XString t), Num (XDouble t)) =&gt; Ops t where
+   type XString t :: *
+   type XDouble t :: *
+   (+++) :: XString t -&gt; XString t -&gt; XString t
+   xshow :: XDouble t -&gt; XString t
+
+data Person t = Person {
+   firstName :: XString t,
+   lastName  :: XString t,
+   height    :: XDouble t
+   }
+
+data Basic
+
+instance Ops Basic where
+   type XString Basic = String
+   type XDouble Basic = Double
+   (+++) = (++)
+   xshow = show
+
+display :: Ops t =&gt; Person t -&gt; XString t
+display p = let DOps{..} = ops
+            ...</code></pre>
+<p>However, this has instance resolution problems. There is not
+necessarily a unique instance to use to unpack the operations. There
+may be many <code>t0</code>s that satisfy <code>XString t0 = XString t</code> (as well as
+the other necessary type equalities inside the function) and in those
+cases <code>Ops t0</code> would do just as well as the <code>Ops t</code> instance.</p>
+<h2 id="implicit-parameters-to-the-rescue">Implicit parameters to the rescue</h2>
+<p>I don’t know if since Lennart wrote his post there have been type
+system improvements that would allow him to achieve his aim with small
+adjustments to his approach based on typeclasses and type families.
+<a href="http://augustss.blogspot.se/2008/12/abstraction-continues-i-got-several.html">In a subsequent
+post</a>
+Lennart mentions that Wehr and Chakravarty introduced a concept of
+“abstract associated types” that might help with the problem. That
+functionality doesn’t exist in any Haskell compiler though, as far as
+I know.</p>
+<p>Still, there is a related approach to this problem based on another
+Haskell extension. Perhaps surprisingly, replacing the typeclass
+constraint with an implicit parameter seems to do the trick! Here’s
+the proof.</p>
+<pre><code>{-# LANGUAGE TypeFamilies, ImplicitParams, OverloadedStrings #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+
+import Data.String (IsString)
+
+type family XString t
+type family XDouble t
+
+data DOps t = DOps {
+  (+++!) :: XString t -&gt; XString t -&gt; XString t,
+  xshowOp  :: XDouble t -&gt; XString t
+}
+
+(+++) :: (?ops :: DOps t) =&gt; XString t -&gt; XString t -&gt; XString t
+(+++) = (+++!) ?ops
+
+xshow :: (?ops :: DOps t) =&gt; XDouble t -&gt; XString t
+xshow = xshowOp ?ops
+
+data Person t = Person {
+  firstName :: XString t,
+  lastName  :: XString t,
+  height    :: XDouble t
+}
+
+-- We don't need to provide a type signature but the inferred one
+-- is a bit messy
+--
+-- displayI
+--  :: (Num (XDouble t1), IsString (XString t1), ?ops::DOps t,
+--      XString t ~ XString t1, XDouble t ~ XDouble t1) =&gt;
+--     Person t1 -&gt; XString t1
+display p = firstName p +++ &quot; &quot; +++ lastName p
+                        +++ &quot; &quot; +++ xshow (height p + 1)
+
+-- We can provide a nicer type signature
+display' :: (Num (XDouble t), IsString (XString t), ?ops::DOps t)
+         =&gt; Person t -&gt; XString t
+display' = display
+
+-- We need NoMonomorphismRestriction to be able to do this without
+-- a type sig
+display'' = display'</code></pre>
+<p>The key observation is that there is no ambiguity problem because we
+are passing (implicitly) a single specific package of operations to
+<code>display</code> which is used by each “module” function call in its body.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>This approach uses the maligned implicit parameters. Despite that is
+this a decent approach to getting some of the benefits of modules in
+Haskell?</p>
+<p>This is certainly not anything close to a module system, but does it
+shed some light on the issue?</p>
+<h2 id="a-simple-disambiguation">A simple disambiguation</h2>
+<p>I’ve also discovered that a simple disambiguation can make the
+single-parameter version work.</p>
+<pre><code>{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+
+import Data.String
+
+type family XString k
+type family XDouble k
+
+-- Our module &quot;signature&quot; represented by a package of operations
+-- parametrised on types
+data DOps k = DOps {
+   (+++) :: XString k -&gt; XString k -&gt; XString k,
+   xshow :: XDouble k -&gt; XString k
+   }
+
+-- Class for passing the package of operations to our derived
+-- functions
+class (IsString (XString k), Num (XDouble k)) =&gt; Ops k where
+   ops :: DOps k
+
+-- Derived datatypes parametrised on the types introduced by our
+-- module
+data Person k = Person {
+   firstName :: XString k,
+   lastName  :: XString k,
+   height    :: XDouble k
+   }
+
+-- Use typeOf to disambiguate the typeclass instance
+typeOf :: f k -&gt; g k -&gt; f k
+typeOf f _ = f
+
+-- Derived functions use the `Ops` class to receive the package of
+-- operations
+--
+-- The type is inferred, and is breathtakingly simple
+--
+--     display :: Ops k =&gt; Person k -&gt; XString k
+--
+display p = let DOps{..} = ops `typeOf` p
+            in  firstName p +++ &quot; &quot; +++ lastName p
+                            +++ &quot; &quot; +++ xshow (height p + 1)
+
+-- Instantiate the signature by providing concrete types and
+-- operations
+data Basic
+
+instance Ops Basic where
+   ops = DOps (++) show
+
+type instance XString Basic = String</code></pre>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

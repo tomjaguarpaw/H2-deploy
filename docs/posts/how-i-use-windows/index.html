@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-use-windows</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-use-windows</h3>
+  <h1 id="how-i-use-windows">How I use Windows</h1>
+<h2 id="keyboard">Keyboard</h2>
+<h3 id="dvorak-layout">Dvorak layout</h3>
+<ul>
+<li><p>“Ask me anything”</p></li>
+<li><p>Type “Control Panel”</p></li>
+<li><p>Load the Control Panel</p></li>
+<li><p>Change Input Methods</p></li>
+<li><p>Add a language</p></li>
+<li><p>English (United Kingdom)</p></li>
+<li><p>Options</p></li>
+<li><p>Add an input method</p></li>
+<li><p>United States-Dvorak</p></li>
+<li><p>Advanced Settings</p></li>
+<li><p>Override for default input method</p></li>
+<li><p>United States-Dvorak</p></li>
+</ul>
+<h3 id="disable-control-shift-changing-keyboard-layouts">Disable Control-Shift changing keyboard layouts</h3>
+<ul>
+<li>Settings</li>
+<li>Language</li>
+<li>Keyboard</li>
+<li>Input Language Hot Keys</li>
+<li>Change key sequence</li>
+<li>Not assigned</li>
+</ul>
+<h2 id="change-caps-lock-key-to-deliver-enter">Change Caps Lock key to deliver Enter</h2>
+<p>Run <code>caps-enter-local-machine.reg</code> (<code>caps-enter.reg</code> doesn’t seem to
+work). May have to restart.</p>
+<p><code>caps-enter-local-machine.reg</code></p>
+<pre><code>[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Keyboard Layout]
+&quot;Scancode Map&quot;=hex:00,00,00,00,00,00,00,00,02,00,00,00,1c,00,3a,00,00,00,00,00</code></pre>
+<p><code>caps-enter.reg</code>:</p>
+<pre><code>REGEDIT4
+[HKEY_CURRENT_USER\Keyboard Layout]
+&quot;Scancode Map&quot;=hex:00,00,00,00,00,00,00,00,02,00,00,00,1d,00,3a,00,00,00,00,00</code></pre>
+<h2 id="mouse">Mouse</h2>
+<h3 id="invert-mouse-wheel">Invert mouse wheel</h3>
+<ul>
+<li><p><code>HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\HID</code></p></li>
+<li><p>Expand the key that matches the VID value for your mouse and the one
+under it. (You can discover the in Device Manager)</p></li>
+<li><p>Set <code>Device Parameters\FlipFlopWheel</code> to 1</p></li>
+<li><p>(I needed to restart. Logging out and back in was not enough.)</p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>polymorphism-is-not-set-theoretic</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>polymorphism-is-not-set-theoretic</h3>
+  <h1 id="polymorphism-is-not-set-theoretic">Polymorphism is not set theoretic</h1>
+<p>In <a href="https://hal.inria.fr/inria-00076261/document">Polymorphism is not
+set-theoretic</a>, John Reynolds
+demonstrates that polymorphic lambda calculus has no set theoretic models,
+or, more precisely, no set theoretic models which preserve the binary
+product and function space and also satisfy some weak condition on universal
+quantification. The proof was elucidated in <a href="http://homepages.inf.ed.ac.uk/gdp/publications/Functors_Expressible_Polymorphic.pdf">On Functors Expressible in the
+Polymorphic Typed Lambda
+Calculus</a>
+by John Reynolds and Gordon Plotkin. The exposition in the latter is much
+clearer. I’ll reproduce a rough sketch of the proof here.</p>
+<p>The crux of the argument is to show that if a set-theoretic model existed
+then it would contain all initial algebras of “definable functors”, i.e. 
+all initial algebras of those functors on Set which are definable within the
+polymorphic ambda calculus. Then a particular initial algebra can be
+constructed whose existence is a contradiction.</p>
+<p>Roughly, the proof proceeds by defining <code>P = Fix T = forall k.  (T k -&gt; k) -&gt; k</code> for any lambda calculus functor <code>T</code>. This comes with a special map <code>h :: T P -&gt; P</code>. (In some sense this is an initial algebra in the lambda
+calculus but without reference to a denotational semantics perhaps that is a
+meaningless concept.) In any case, assuming we have a set theoretic model,
+the denotations of <code>T</code> and <code>h</code> give a weak initial algebra on Set. Now in
+Set all weak initial algebras are in fact initial algebras, because certain
+equalizers exist. Thus <code>T</code> and <code>h</code> give moreover an initial algebra and
+hence, in denotation, <code>T P</code> is isomorphic to <code>P</code>.</p>
+<p>To arrive at a contradiction we simply choose <code>T a = ((a -&gt; Bool) -&gt; Bool)</code>.
+Then the denotation of <code>T P</code> cannot be isomorphic to the denotation of <code>P</code>
+since it has larger cardinality.</p>
+<h2 id="further-questions">Further questions</h2>
+<ul>
+<li><p>What on earth <em>is</em> <code>Fix ((_ -&gt; Bool) -&gt; Bool)</code>?</p>
+<ul>
+<li><a href="http://math.andrej.com/2009/10/12/constructive-gem-double-exponentials/">Andrej
+Bauer has an interesting post</a>
+identifing it with <code>Nat</code> but it’s not yet clear to me whether the
+identification depends on adding specific axioms to constructive set
+theory.</li>
+</ul></li>
+<li><p>Is it morally the same thing in all models?</p></li>
+<li><p>If it is different in different models what are the philosophical
+implications?</p></li>
+<li><p>Is it useful for programming?</p></li>
+<li><p>If not, is it possible to construct a polymorphic lambda calculus that has
+enough polymorphism for programming but not so much polymorphism that it
+permits the existence of <code>Fix T</code>?</p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

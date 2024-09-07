@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>nested-strict-data</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>nested-strict-data</h3>
+  <h1 id="nested-strict-data-in-haskell">Nested strict data in Haskell</h1>
+<h2 id="introduction">Introduction</h2>
+<p>Every so often <a href="https://www.reddit.com/r/haskell/comments/pvosen/how_can_haskell_programmers_tolerate_space_leaks/.compact">someone bemoans the space
+leaks</a>
+that can arise due to Haskell’s laziness. A frequently touted remedy
+is to make data stricter by turning on <code>BangPatterns</code>, by defining
+data structures with explicitly strict fields, or by creating
+implicitly strict fields with the <code>StrictData</code> extension. Each of
+these approaches leaves something to be desired. In this article I’ll
+explain how the approaches work, what they leave to be desired, and a
+suggest a reasonably general alternative. The alternative seems
+lightweight enough for Haskell programmers to adopt when they define
+strict data structures.</p>
+<h2 id="the-problem">The problem</h2>
+<p>Consider the function <code>pairFoldBad</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">pairFoldBad ::</span> (<span class="dt">Integer</span>, <span class="dt">Integer</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>pairFoldBad <span class="ot">=</span> foldl' f (<span class="dv">0</span>, <span class="dv">0</span>) [<span class="dv">1</span><span class="op">..</span>million]</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f (count, theSum) x <span class="ot">=</span> (count <span class="op">+</span> <span class="dv">1</span>, theSum <span class="op">+</span> x)</span></code></pre></div>
+<p>Strict <code>foldl'</code> was the correct thing to use here, rather than lazy
+<code>foldl</code>, so why is the function bad? Because each pair component
+(<code>count</code> and <code>theSum</code>) is not necessarily an evaluated <code>Integer</code>,
+merely a <em>thunk which can be evaluated to an <code>Integer</code></em>. Each time
+<code>f</code> processes a list element <code>x</code> the thunk <code>count</code> has a <code>+ 1</code>
+operation added on top of it and the thunk <code>theSum</code> has a <code>+ x</code>
+operation added on top of it. After <code>foldl'</code> has finished, the return
+value of <code>pairFoldBad</code> will be a pair of two thunks, each one million
+elements deep! In other words, it has a space leak.</p>
+<h2 id="solution-with-bang-patterns">Solution with bang patterns</h2>
+<p>A typical solution is to use bang patterns to make sure <code>count</code> and
+<code>theSum</code> are evaluated on the way in to <code>f</code>, as in <code>pairFoldBangs</code>.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">pairFoldBangs ::</span> (<span class="dt">Integer</span>, <span class="dt">Integer</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>pairFoldBangs <span class="ot">=</span> foldl' f (<span class="dv">0</span>, <span class="dv">0</span>) [<span class="dv">1</span><span class="op">..</span>million]</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f (<span class="op">!</span>count, <span class="op">!</span>theSum) x <span class="ot">=</span> (count <span class="op">+</span> <span class="dv">1</span>, theSum <span class="op">+</span> x)</span></code></pre></div>
+<p>Each time around the loop <code>f</code> returns two thunks of depth 1. The
+subsequent call to <code>f</code> takes them as arguments. The bang patterns
+(i.e. the <code>!</code> symbols) evaluate each of the thunks to evaluated
+<code>Integer</code>s. The overall return value of the <code>foldl'</code> is a pair of
+depth 1 thunks.</p>
+<p>This does the job. It’s a little bit weird that <code>f</code> produces thunks
+of depth 1 because that means the <code>foldl'</code> produces thunks of depth 1
+and we really want evaluated <code>Integer</code>s. They are evaluated
+immediately to <code>Integers</code> as soon as we use them and there’s no space
+leak but it feels like we’re doing something not exactly right.</p>
+<p>An alternative that produces a pair of evaluated <code>Integer</code>s is
+<code>pairFoldBangsAwkward</code>. It ensures that the pair components are
+evaluated on the way <em>out</em> (i.e. when the pair is created) not on the way
+<em>in</em> (i.e. when the pair is inspected).</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">pairFoldBangsAwkward ::</span> (<span class="dt">Integer</span>, <span class="dt">Integer</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>pairFoldBangsAwkward <span class="ot">=</span> foldl' f (<span class="dv">0</span>, <span class="dv">0</span>) [<span class="dv">1</span><span class="op">..</span>million]</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f (count, theSum) x <span class="ot">=</span> <span class="kw">let</span> <span class="op">!</span>count'  <span class="ot">=</span> count <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>                                  <span class="op">!</span>theSum' <span class="ot">=</span> theSum <span class="op">+</span> x</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>                              <span class="kw">in</span> (count', theSum')</span></code></pre></div>
+<p>This form is rather unwieldy though. No less unwieldy is use of the
+strict function application operator <code>$!</code>:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="op">...</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f (count, theSum) x <span class="ot">=</span> ((,) <span class="op">$!</span> count <span class="op">+</span> <span class="dv">1</span>) <span class="op">$!</span> theSum <span class="op">+</span> x</span></code></pre></div>
+<p>The major drawback of using <code>BangPatterns</code> to solve this problem is
+that we have to remember to do so! The type system does not guide us
+to write our program correctly. The program is type correct even if
+we omit all the bang patterns.</p>
+<h2 id="solution-with-strict-data-type">Solution with strict data type</h2>
+<p>To get some help from the type system we can switch out Haskell’s
+standard pair type for one we define ourselves, with strict fields:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">StrictPair</span> a b <span class="ot">=</span> <span class="dt">StrictPair</span> <span class="op">!</span>a <span class="op">!</span>b</span></code></pre></div>
+<p>Then when we write <code>pairFoldStrictPair</code> as below there is no space
+leak.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ot">pairFoldStrictPair ::</span> <span class="dt">StrictPair</span> <span class="dt">Integer</span> <span class="dt">Integer</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>pairFoldStrictPair <span class="ot">=</span> foldl' f (<span class="dt">StrictPair</span> <span class="dv">0</span> <span class="dv">0</span>) [<span class="dv">1</span><span class="op">..</span>million]</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f (<span class="dt">StrictPair</span> count theSum) x <span class="ot">=</span> <span class="dt">StrictPair</span> (count <span class="op">+</span> <span class="dv">1</span>) (theSum <span class="op">+</span> x)</span></code></pre></div>
+<p>Why is there no space leak? This code looks exactly the same as the
+original problematic code <code>pairFoldBad</code>, except we are using the
+<code>StrictPair</code> type we defined ourselves instead of Haskell’s built-in
+pair. Why is it different? It is different because whenever a value
+is constructed using a constructor with a strict field (i.e. a field
+with a <code>!</code> in front of it in the <code>data</code> declaration, such as the
+fields of <code>StrictPair</code> above) <a href="https://www.haskell.org/onlinereport/haskell2010/haskellch4.html#x10-710004.2.1">the compiler inserts code to evaluate
+that
+field</a>.
+In the case of <code>pairFoldStrictPair</code> the code that is generated is the
+same as if we had written the desugared form
+<code>pairFoldStrictPair_Desugared</code> below.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ot">pairFoldStrictPair_Desugared ::</span> <span class="dt">StrictPair</span> <span class="dt">Integer</span> <span class="dt">Integer</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>pairFoldStrictPair_Desugared <span class="ot">=</span> foldl' f (<span class="dt">StrictPair</span> <span class="dv">0</span> <span class="dv">0</span>) [<span class="dv">1</span><span class="op">..</span>million]</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f (<span class="dt">StrictPair</span> count theSum) x <span class="ot">=</span> <span class="kw">let</span> <span class="op">!</span>count'  <span class="ot">=</span> count <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>                                            <span class="op">!</span>theSum' <span class="ot">=</span> theSum <span class="op">+</span> x</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>                                        <span class="kw">in</span> <span class="dt">StrictPair</span> count' theSum'</span></code></pre></div>
+<p>This is helpful: we now cannot avoid being strict. If we use the
+<code>StrictPair</code> type then we can’t forget to evaluate the components.</p>
+<p>The major drawback of defining strict data types to replace the more
+familiar lazy ones is that they really are completely different types
+with completely different associated libraries (if any). We can’t use
+the standard <code>fst</code> and <code>snd</code> functions on <code>StrictPair</code>, for example
+(although <a href="https://hackage.haskell.org/package/strict-0.4.0.1/docs/Data-Strict-Tuple.html#v:fst">libraries do
+exist</a>
+that provide this functionality). It is necessary to explicitly
+convert back and forth between <code>(,)</code> and <code>StrictPair</code>.</p>
+<h2 id="a-problem-with-strict-nested-fields">A problem with strict nested fields</h2>
+<p>A further problem with strict data fields is that users often think
+that they provide more benefit than the reality. For example, from
+the above we know not to write <code>maybeFoldBad</code>:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ot">maybeFoldBad ::</span> (<span class="dt">Integer</span>, <span class="dt">Maybe</span> <span class="dt">Integer</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>maybeFoldBad <span class="ot">=</span> foldl' f (<span class="dv">0</span>, <span class="dt">Nothing</span>) [<span class="dv">1</span><span class="op">..</span>million]</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f (i, <span class="dt">Nothing</span>) x <span class="ot">=</span> (i <span class="op">+</span> <span class="dv">1</span>, <span class="dt">Just</span> x)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>        f (i, <span class="dt">Just</span> j)  x <span class="ot">=</span> (i <span class="op">+</span> <span class="dv">2</span>, <span class="dt">Just</span> (j <span class="op">+</span> x))</span></code></pre></div>
+<p>Perhaps we should try writing it with a <code>StrictPair</code> instead:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ot">maybeFoldStillBad ::</span> <span class="dt">StrictPair</span> <span class="dt">Integer</span> (<span class="dt">Maybe</span> <span class="dt">Integer</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>maybeFoldStillBad <span class="ot">=</span> foldl' f (<span class="dt">StrictPair</span> <span class="dv">0</span> <span class="dt">Nothing</span>) [<span class="dv">1</span><span class="op">..</span>million]</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f (<span class="dt">StrictPair</span> i <span class="dt">Nothing</span>)  x <span class="ot">=</span> <span class="dt">StrictPair</span> (i <span class="op">+</span> <span class="dv">1</span>) (<span class="dt">Just</span> x)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>        f (<span class="dt">StrictPair</span> i (<span class="dt">Just</span> j)) x <span class="ot">=</span> <span class="dt">StrictPair</span> (i <span class="op">+</span> <span class="dv">2</span>) (<span class="dt">Just</span> (j <span class="op">+</span> x))</span></code></pre></div>
+<p>This is still no good! The problem is that although the <code>Maybe Integer</code> in the second component of the <code>StrictPair</code> is strictly
+evaluated that only means that evaluating the constructor of the
+<code>StrictPair</code> evaluates the <em>constructor</em> of the <code>Maybe</code>. The payload
+of the <code>Just</code> is not evaluated so we build up a layer of thunk each
+time around the loop.</p>
+<p>It is common in the Haskell world to see strict data field definitions
+like</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">MyData</span> <span class="ot">=</span> <span class="dt">MyData</span> {<span class="ot"> field1 ::</span> <span class="op">!</span><span class="dt">String</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>                     ,<span class="ot"> field2 ::</span> <span class="op">!</span>[<span class="dt">Double</span>]</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>                     ,<span class="ot"> field3 ::</span> <span class="op">!</span>(<span class="dt">Maybe</span> <span class="dt">Bool</span>)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>                     }</span></code></pre></div>
+<p>Those strict fields probably don’t do what the author hoped! They are
+almost entirely pointless. The bang annotations on the <code>String</code> and
+list mean that those fields are only evaluated one cons cell deep.
+The tail of the data structure is left unevaluated, as is the first
+element. Similarly the <code>Maybe Bool</code> is only evaluated to a <code>Nothing</code>
+or <code>Just</code>. If it’s the latter then its payload is unevaluated.</p>
+<p>Having noted this caveat we can find a way of addressing the problem
+in our case. <code>maybeFoldBangs</code> is just too painful to write by hand,
+and besides, we might leave out a bang accidentally. Instead we can
+repeat the strict data type creation process and define <code>StrictMaybe</code>
+(indeed <a href="https://hackage.haskell.org/package/strict-0.4.0.1/docs/Data-Strict-Maybe.html#t:Maybe">this has already been done for
+us</a>)
+and write <code>maybeFoldStrictMaybe</code>, a function without space leaks.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ot">maybeFoldBangs ::</span> (<span class="dt">Integer</span>, <span class="dt">Maybe</span> <span class="dt">Integer</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>maybeFoldBangs <span class="ot">=</span> foldl' f (<span class="dv">0</span>, <span class="dt">Nothing</span>) [<span class="dv">1</span><span class="op">..</span>million]</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f (<span class="op">!</span>i, <span class="dt">Nothing</span>) x <span class="ot">=</span> (i <span class="op">+</span> <span class="dv">1</span>, <span class="dt">Just</span> x)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        f (<span class="op">!</span>i, <span class="dt">Just</span> <span class="op">!</span>j) x <span class="ot">=</span> (i <span class="op">+</span> <span class="dv">2</span>, <span class="dt">Just</span> (j <span class="op">+</span> x))</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">StrictMaybe</span> a <span class="ot">=</span> <span class="dt">StrictNothing</span> <span class="op">|</span> <span class="dt">StrictJust</span> <span class="op">!</span>a</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="ot">maybeFoldStrictMaybe ::</span> <span class="dt">StrictPair</span> <span class="dt">Integer</span> (<span class="dt">StrictMaybe</span> <span class="dt">Integer</span>)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>maybeFoldStrictMaybe <span class="ot">=</span> foldl' f (<span class="dt">StrictPair</span> <span class="dv">0</span> <span class="dt">StrictNothing</span>) [<span class="dv">1</span><span class="op">..</span>million]</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f (<span class="dt">StrictPair</span> i <span class="dt">StrictNothing</span>)  x <span class="ot">=</span> <span class="dt">StrictPair</span> (i <span class="op">+</span> <span class="dv">1</span>) (<span class="dt">StrictJust</span> x)</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>        f (<span class="dt">StrictPair</span> i (<span class="dt">StrictJust</span> j)) x <span class="ot">=</span> <span class="dt">StrictPair</span> (i <span class="op">+</span> <span class="dv">2</span>) (<span class="dt">StrictJust</span> (j <span class="op">+</span> x))</span></code></pre></div>
+<p>This works fine, but we’re going down a path where we will have to
+deal with two universes of data types: one lazy universe and one
+strict universe.</p>
+<h2 id="unifying-strict-and-lazy-data-types">Unifying strict and lazy data types</h2>
+<p>Can we do better than two distinct universes? Yes, I think we can!
+Let’s define a <code>newtype</code> <code>Strict</code> with which we will represent the
+invariant: “when it is evaluated all its immediate children are evaluated
+too”. By way of convenience we can define a typeclass <code>Strictly</code> to
+allow us to create <code>Strict</code> values and a pattern synonym <code>Strict</code> to
+allow us to extract values from the <code>newtype</code> (we should be careful
+with the actual constructor because it should be used only in ways
+which preserve the invariant).</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Any value of `Strict` should satisfy the invariant that when it is</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- evaluated then all its immediate children are evaluated too.</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co">--</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- The constructor is &quot;unsafe&quot; in the sense that if you don't ensure</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- the invariant holds when you use it then you will violate the</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- expectations of the consumer.</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">Strict</span> a <span class="ot">=</span> <span class="dt">MkStrictUnsafe</span> a</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="kw">pattern</span> <span class="dt">Strict</span> a <span class="ot">&lt;-</span> <span class="dt">MkStrictUnsafe</span> a</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Strictly</span> a <span class="kw">where</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="ot">  strict ::</span> a <span class="ot">-&gt;</span> <span class="dt">Strict</span> a</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Strictly</span> (a, b) <span class="kw">where</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- This is a safe use of MkStrictUnsafe because it satisfies the</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- invariant!  We know a and b are evaluated at the point we</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- construct the pair.</span></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>  strict (<span class="op">!</span>a, <span class="op">!</span>b) <span class="ot">=</span> <span class="dt">MkStrictUnsafe</span> (a, b)</span></code></pre></div>
+<p>Now let’s see an example of using our “<code>Strict</code> pair” to write a pair
+fold. In <code>pairFoldStrict</code> the <code>Strict</code> type guides us to write
+correct, space leak free, code, which was the benefit of <code>StrictPair</code>.
+On the other hand we don’t have the downside of <code>StrictPair</code>: there is
+no new data type. We can interoperate freely with the existing
+ecosystem!</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ot">pairFoldStrict ::</span> <span class="dt">Strict</span> (<span class="dt">Integer</span>, <span class="dt">Integer</span>)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>pairFoldStrict <span class="ot">=</span> foldl' f (strict (<span class="dv">0</span>, <span class="dv">0</span>)) [<span class="dv">1</span><span class="op">..</span>million]</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f (<span class="dt">Strict</span> (count, theSum)) x <span class="ot">=</span> strict (count <span class="op">+</span> <span class="dv">1</span>, theSum <span class="op">+</span> x)</span></code></pre></div>
+<p>We can also freely compose <code>Strict</code> types. After defining a standard
+<code>Strictly</code> instance for <code>Maybe</code> the fold with <code>Maybe</code> can be written,
+space leak free, as <code>maybeFoldStrict</code>.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Strictly</span> (<span class="dt">Maybe</span> a) <span class="kw">where</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  strict <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- This is a safe use of MkStrictUnsafe because it satisfies</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- the invariant.  Nothing has no children.  Just has one child</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- which we know is evaluated when we construct the Strict Maybe.</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="dt">MkStrictUnsafe</span> <span class="dt">Nothing</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Just</span> <span class="op">!</span>x <span class="ot">-&gt;</span> <span class="dt">MkStrictUnsafe</span> (<span class="dt">Just</span> x)</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="ot">maybeFoldStrict ::</span> <span class="dt">Strict</span> (<span class="dt">Integer</span>, <span class="dt">Strict</span> (<span class="dt">Maybe</span> <span class="dt">Integer</span>))</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>maybeFoldStrict <span class="ot">=</span> foldl' f (strict (<span class="dv">0</span>, strict <span class="dt">Nothing</span>)) [<span class="dv">1</span><span class="op">..</span>million]</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f (<span class="dt">Strict</span> (i, <span class="dt">Strict</span> <span class="dt">Nothing</span>))  x <span class="ot">=</span> strict (i <span class="op">+</span> <span class="dv">1</span>, strict (<span class="dt">Just</span> x))</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>        f (<span class="dt">Strict</span> (i, <span class="dt">Strict</span> (<span class="dt">Just</span> j))) x <span class="ot">=</span> strict (i <span class="op">+</span> <span class="dv">2</span>, strict (<span class="dt">Just</span> (j <span class="op">+</span> x)))</span></code></pre></div>
+<h2 id="what-could-strict-buy-us-in-practice">What could <code>Strict</code> buy us in practice?</h2>
+<p><code>Strict</code> could buy us the ability to conveniently define strict nested
+data types without requiring a parallel universe of strict types. We
+now know that writing</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">MyData</span> <span class="ot">=</span> <span class="dt">MyData</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    {<span class="ot"> field1 ::</span> <span class="op">!</span>(<span class="dt">Either</span> <span class="dt">Int</span> <span class="dt">Bool</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    ,<span class="ot"> field2 ::</span> <span class="op">!</span>(<span class="dt">Maybe</span> <span class="dt">Double</span>, <span class="dt">Data.Map.Strict.Map</span> <span class="dt">Int</span> <span class="dt">Float</span>)</span></code></pre></div>
+<p>doesn’t make a data type as strict as we probably hoped. Instead of
+the parallel universe version</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">MyData</span> <span class="ot">=</span> <span class="dt">MyData</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    {<span class="ot"> field1 ::</span> <span class="op">!</span>(<span class="dt">StrictEither</span> <span class="dt">Int</span> <span class="dt">Bool</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    ,<span class="ot"> field2 ::</span> <span class="op">!</span>(<span class="dt">StrictPair</span> (<span class="dt">StrictMaybe</span> <span class="dt">Double</span>)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>                             (<span class="dt">Data.Map.Strict.Map</span> <span class="dt">Int</span> <span class="dt">Float</span>))</span></code></pre></div>
+<p>we can use <code>Strict</code> with the existing universe of data types</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">MyData</span> <span class="ot">=</span> <span class="dt">MyData</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    {<span class="ot"> field1 ::</span> <span class="op">!</span>(<span class="dt">Strict</span> (<span class="dt">Either</span> <span class="dt">Int</span> <span class="dt">Bool</span>))</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    ,<span class="ot"> field2 ::</span> <span class="op">!</span>(<span class="dt">Strict</span> (<span class="dt">Strict</span> (<span class="dt">Maybe</span> <span class="dt">Double</span>),</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>                          <span class="dt">Data.Map.Strict.Map</span> <span class="dt">Int</span> <span class="dt">Float</span>))</span></code></pre></div>
+<h3 id="performance-impact">Performance impact</h3>
+<h4 id="efficient-construction">Efficient construction</h4>
+<p>If <code>strict</code> is inlined then the compiler ought to be able to determine
+whether constructor arguments have already been evaluated and thus
+avoid redundantly evaluating them again.</p>
+<h4 id="efficient-destruction">Efficient destruction</h4>
+<p><em>New 2020-11-04</em></p>
+<p>Although inlining <code>strict</code> allows us to avoid redundant evaluations
+when constructing I don’t think the simple form above avoids redundant
+evaluation when destructing. For example, if we write</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">case</span> strictMaybe <span class="kw">of</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Strict</span> (<span class="dt">Just</span> x) <span class="ot">-&gt;</span> <span class="kw">let</span> <span class="op">!</span>x' <span class="ot">=</span> x <span class="kw">in</span> f x'</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span></span></code></pre></div>
+<p>then we would like the compiler to be able to elide the evaluation of
+<code>x</code>, as below, because, given our implementation, <code>x</code> has already been
+evaluated.</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">case</span> strictMaybe <span class="kw">of</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Strict</span> (<span class="dt">Just</span> x) <span class="ot">-&gt;</span> f x</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span></span></code></pre></div>
+<p>To achieve efficient destruction we need to use a more complicated,
+and somewhat hairy, setup. The class becomes</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Strictly</span> a <span class="kw">where</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">data</span> <span class="dt">Strict</span> a</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="ot">  strict ::</span> a <span class="ot">-&gt;</span> <span class="dt">Strict</span> a</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="ot">  matchStrict ::</span> <span class="dt">Strict</span> a <span class="ot">-&gt;</span> a</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="ot">  unstrict ::</span> <span class="dt">Strict</span> a <span class="ot">-&gt;</span> a</span></code></pre></div>
+<p>and the <code>Maybe a</code> instance becomes</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Strictly</span> (<span class="dt">Maybe</span> a) <span class="kw">where</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">newtype</span> <span class="dt">Strict</span> (<span class="dt">Maybe</span> a) <span class="ot">=</span> <span class="dt">StrictMaybe</span> (<span class="dt">Data.Strict.Maybe</span> a)</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  strict x <span class="ot">=</span> unsafeCoerce <span class="op">$</span> <span class="kw">case</span> x <span class="kw">of</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> x</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Just</span> <span class="op">!</span>_ <span class="ot">-&gt;</span> x</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>  matchStrict (<span class="dt">StrictMaybe</span> x) <span class="ot">=</span> <span class="kw">case</span> x <span class="kw">of</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Data.Strict.Just</span> j  <span class="ot">-&gt;</span> <span class="dt">Just</span> j</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Data.Strict.Nothing</span> <span class="ot">-&gt;</span> <span class="dt">Nothing</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>  unstrict <span class="ot">=</span> unsafeCoerce</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="kw">pattern</span> <span class="dt">Strict</span><span class="ot"> ::</span> <span class="dt">Strictly</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Strict</span> a</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="kw">pattern</span> <span class="dt">Strict</span> x <span class="ot">&lt;-</span> (matchStrict<span class="ot">-&gt;</span>x)</span></code></pre></div>
+<p>Note that <code>Strict (Maybe a)</code> is now a separate data type to <code>Maybe a</code>,
+but representationally equivalent, so we can <code>unsafeCoerce</code> between
+them at zero run time cost. How do we use this class and its methods?</p>
+<ul>
+<li><p>To create a <code>Strict (Maybe a)</code> we use <code>strict :: Maybe a -&gt; Strict   (Maybe a)</code>. The contents (if any) of the <code>Maybe a</code> are evaluated
+but nothing new is allocated. If <code>strict</code> is inlined and the
+compiler knows that the contents are <em>already</em> evaluated, then the
+<code>strict</code> call should compile to a no-op!</p></li>
+<li><p>To use a <code>Strict (Maybe a)</code> we do one of two things:</p>
+<ul>
+<li><p>If we simply want to unwrap the <code>Maybe a</code> and pass it to another
+function then we can use <code>unstrict</code>, which is a no-op!</p></li>
+<li><p>If we want to match on the contents of the <code>Maybe a</code> then we use
+the <code>Strict</code> pattern, for example:</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">case</span> sm <span class="kw">of</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Strict</span> (<span class="dt">Just</span> a) <span class="ot">-&gt;</span> <span class="op">...</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Strict</span> <span class="dt">Nothing</span>  <span class="ot">-&gt;</span> <span class="op">...</span></span></code></pre></div>
+<p>The <code>Strict</code> pattern is implemented in terms of the function
+<code>matchStrict</code>. If <code>matchStrict</code> is inlined then a <a href="https://www.sciencedirect.com/science/article/pii/S0167642397000294?via%3Dihub">case-of-case
+transformation</a>
+will eliminate the allocation and make <code>matchStrict</code> a no-op!</p></li>
+</ul></li>
+</ul>
+<p>The new setup is hairy because it requires us to be very careful with
+<code>unsafePerformIO</code>. However, I believe it gives us a convenient API to
+strict data types at zero additional run time cost.</p>
+<h2 id="what-cant-strict-buy-us">What can’t <code>Strict</code> buy us?</h2>
+<p>I don’t see how <code>Strict</code> could help much with large lazy data
+structures such as lists (including <code>String</code>s). The only way that I
+can see to use <code>Strict</code> with standard lists whilst satisfying its
+invariant would be to walk the whole list, which is prohibitively
+inefficient. Instead I recommend not using large lazy data structures
+anywhere one desires strictness. Instead use strict data structures
+such as strict <code>Text</code>, <code>ByteString</code>, <code>Map</code>, <code>Vector</code> or <code>Array</code> (I’m
+not sure of the strictness characteristics of <code>Seq</code> and I haven’t
+validated the strictness guarantees of <code>Vector</code> or <code>Array</code>. That will
+have to be another article.)</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Defining strict fields that contain lazy types is almost completely
+pointless:</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">MyData</span> <span class="ot">=</span> <span class="dt">MyData</span> {<span class="ot"> field1 ::</span> <span class="op">!</span><span class="dt">String</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>                     ,<span class="ot"> field2 ::</span> <span class="op">!</span>[<span class="dt">Double</span>]</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>                     ,<span class="ot"> field3 ::</span> <span class="op">!</span>(<span class="dt">Maybe</span> <span class="dt">Bool</span>)</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>                     }</span></code></pre></div>
+<p>As an alternative, it is an open question whether <code>Strict</code>, as defined
+in this article, can prove general enough to achieve widespread use or
+whether the solution is a parallel universe of strict data types.</p>
+<p>Have you seen or used anything like <code>Strict</code> before? If so please
+<a href="http://web.jaguarpaw.co.uk/~tom/contact">contact me</a>.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

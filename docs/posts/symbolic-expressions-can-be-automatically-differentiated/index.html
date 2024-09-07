@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>symbolic-expressions-can-be-automatically-differentiated</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>symbolic-expressions-can-be-automatically-differentiated</h3>
+  <h1 id="symbolic-expressions-can-be-automatically-differentiated-too">Symbolic expressions can be Automatically differentiated too</h1>
+<p>– or, Forward mode Automatic Diffentiation demystified</p>
+<p>All introductions to Automatic Differentiation that I have seen seem
+to present the technique mysteriously. It’s actually very simple.
+I’ll describe how.</p>
+<p>Since the very first time I learned calculus I have subconsciously
+understood “differentiating” to mean symbolically manipulating a
+expression to get another expression which represents its derivative.
+I understood “calculating the derivative” to mean “differentiating”
+followed by substuting in a value for a variable and reducing the
+expression to get the value of the derivative. “Differentiating” (2x
++ 1)^2 would give 4(2x + 1), and “calculating the derivative” of it at
+8 involves substituting 8 for x to get 68.</p>
+<p>Then I learned about <a href="https://en.wikipedia.org/wiki/Automatic_differentiation">Automatic
+Differentiation</a>
+(AD). It claims to be able to calculate the derivative without
+differentiating! Given my subconscious understanding of what those
+terms meant this seemed bizarre, impossible and magical. It is
+claimed it doesn’t symbolically manipulate the expression at all.
+Apparently it gets to 68 without going via 4(2x + 1). How on earth
+can this be possible?</p>
+<p>It turns out that AD <em>is</em> extremely cool but it <em>is not</em> mysterious.
+When I tried to understand it I was led astray by strange descriptions
+like</p>
+<blockquote>
+<p>Forward-mode AD is implemented by a nonstandard interpretation of
+the program in which real numbers are replaced by dual numbers,
+constants are lifted to dual numbers with a zero epsilon
+coefficient, and the numeric primitives are lifted to operate on
+dual numbers. This nonstandard interpretation is generally
+implemented using one of two strategies: source code transformation
+or operator overloading.</p>
+</blockquote>
+<p>If you try to read introductions to AD you’ll probably come across a
+lot of passages like this which describe the rigmarole of shoehorning
+AD into a bog-standard proceduralish language, but they put an
+additional veil on the <em>intrinsic</em> meaning of AD, rather than lifting
+one. You’ll probably also get the impression that symbolic
+expressions are bad.</p>
+<p>AD is actually a very simple concept, and yes it can work on symbolic
+expressions too.</p>
+<p>If we have a type <code>E</code> of expressions of one variable <code>X</code> then we can
+easily write an evaluator for it.</p>
+<pre><code>{-# LANGUAGE LambdaCase #-}
+
+data E = X | One | Zero | Negate E
+       | Sum E E | Product E E | Exp E
+       deriving Show
+
+eval :: Double -&gt; E -&gt; Double
+eval x = ev where
+  ev = \case
+    X            -&gt; x
+    One          -&gt; 1
+    Zero         -&gt; 0
+    Negate e     -&gt; -ev e
+    Sum e e'     -&gt; ev e + ev e'
+    Product e e' -&gt; ev e * ev e'
+    Exp e        -&gt; exp (ev e)</code></pre>
+<p>It’s also easy to write a differentiator (implementing the usual rules
+of calculus)</p>
+<pre><code>diff :: E -&gt; E
+diff = \case
+  X            -&gt; One
+  One          -&gt; Zero
+  Zero         -&gt; Zero
+  Negate e     -&gt; Negate (diff e)
+  Sum e e'     -&gt; Sum (diff e) (diff e')
+  Product e e' -&gt; Product e (diff e') `Sum` Product (diff e) e'
+  Exp e        -&gt; Exp e `Product` diff e</code></pre>
+<p>and we can write simple expressions.</p>
+<pre><code>f :: E -&gt; E
+f x = Exp (x `minus` One)
+  where a `minus` b = a `Sum` Negate b
+
+smallExpression :: E
+smallExpression = iterate f X !! 3
+
+bigExpression :: E
+bigExpression = iterate f X !! 1000</code></pre>
+<p>Working with small expressions is easy</p>
+<pre><code>&gt; smallExpression
+Exp (Sum (Exp (Sum (Exp (Sum X (Negate One))) (Negate One))) (Negate One))
+
+&gt; diff smallExpression
+Product (Exp (Sum (Exp (Sum (Exp (Sum X (Negate One))) (Negate
+One))) (Negate One))) (Sum (Product (Exp (Sum (Exp (Sum X (Negate
+One))) (Negate One))) (Sum (Product (Exp (Sum X (Negate One)))
+(Sum One (Negate Zero))) (Negate Zero))) (Negate Zero))</code></pre>
+<p>We can even differentiate them with <code>diff</code> and then evaluate their
+derivatives with <code>eval</code></p>
+<pre><code>&gt; mapM_ (print . flip eval (diff smallExpression))
+        [0.0009, 1, 1.0001]
+0.12254834896191881
+1.0
+1.0003000600100016</code></pre>
+<p>but calculating the derivatives of big expressions this way is slow,
+in fact <a href="../why-is-naive-symbolic-differentiation-slow">quadratic in the size of the
+expression</a>.</p>
+<pre><code>&gt; mapM_ (print . flip eval (diff bigExpression))
+        [0.00009, 1, 1.00001]
+3.2478565715995278e-6
+1.0
+1.0100754777229357
+-- Trust me, that was slow</code></pre>
+<h2 id="the-key-idea-of-forward-mode-automatic-differentiation">The key idea of forward mode Automatic Differentiation</h2>
+<p>We can calculate derivatives efficiently (in time linear in the size
+of the expression) by using the <em>key idea</em> of AD. The <em>key idea</em> is
+to evaluate both the expression <em>and</em> its derivative <em>at the same
+time</em>. I’m not going to go into why this is faster (it’s to do with
+avoiding redundant calculation) but suffice it to know that this is
+indeed the unique, key idea of forward mode AD.</p>
+<p>It’s not even hard to write. For each term, we evaluate the subterms
+and the derivative of the subterms, and then combine them using the
+usual rules of calculus. They’re exactly the same rules implemented
+by <code>eval</code> and <code>diff</code> above, but encoded slightly differently.</p>
+<pre><code>diffEval :: Double -&gt; E -&gt; (Double, Double)
+diffEval x = ev where
+  ev = \case
+    X            -&gt; (x, 1)
+    One          -&gt; (1, 0)
+    Zero         -&gt; (0, 0)
+    Negate e     -&gt; let (ex, ed) = ev e
+                    in (-ex, -ed)
+    Sum e e'     -&gt; let (ex, ed)   = ev e
+                        (ex', ed') = ev e'
+                    in (ex + ex', ed + ed')
+    Product e e' -&gt; let (ex, ed)   = ev e
+                        (ex', ed') = ev e'
+                    in (ex * ex', ex * ed' + ed * ex')
+    Exp e        -&gt; let (ex, ed) = ev e
+                    in (exp ex, exp ex * ed)</code></pre>
+<p>Take, for example, the branch for <code>Exp</code></p>
+<pre><code>    Exp e        -&gt; let (ex, ed) = ev e
+                    in (exp ex, exp ex * ed)</code></pre>
+<p>It says that the value of the exponential of <code>e</code> at <code>x</code> is <code>exp ex</code>
+where <code>ex</code> is the value of <code>e</code> at <code>x</code> (this is utterly trivial) and to
+calculate the derivative of the exponential of <code>e</code> at <code>x</code> we take <code>exp ex * ed</code>, where <code>ed</code> is the value of the derivative of <code>e</code> at <code>x</code>
+(this is just the definition of the derivative of the exponential
+function). That last sentence is a very long winded way of giving one
+tautology and one definition of the derivative of <code>exp</code>! The former
+is what is done in the <code>Exp</code> branch of <code>eval</code> and the latter is what
+is done in the <code>Exp</code> branch of <code>diff</code>, only here the latter is numeric
+rather than symbolic. Basically, there’s nothing going on here. Once
+we have our key idea, everything else falls out for free; this whole
+paragraph is a long way of saying nothing at all.</p>
+<p><code>diffEval</code> gives the same results as <code>diff</code> followed by <code>eval</code></p>
+<pre><code>&gt; mapM_ (print . snd . flip diffEval smallExpression)
+        [0.0009, 1, 1.0001]
+0.12254834896191881
+1.0
+1.0003000600100016</code></pre>
+<p>but is much quicker on large expressions</p>
+<pre><code>&gt; mapM_ (print . snd . flip diffEval bigExpression)
+        [0.00009, 1, 1.00001]
+3.2478565715995278e-6
+1.0
+1.0100754777229357
+-- Trust me, it was fast</code></pre>
+<h2 id="the-mystery-of-dual-numbers">The mystery of “dual numbers”</h2>
+<p>Even if, when you are reading an introduction to AD, you manage to
+distinguish a nugget of theory amongst the grime of the implementation
+details, you will probably still believe you need to write your
+numerical calculations to work on “dual numbers”, something like</p>
+<pre><code>data D = Dual { value :: Double, derivative :: Double }</code></pre>
+<p>But as we’ve seen above, that too is an implementation detail.
+Working with symbolic expressions is fine. In fact what <code>diffEval</code>
+does is give an interpretation of symbolic expressions <code>E</code> into dual
+numbers <code>D</code>.</p>
+<p>Mysterious comment: The distinction between <code>E</code> and <code>D</code> is exactly the
+same as the distinction between a free monad and a hand-rolled monad
+that contains the effects interpreted in a particular way.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Forward mode AD is a very cool idea and at its heart is very simple. There are
+surely many important details that come later when you want to
+optimize your AD implementation or extend it to higher dimensions, but
+for the basics all you need is one key idea, and that is to calculate
+the value of the derivative at the same time as the value of the
+expression.</p>
+<h2 id="references">References</h2>
+<p>Jared Tobin wrote a <a href="http://jtobin.ca/ad-via-recursion-schemes/">nice little
+extension</a> using
+catamorphisms. In fact if you use this technique then you can
+implement <code>eval</code> and <code>diff</code> separately but still get good performance
+when you compose them! I may write about this later …</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

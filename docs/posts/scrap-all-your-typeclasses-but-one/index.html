@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>scrap-all-your-typeclasses-but-one</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>scrap-all-your-typeclasses-but-one</h3>
+  <h1 id="scrap-all-your-type-classes-but-one">Scrap all your type classes but one</h1>
+<p>– or, “The mother of all type classes”</p>
+<p>In “<a href="http://www.haskellforall.com/2012/05/scrap-your-type-classes.html">Scrap your type
+classes</a>”
+Gabriel Gonzalez explains how we can replace type classes with
+dictionary passing. In this article I describe a sort of “halfway
+house” to scrapping <em>all</em> our type classes. Suppose we were only
+allowed one type class. Which would we choose? I’ll explain how we
+can get (almost) all of the benefits of all type classes with only a
+single type class, the “mother of all type classes” (in homage to <a href="http://blog.sigfpe.com/2008/12/mother-of-all-monads.html">Dan
+Piponi</a>).</p>
+<p>We need some uncontroversial language extensions.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE DataKinds #-}</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE FlexibleContexts #-}</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE FlexibleInstances #-}</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE GADTs #-}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE LambdaCase #-}</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE MultiParamTypeClasses #-}</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE PolyKinds #-}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE Rank2Types #-}</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE ScopedTypeVariables #-}</span></span></code></pre></div>
+<p>and then we can present the “mother of all type classes”, called
+<code>Class</code>.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Class</span> (<span class="ot">f ::</span> k <span class="ot">-&gt;</span> <span class="op">*</span>) (<span class="ot">a ::</span> k) <span class="kw">where</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ot">  classD ::</span> f a</span></code></pre></div>
+<p>How does this allow us to replace all type classes? Where we
+previously had</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">MyClass</span> a <span class="kw">where</span> <span class="op">...</span></span></code></pre></div>
+<p>we will replace it with</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Class</span> <span class="dt">MyClassD</span> a <span class="kw">where</span> <span class="op">...</span></span></code></pre></div>
+<p>where <code>MyClassD</code> is the type class dictionary that <a href="http://www.haskellforall.com/2012/05/scrap-your-type-classes.html">Gabriel
+explained to
+us</a>.
+Let’s implement <code>Show</code> using <code>Class</code>. Firstly we define the
+dictionary.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">ShowD</span> a <span class="ot">=</span> <span class="dt">ShowD</span> {<span class="ot"> showD ::</span> a <span class="ot">-&gt;</span> <span class="dt">String</span> }</span></code></pre></div>
+<p>and our instance definition fills in the missing operations, for
+example for <code>Int</code> and <code>[Char]</code>.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Class</span> <span class="dt">ShowD</span> <span class="dt">Int</span> <span class="kw">where</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  classD <span class="ot">=</span> <span class="dt">ShowD</span> { showD <span class="ot">=</span> <span class="fu">show</span> }</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Class</span> <span class="dt">ShowD</span> [<span class="dt">Char</span>] <span class="kw">where</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  classD <span class="ot">=</span> <span class="dt">ShowD</span> { showD <span class="ot">=</span> <span class="fu">show</span> }</span></code></pre></div>
+<p>(These definitions look circular because they use <code>show</code>. Although
+I’m supposed to be showing your how to <em>implement</em> <code>show</code> using
+<code>Class</code> these definitions are not circular. I’m only using the
+prexisting <code>show</code> out of laziness. In a “real” implementation a
+library author would fill in the actual body of <code>show</code>.)</p>
+<p>Then we can define a type class polymorphic <code>show</code> function</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ot">showC ::</span> <span class="dt">Class</span> <span class="dt">ShowD</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">String</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>showC <span class="ot">=</span> showD classD</span></code></pre></div>
+<p>and it works just like we would expect</p>
+<pre><code>&gt; showC (1 :: Int)
+&quot;1&quot;
+&gt; showC &quot;Hello&quot;
+&quot;\&quot;Hello\&quot;&quot;</code></pre>
+<p>Our familiar <code>Show</code> takes a parameter of kind <code>*</code>. Can we do higher
+kinded type parameters? Yes, because I carefully defined <code>Class</code> to
+be kind polymorphic. Note that in its definition <code>a :: k</code>. How
+about <code>Functor</code> then? Again, convert the <code>Functor</code> operations to a
+dictionary, fill in the implementation in the instances, and define a
+type class polymorphic <code>fmapC</code>.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">FunctorD</span> f <span class="ot">=</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">FunctorD</span> {<span class="ot"> fmapD ::</span> <span class="kw">forall</span> a b<span class="op">.</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b }</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Class</span> <span class="dt">FunctorD</span> <span class="dt">Maybe</span> <span class="kw">where</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  classD <span class="ot">=</span> <span class="dt">FunctorD</span> { fmapD <span class="ot">=</span> \f x <span class="ot">-&gt;</span> <span class="kw">case</span> x <span class="kw">of</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>                         <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="dt">Nothing</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>                         <span class="dt">Just</span> x  <span class="ot">-&gt;</span> <span class="dt">Just</span> (f x)</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>                    }</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Class</span> <span class="dt">FunctorD</span> [] <span class="kw">where</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  classD <span class="ot">=</span> <span class="dt">FunctorD</span> { fmapD <span class="ot">=</span> \f x <span class="ot">-&gt;</span> <span class="kw">case</span> x <span class="kw">of</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>                         []      <span class="ot">-&gt;</span> []</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>                         (x<span class="op">:</span>xs)  <span class="ot">-&gt;</span> f x <span class="op">:</span> fmapD classD f xs</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>                    }</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a><span class="ot">fmapC ::</span> <span class="dt">Class</span> <span class="dt">FunctorD</span> f <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>fmapC <span class="ot">=</span> fmapD classD</span></code></pre></div>
+<p>It works as we expect</p>
+<pre><code>-- &gt; fmapC (*10) (Just 1)
+-- Just 10
+-- &gt; fmapC (*10) [1..4]
+-- [10,20,30,40]</code></pre>
+<p><code>Show</code> and <code>Functor</code> are single parameter type classes. Can we do
+<em>multi</em>parameter type classes? Yes, by using a type level tuple as the
+type parameter. For example, if I want to convert the multiparameter
+type class</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Set</span> s e <span class="kw">where</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="ot">    insert   ::</span> s <span class="ot">-&gt;</span> e <span class="ot">-&gt;</span> s</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="ot">    contains ::</span> s <span class="ot">-&gt;</span> e <span class="ot">-&gt;</span> <span class="dt">Bool</span></span></code></pre></div>
+<p>to the “mother of all type classes” setup then I can define a
+dictionary with a type level tuple parameter by using a GADT.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">SetD</span> a <span class="kw">where</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">SetD</span><span class="ot">   ::</span> (s <span class="ot">-&gt;</span> e <span class="ot">-&gt;</span> s)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>         <span class="ot">-&gt;</span> (s <span class="ot">-&gt;</span> e <span class="ot">-&gt;</span> <span class="dt">Bool</span>)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>         <span class="ot">-&gt;</span> <span class="dt">SetD</span> '(s, e)</span></code></pre></div>
+<p>Then everything proceeds as for <code>Show</code> and <code>Functor</code>, modulo some
+ceremony regarding unwrapping the GADT.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Class</span> <span class="dt">SetD</span> '([<span class="dt">Int</span>], <span class="dt">Int</span>) <span class="kw">where</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  classD <span class="ot">=</span> <span class="dt">SetD</span> (\s e <span class="ot">-&gt;</span> e<span class="op">:</span>s) (\s e <span class="ot">-&gt;</span> e <span class="ot">`elem`</span> s)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="ot">insertC ::</span> <span class="kw">forall</span> s e<span class="op">.</span> <span class="dt">Class</span> <span class="dt">SetD</span> '(s, e) <span class="ot">=&gt;</span> s <span class="ot">-&gt;</span> e <span class="ot">-&gt;</span> s</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>insertC <span class="ot">=</span> <span class="kw">case</span> classD' <span class="kw">of</span> <span class="dt">SetD</span> insert _ <span class="ot">-&gt;</span> insert</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> classD' <span class="ot">= classD ::</span> <span class="dt">SetD</span> '(s, e)</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="ot">containsC ::</span> <span class="kw">forall</span> s e<span class="op">.</span> <span class="dt">Class</span> <span class="dt">SetD</span> '(s, e) <span class="ot">=&gt;</span> s <span class="ot">-&gt;</span> e <span class="ot">-&gt;</span> <span class="dt">Bool</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>containsC <span class="ot">=</span> <span class="kw">case</span> classD' <span class="kw">of</span> <span class="dt">SetD</span> _ contains <span class="ot">-&gt;</span> contains</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> classD' <span class="ot">= classD ::</span> <span class="dt">SetD</span> '(s, e)</span></code></pre></div>
+<pre><code>-- &gt; insertC [2 :: Int,3,4] (10 :: Int)
+-- [10,2,3,4]</code></pre>
+<p>We have to give type annotations when we use <code>insertC</code> but that’s due
+to <code>Num</code> being type class polymorphic and there being no functional
+dependency between <code>s</code> and <code>e</code>. That raises a question. Can we
+encode functional dependencies in the “mother of all typeclasses”
+<code>Class</code> formulation? No, I don’t see how. I also do not see how we
+can have associated types or data.</p>
+<h2 id="other-approaches">Other approaches</h2>
+<p>I haven’t found any other work that presents quite the same
+formulation as <code>Class</code> as presented above. I would be grateful to
+receive any links to such work. However, a similar scheme was
+proposed by John Hughes in <a href="https://www.researchgate.net/publication/2507831_Restricted_Data_Types_in_Haskell">Restricted Data Types in
+Haskell</a>
+and borrowed by Ralf Lammel and Simon Peyton Jones in <a href="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/07/gmap3.pdf">Scrap your
+boilerplate with class: extensible generic
+functions</a>.
+Hughes introduced the class</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Sat</span> t <span class="kw">where</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="ot">    dict ::</span> t</span></code></pre></div>
+<p>Is the <code>Sat</code> approach equivalent to the <code>Class</code> approach? Let’s consider a
+concrete example. Is</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Sat</span> (<span class="dt">FunctorD</span> <span class="dt">Maybe</span>)</span></code></pre></div>
+<p>equivalent to</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Class</span> <span class="dt">FunctorD</span> <span class="dt">Maybe</span></span></code></pre></div>
+<p>No, because <code>Class FunctorD</code> is genuinely something of kind <code>(* -&gt; *) -&gt; Constraint</code> just like <code>Functor</code> is. If I replaced the <code>Prelude</code>
+definition of <code>Functor</code> with</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">Functor</span> <span class="ot">=</span> <span class="dt">Class</span> <span class="dt">FunctorD</span></span></code></pre></div>
+<p>then I would expect all of Haskell to still work the same. There’s no
+way of replacing <code>Functor</code> with <code>Sat (FunctorD Maybe)</code> because the
+latter has an insufficiently general type. Still, perhaps a parallel
+universe Haskell ecosystem could use the latter quite happily. What
+could go wrong? I can’t think of any obvious examples but advanced
+<code>Constraint</code> tricks might not be possible.</p>
+<p>Oleg Kiselyov published <a href="https://mail.haskell.org/pipermail/haskell/2007-March/019181.html">a similar
+idea</a>
+in 2007. I present a slight paraphrasing of Oleg’s most refined
+version. It looks quite similar to the above.</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">C</span> l t <span class="op">|</span> l <span class="ot">-&gt;</span> t <span class="kw">where</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="ot">    ac ::</span> l <span class="ot">-&gt;</span> t</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">NUM</span> a <span class="ot">=</span> <span class="dt">NUM</span> {<span class="ot"> nm_add ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a,</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="ot">                   nm_mul ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a,</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a><span class="ot">                   nm_fromInteger ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> a,</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a><span class="ot">                   nm_show ::</span> a <span class="ot">-&gt;</span> <span class="dt">String</span></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>                 }</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">CLS</span> a</span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">C</span> (<span class="dt">CLS</span> (<span class="dt">NUM</span> <span class="dt">Int</span>)) (<span class="dt">NUM</span> <span class="dt">Int</span>) <span class="kw">where</span></span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>    ac _ <span class="ot">=</span> <span class="dt">NUM</span> (<span class="op">+</span>) (<span class="op">*</span>) <span class="fu">fromInteger</span> <span class="fu">show</span></span></code></pre></div>
+<p>Let’s try and refine it further. Firstly we notice that we’re always
+going to define instances of the form</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">C</span> (<span class="dt">CLS</span> (f a)) (f a) <span class="kw">where</span></span></code></pre></div>
+<p>so we may as well drop the second type parameter and use</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">C</span> t <span class="kw">where</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="ot">    ac ::</span> <span class="dt">CLS</span> t <span class="ot">-&gt;</span> t</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">C</span> (f a) <span class="kw">where</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span></span></code></pre></div>
+<p>Then we notice that we don’t need the first, phantom, argument to <code>ac</code>
+any more. Oleg only introduced it to disambiguate instances. With
+the record-based approach the type constructor of the record is
+sufficient to disambiguate instances, so we can get away with merely</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">C</span> t <span class="kw">where</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="ot">    ac ::</span> t</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">C</span> (f a) <span class="kw">where</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span></span></code></pre></div>
+<p>which is equivalent to <code>Sat</code> above.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>You can “scrap all your type classes but one” and use the “mother of
+all typeclasses instead”. I’m not suggesting you actually do this but
+I do think it’s very interesting. It remains to be seen how to fit
+functional dependencies and associated types and data into this
+scheme.</p>
+<h2 id="acknowledgements">Acknowledgements</h2>
+<p>Thanks to <a href="https://www.reddit.com/user/rpglover64"><code>rpglover64</code></a> and
+<a href="https://www.reddit.com/user/vaibhavsagar"><code>vaibhavsagar</code></a> for
+pointing out typos.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

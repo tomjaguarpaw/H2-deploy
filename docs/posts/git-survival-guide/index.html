@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>git-survival-guide</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>git-survival-guide</h3>
+  <h1 id="a-git-survival-guide">A Git survival guide</h1>
+<h2 id="roughly-orthogonal-git-commands">Roughly orthogonal git commands</h2>
+<ul>
+<li><p>To see the current status of all branches in the repository</p>
+<pre><code>git log --graph --decorate --all --oneline</code></pre>
+<p>It is my most used git command. I run it after almost every other
+git operation to maintain a clear understanding of the current
+repository state.</p>
+<p>For a slightly better display but much more complicated command line</p>
+<pre><code>PAGER=&quot;less -S&quot; \
+  git log \
+    --graph \
+    --decorate \
+    --all \
+    --pretty=format:&quot;%C(auto)%h %&lt;(7,trunc)%C(auto)%ae%Creset%C(auto)%d %s [%ar]%Creset&quot;</code></pre>
+<p>If you only want to see the topology of the tree instead of every
+commit then add <code>--simplify-by-decoration</code>. (You might like to read
+<a href="https://zwischenzugs.com/2018/03/26/git-log-the-good-parts/">Ian Miell’s “git log – The Good
+Parts”</a>.)</p></li>
+<li><p>To see the difference between different revisions (or my working
+copy)</p>
+<pre><code>git diff --color-moved</code></pre>
+<p>and it is useful to use <code>--word-diff</code> or <code>--ignore-whitespace</code>.</p>
+<p>This is my second most used git command.</p></li>
+<li><p>To make a commit</p>
+<pre><code>git commit --verbose --patch</code></pre>
+<p>(See <a href="#config-interactive-singlekey"><code>interactive.singleKey=true</code></a>)</p></li>
+<li><p>To see the full history of my current branch</p>
+<pre><code>git log --patch --color-moved</code></pre></li>
+<li><p>To revert an uncommited change</p>
+<pre><code>git checkout --patch</code></pre>
+<p>(See <a href="#config-interactive-singlekey"><code>interactive.singleKey=true</code></a>)</p></li>
+<li><p>To create a new branch from the current one</p>
+<pre><code>git checkout -b &lt;new branch&gt;</code></pre></li>
+<li><p>To switch to an existing branch</p>
+<pre><code>git checkout &lt;existing branch&gt;</code></pre></li>
+<li><p>To add a new file</p>
+<pre><code>git add --intent-to-add &lt;filename&gt;</code></pre>
+<p>(or <code>-N</code>). I don’t use <code>git add</code> because it adds the file to the staging area.
+<a href="#no-staging-area">I don’t want to bother with the staging area</a>.</p></li>
+<li><p>To rebase</p>
+<pre><code>git rebase ...</code></pre>
+<p>(See <a href="#config-merge-conflict-style"><code>merge.conflictStyle=diff3</code></a>)</p>
+<p>To be really specific about which sequences of commits you are
+rebasing where, use</p>
+<pre><code>git rebase -i --onto &lt;target&gt; &lt;from&gt; &lt;to&gt;</code></pre>
+<p>The latter will interactively rebase the collection of patches
+<code>&lt;from&gt;..&lt;to&gt;</code> onto <code>&lt;target&gt;</code> (<code>&lt;from&gt;</code> is exclusive, <code>&lt;to&gt;</code>
+inclusive). It’s always a reasonable idea to rebase interactively
+so at least you can see the list of commits that will be rebased.
+It might turn out you got some of the arguments wrong and then you
+can bail out early (by deleting all the text from the interactive
+rebase instruction file, saving it, and closing the editor).</p></li>
+<li><p>To split a commit in two use <a href="https://raw.githubusercontent.com/tomjaguarpaw/ad/300d63ae15ed2f12f48f83883af1aacad6905ddf/git-split/split.sh">my <code>git-split.sh</code>
+script</a>.</p>
+<pre><code>sh &lt;path&gt;/git-split.sh bash &lt;commit-id-to-split&gt;</code></pre>
+<p>There are many, many guides on the web about “how to split a git
+commit”. All the ones that I have seen give some version of the
+<a href="https://git-scm.com/docs/git-rebase#_splitting_commits">“Splitting Commits” recipe from the <code>git rebase</code> man
+page</a>. That
+recipe is fiddly for a non-expert and one can easily find oneself in
+a confused state. On the other hand the recipe can easily be made
+robust and packaged in <a href="https://raw.githubusercontent.com/tomjaguarpaw/ad/300d63ae15ed2f12f48f83883af1aacad6905ddf/git-split/split.sh">a script that gives the user helpful hints
+and can’t
+fail</a>
+– so that’s what I did!</p></li>
+<li><p>Inform my local repository of the state of the remote</p>
+<pre><code>git fetch</code></pre>
+<p>Then I can refer to remote branches via the names
+<code>&lt;remote&gt;/&lt;branch-name&gt;</code>, for example <code>origin/master</code>.</p></li>
+<li><p>To see the status</p>
+<pre><code>git status -uno</code></pre>
+<p>By default <code>git status</code> shows untracked, unignored files. I don’t
+need to ignore files because I use <code>git commit --patch</code>. On the
+other hand I don’t want to see untracked, unignored files in <code>git status</code>. Instead I use <code>git status -uno</code> which supresses display of
+untracked files.</p></li>
+<li><p>grep the repository, without looking at untracked files or the
+<code>.git</code> directory</p>
+<pre><code>git grep ...</code></pre></li>
+</ul>
+<h2 id="global-config-settings">Global config settings</h2>
+<ul>
+<li><p><a name="config-interactive-singlekey"></a>To avoid having to press <code>&lt;Enter&gt;</code>
+after each choice</p>
+<pre><code>git config --global interactive.singlekey true</code></pre>
+<p>(in <code>git commit --patch</code>, <code>git checkout --patch</code>, <code>git stash --patch</code>, etc.) <code>interactive.singleKey=true</code> requires the Perl
+module <code>Term::ReadKey</code>. On Debian this is available in the
+<code>libterm-readkey-perl</code> package.</p></li>
+<li><p><a name="config-merge-conflict-style"></a>To be able to resolve
+rebase/merge conflicts</p>
+<pre><code>git config --global merge.conflictStyle diff3</code></pre>
+<p><a href="../git-rebase-conflicts/">It is literally impossible</a> to resolve
+rebase/merge conflicts without using the <code>diff3</code> conflict style.</p></li>
+</ul>
+<h2 id="things-i-dont-do">Things I don’t do</h2>
+<ul>
+<li><p><a name="no-staging-area"></a>
+I never use the staging area. It is a piece of mutable state and
+I’d rather remove it from my mental model. You do not need to touch
+the staging area if you use <code>git commit --patch</code>. (Apparently
+<a href="https://news.ycombinator.com/item?id=33614904">empirical research</a>
+has validated the hypothesis that the staging area is a major pain
+point for users in practice.)</p></li>
+<li><p>I never use <code>.gitignore</code>. You don’t need it if you use <code>git commit   --patch</code>.</p></li>
+<li><p>I almost never <code>git merge</code>. If I want to do a fast forward “merge”
+(which is not really a merge at all) then I do</p>
+<pre><code>git merge --ff-only</code></pre>
+<p>and if I want to bring my branch up to date with the remote then I
+do</p>
+<pre><code>git rebase &lt;remote&gt;/&lt;branch&gt;</code></pre></li>
+<li><p>I never <code>git pull</code>. <code>git pull</code> just does <code>git fetch</code> followed by
+<code>git merge</code>. I very rarely want to merge and when I do I will be
+explicit about it. More likely I will do a <code>git fetch</code> followed by
+<code>git rebase origin/master</code>.</p></li>
+<li><p>I never stash for the long term. Committing to a temporary branch
+is a much more robust solution but sometimes stashing is too
+convenient to not use.</p>
+<p>If you have “stashed” by committing then you can pop your “stash”
+by using <code>git cherry-pick</code> and doing <code>git reset HEAD^</code>. You
+probably then want to delete the temporary branch.</p></li>
+<li><p>I never <code>commit --amend</code>. Interactive rebase (see above) allows you
+access to the same functionality without needing to remember a
+different command.</p></li>
+<li><p>I rarely use <code>cherry-pick</code>. I find that interactive rebase provides
+a better approach to reaching my goal.</p></li>
+</ul>
+<h2 id="explicit-git">Explicit git</h2>
+<p>Many git commands make it possible to perform an action on a commit or
+on a remote without checking out that commit or without adding that
+remote.</p>
+<ul>
+<li><p>Show a file from a commit without checking that commit out</p>
+<pre><code>git show &lt;commit&gt;:&lt;filename&gt;</code></pre></li>
+<li><p>Create a new branch at an existing revision without checking out
+that revision first</p>
+<pre><code>git checkout -b &lt;new branch name&gt; &lt;existing revision&gt;</code></pre></li>
+<li><p>Push a branch to the remote without explicitly adding that remote or
+explicitly adding a remote tracking branch</p>
+<pre><code>git push &lt;url of remote repository&gt; &lt;local revision&gt;:refs/heads/&lt;name of remote branch&gt;</code></pre>
+<p>The <code>refs/heads</code> prefix is only necessary if the branch doesn’t
+already exist on the remote. If the branch does exist then the
+prefix is redundant but doesn’t do any harm.</p>
+<p>Instead of <code>&lt;url of remote repository&gt;</code> you can use a
+previously-defined remote name, like <code>origin</code>, if you want.</p></li>
+<li><p>Fetch a branch from a remote without explicitly adding that remote</p>
+<pre><code>git fetch &lt;url of remote repository&gt; &lt;branch&gt;</code></pre>
+<p>Then you can do whatever you want with <code>FETCH_HEAD</code> and you will
+not have added any new remote. For example, you can <code>git checkout   -b &lt;new branch name&gt; FETCH_HEAD</code>.</p>
+<p>As above, instead of <code>&lt;url of remote repository&gt;</code> you can use a
+previously-defined remote name, like <code>origin</code>, if you want.</p></li>
+</ul>
+<h2 id="what-a-rebasemerge-conflict-is">What a rebase/merge conflict is</h2>
+<p>When you are presented with a rebase or merge conflict your job is to
+merge the semantic content of <em>both</em> patches. In particular, you
+should not be choosing just “ours” or just “theirs”. See <a href="../git-rebase-conflicts">Resolving
+git rebase conflicts</a> for more information.</p>
+<h2 id="advanced-stuff">Advanced stuff</h2>
+<h3 id="all-the-things-your-branch-has-ever-been">All the things your branch has ever been</h3>
+<p>Are you scared that you’ve lost commits because of a rebase gone wrong
+or some other git mystery? Try this command with the name of your
+branch in the place of <code>&lt;branch&gt;</code>.</p>
+<pre class="shell"><code>BRANCH=&lt;branch&gt;; \
+PAGER=&quot;less -S&quot; \
+git log --graph \
+        --decorate \
+        --pretty=format:&quot;%C(auto)%h %&lt;(7,trunc)%C(auto)%ae%Creset%C(auto)%d %s [%ar]%Creset&quot; \
+        $(git reflog $BRANCH | cut '-d ' -f1)</code></pre>
+<p>You will be
+presented with a tree that contains everything that has even been on
+the given branch. You can then reset your branch to one of its
+earlier versions and perhaps <code>cherry-pick</code> into it commits from other
+versions.</p>
+<h3 id="all-the-changes-to-files-you-care-about">All the changes to files you care about</h3>
+<pre class="shell"><code>git fetch &amp;&amp; PAGER=&quot;less '+/^commit'&quot; git log --patch --since=&quot;1 week&quot; --extended-regexp --author='^([^T]|.[^o])' -- $(git rev-list --since=&quot;1 month&quot; --author=&quot;Tom Ellis&quot; origin/master | while read commit; do git diff-tree --no-commit-id --name-only -r $commit; done)</code></pre>
+<h2 id="darcs-translation">Darcs translation</h2>
+<ul>
+<li><p><code>darcs whatsnew</code> = <code>git diff</code></p></li>
+<li><p><code>darcs revert</code> = <code>git -c interactive.singlekey=true checkout --patch</code></p></li>
+<li><p><code>darcs rec</code> = <code>git commit --patch --verbose</code></p></li>
+<li><p><code>darcs pull</code> = <code>git fetch &amp;&amp; git rebase origin/master &amp;&amp; git push   --force</code></p>
+<p>The git version is somewhat different to <code>darcs pull</code> because
+instead of automatically merging on a pull we explicitly rebase on
+the target branch. This is a bit saner and gets conflicts out of
+the way explicitly and sooner.</p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

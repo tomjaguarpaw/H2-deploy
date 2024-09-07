@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>automatic-differentiation-worked-examples-maths</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>automatic-differentiation-worked-examples-maths</h3>
+  <h1 id="automatic-differentiation-the-maths">Automatic differentiation: the maths</h1>
+<p>The article contains the maths needed to justify the transformations
+in <a href="../automatic-differentiation-worked-examples/">Automatic differentiation: source-to-source worked
+examples</a>.</p>
+<h2 id="derivative-in-terms-of-map-of-differentials">Derivative in terms of map of differentials</h2>
+<p>For full generality our differentiation will need to be able to handle
+functions that take multiple values as arguments and return multiple
+values. Let’s consider an example of multivariate differential
+calculus, that is, partial differentiation, using the following
+equation</p>
+<p>\[
+(x, y) = (r \cos \theta, r \sin \theta)
+\]</p>
+<p>(which happens to be the change of 2d coordinates from polar to
+rectangular but that’s not important here). If you are familiar with
+multivariable calculus then you will be able to write down the partial
+derivatives</p>
+<p><span class="math display">\[
+\frac{\partial x}{\partial r} = \cos \theta; \,\,
+\frac{\partial x}{\partial \theta} = -r \sin \theta; \,\,
+\frac{\partial y}{\partial r} = \sin \theta; \,\,
+\frac{\partial y}{\partial \theta} = r \cos \theta
+\]</span></p>
+<p>This collection of facts could well be considered to be “the”
+derivative of the above equation but for our purposes we need to go
+one step further and combine the facts above with the multivariate
+chain rule of differential calculus. Let’s see what that means.</p>
+<p>Suppose that \(r\) and \(\theta\) themselves were functions of a
+single real variable \(t\). Then by the chain rule we would have</p>
+<p><span class="math display">\[
+\left(\frac{dx}{dt}, \frac{dy}{dt} \right)
+= \left(\frac{\partial x}{\partial r} \frac{dr}{dt}
++ \frac{\partial x}{\partial \theta} \frac{d\theta}{dt}, \,
+\frac{\partial y}{\partial r} \frac{dr}{dt}
++ \frac{\partial y}{\partial \theta} \frac{d\theta}{dt}\right)
+\]</span></p>
+<p>Because \(t\) is arbitrary I’m going to take a liberty with notation to
+keep \(t\) implicit and write</p>
+<p><span class="math display">\[
+\left(dx, dy \right)
+= \left(\frac{\partial x}{\partial r} dr
++ \frac{\partial x}{\partial \theta} d\theta, \,
+\frac{\partial y}{\partial r} dr
++ \frac{\partial y}{\partial \theta} d\theta\right)
+\]</span></p>
+<p>This liberty serves to make the notation a bit neater. If you prefer
+to mentally insert \(\frac{}{dt}\) in several places to get back to
+the original form then please do so.</p>
+<p>Substituting in the partial derivatives we calculated above we get</p>
+<p>\[
+\left(dx, dy \right)
+= \left(\cos \theta \, dr
+- r \sin \theta \, d\theta, \,
+\sin \theta \, dr
++ r \cos \theta \, d\theta\right)
+\]</p>
+<p>This is the derivative of our original equation (in terms of the
+partial derivatives) <em>combined</em> with the chain rule. Every assignment
+in our program has a derivative that can be written in this form.</p>
+<p>It might be interesting to note that one can express the same thing in
+matrix form as</p>
+<p><span class="math display">\[
+\left(
+\begin{array}{c}
+dx \\
+dy
+\end{array}
+\right)
+=
+\left(
+\begin{array}{cc}
+\frac{\partial x}{\partial r} &amp; \frac{\partial x}{\partial \theta} \\
+\frac{\partial y}{\partial r} &amp; \frac{\partial y}{\partial \theta}
+\end{array}
+\right)
+\left(
+\begin{array}{c}
+dr \\
+d\theta
+\end{array}
+\right)
+=
+\left(
+\begin{array}{cc}
+\cos \theta &amp; -r \sin \theta \\
+\sin \theta &amp;  r \cos \theta
+\end{array}
+\right)
+\left(
+\begin{array}{c}
+dr \\
+d\theta
+\end{array}
+\right)
+\]</span></p>
+<p>This is sometimes called the “Jacobian-vector product”.</p>
+<p>Combining the derivative with the chain rule gave us new variables
+(\(dx\), \(dy\), \(dr\) and \(d\theta\)) that will appear in
+our forward mode derivative code. I’m going to say, without further
+explanation, that what we have written down is a formula for the
+“differentials” (\(dx\) and \(dy\)) of the output variables in
+terms of the “differentials” (\(dr\) and \(d\theta\)) of the
+input variables, and this is the form of derivative that we will be
+using in the forward mode AD algorithm. I won’t go more into this
+here because it really deserves an article (or more) all of its own,
+but I hope examples will make it easy enough to become comfortable
+with the pattern.</p>
+<h2 id="derivative-in-terms-of-map-of-gradients">Derivative in terms of map of gradients</h2>
+<p>The reverse mode derivative transformation will proceed by
+differentiating individual lines of our source program, just like the
+forward mode transformation. Instead of generating the map of
+“differentials” we are going to generate the map of “gradients” by
+applying the chain rule in the opposite direction.</p>
+<p>Let’s recall our example multi-variable function from above. Its
+definition was</p>
+<p>\[
+(x, y) = (r \cos \theta, r \sin \theta)
+\]</p>
+<p>and its partial derivatives were</p>
+<p><span class="math display">\[
+\frac{\partial x}{\partial r} = \cos \theta; \,\,
+\frac{\partial x}{\partial \theta} = -r \sin \theta; \,\,
+\frac{\partial y}{\partial r} = \sin \theta; \,\,
+\frac{\partial y}{\partial \theta} = r \cos \theta
+\]</span></p>
+<p>Suppose there were an \(\alpha\) which was a function of \(x\)
+and \(y\). Then by the chain rule we would have</p>
+<p><span class="math display">\[
+\left(\frac{\partial \alpha}{\partial r},
+\frac{\partial \alpha}{\partial \theta} \right)
+= \left(\frac{\partial \alpha}{\partial x} \frac{\partial x}{\partial r}
++ \frac{\partial \alpha}{\partial y} \frac{\partial y}{\partial r},
+\frac{\partial \alpha}{\partial x} \frac{\partial x}{\partial \theta}
++ \frac{\partial \alpha}{\partial y} \frac{\partial y}{\partial \theta}\right)
+\]</span></p>
+<p>Again I will slightly abuse notation to write</p>
+<p><span class="math display">\[
+\left(\frac{\partial}{\partial r},
+\frac{\partial}{\partial \theta} \right)
+= \left(\frac{\partial x}{\partial r} \frac{\partial}{\partial x}
++ \frac{\partial y}{\partial r} \frac{\partial}{\partial y},
+\frac{\partial x}{\partial \theta} \frac{\partial}{\partial x}
++ \frac{\partial y}{\partial \theta} \frac{\partial}{\partial y}\right)
+\]</span></p>
+<p>And in terms of the partial derivatives given above this is</p>
+<p><span class="math display">\[
+\left(\frac{\partial}{\partial r},
+\frac{\partial}{\partial \theta} \right)
+= \left(\cos \theta \frac{\partial}{\partial x}
++ \sin\theta \frac{\partial}{\partial y},
+-r \sin \theta \frac{\partial}{\partial x}
++ r \cos \theta \frac{\partial}{\partial y}\right)
+\]</span></p>
+<p>Now it is definitely interesting to express the same thing in matrix
+form because we can see that it corresponds to matrix multiplication
+in the opposite direction from the forward mode example</p>
+<p><span class="math display">\[
+\left(
+\begin{array}{cc}
+\frac{\partial}{\partial r} &amp; \frac{\partial}{\partial \theta}
+\end{array}
+\right)
+=
+\left(
+\begin{array}{cc}
+\frac{\partial}{\partial x} &amp; \frac{\partial}{\partial y}
+\end{array}
+\right)
+\left(
+\begin{array}{cc}
+\frac{\partial x}{\partial r} &amp; \frac{\partial x}{\partial \theta} \\
+\frac{\partial y}{\partial r} &amp; \frac{\partial y}{\partial \theta}
+\end{array}
+\right)
+=
+\left(
+\begin{array}{cc}
+\frac{\partial}{\partial x} &amp; \frac{\partial}{\partial y}
+\end{array}
+\right)
+\left(
+\begin{array}{cc}
+\cos \theta &amp; -r \sin \theta \\
+\sin \theta &amp;  r \cos \theta
+\end{array}
+\right)
+\]</span></p>
+<p>This is sometimes called the “vector-Jacobian product”.</p>
+<p>I’m going to say, without further explanation, that what we have
+written down is a formula for the “gradient” of the <em>input</em> variables
+(\(\frac{\partial}{\partial r}\) and
+\(\frac{\partial}{\partial \theta}\)) in terms of the “gradient”
+of the <em>output</em> variables (\(\frac{\partial}{\partial x}\) and
+\(\frac{\partial}{\partial y}\)). In other words this form of
+the derivative works in the opposite direction to the original
+function.</p>
+<h2 id="correspondence-between-the-two-forms">Correspondence between the two forms</h2>
+<p>Recall that in the first section we wrote down a formula for the
+“differentials” (\(dx\) and \(dy\)) of the output variables in
+terms of the “differentials” (\(dr\) and \(d\theta\)) of the
+input variables</p>
+<p><span class="math display">\[
+\left(
+\begin{array}{c}
+dx \\
+dy
+\end{array}
+\right)
+=
+\left(
+\begin{array}{cc}
+\frac{\partial x}{\partial r} &amp; \frac{\partial x}{\partial \theta} \\
+\frac{\partial y}{\partial r} &amp; \frac{\partial y}{\partial \theta}
+\end{array}
+\right)
+\left(
+\begin{array}{c}
+dr \\
+d\theta
+\end{array}
+\right)
+\]</span></p>
+<p>and in the second section we wrote down a formula for the “gradient”
+of the <em>input</em> variables (\(\frac{\partial}{\partial r}\) and
+\(\frac{\partial}{\partial \theta}\)) in terms of the “gradient”
+of the <em>output</em> variables (\(\frac{\partial}{\partial x}\) and
+\(\frac{\partial}{\partial y}\)).</p>
+<p><span class="math display">\[
+\left(
+\begin{array}{cc}
+\frac{\partial}{\partial r} &amp; \frac{\partial}{\partial \theta}
+\end{array}
+\right)
+=
+\left(
+\begin{array}{cc}
+\frac{\partial}{\partial x} &amp; \frac{\partial}{\partial y}
+\end{array}
+\right)
+\left(
+\begin{array}{cc}
+\frac{\partial x}{\partial r} &amp; \frac{\partial x}{\partial \theta} \\
+\frac{\partial y}{\partial r} &amp; \frac{\partial y}{\partial \theta}
+\end{array}
+\right)
+\]</span></p>
+<p>These two forms combine to give the following identity relating the
+gradients and differentials of the input to the gradients and
+differentials of the output.</p>
+<p><span class="math display">\[
+\left(
+\begin{array}{cc}
+\frac{\partial}{\partial x} &amp; \frac{\partial}{\partial y}
+\end{array}
+\right)
+\left(
+\begin{array}{c}
+dx \\
+dy
+\end{array}
+\right)
+=
+\left(
+\begin{array}{cc}
+\frac{\partial}{\partial x} &amp; \frac{\partial}{\partial y}
+\end{array}
+\right)
+\left(
+\begin{array}{cc}
+\frac{\partial x}{\partial r} &amp; \frac{\partial x}{\partial \theta} \\
+\frac{\partial y}{\partial r} &amp; \frac{\partial y}{\partial \theta}
+\end{array}
+\right)
+\left(
+\begin{array}{c}
+dr \\
+d\theta
+\end{array}
+\right)
+=
+\left(
+\begin{array}{cc}
+\frac{\partial}{\partial r} &amp; \frac{\partial}{\partial \theta}
+\end{array}
+\right)
+\left(
+\begin{array}{c}
+dr \\
+d\theta
+\end{array}
+\right)
+\]</span></p>
+<h2 id="determining-the-differentiation-rules-for-primitives">Determining the differentiation rules for primitives</h2>
+<p>Let’s see how we use the above mathematics to derive differentiation
+rules for primitive functions.</p>
+<h3 id="addition">Addition</h3>
+<p>Firstly consider addition, specifically \(y = x_1 + x_2\).
+Taking partial derivatives we obtain</p>
+<p><span class="math display">\[
+\frac{\partial y}{\partial x_1} = 1 \, ; \, \frac{\partial y}{\partial x_2} = 1
+\]</span></p>
+<p>Now if \(x_1\) and \(x_2\) were functions of a single variable
+\(t\) then the chain rule would give us that</p>
+<p><span class="math display">\[
+\frac{dy}{dt} = \frac{\partial y}{\partial x_1} \frac{dx_1}{dt}
+              + \frac{\partial y}{\partial x_2} \frac{dx_2}{dt}
+\]</span></p>
+<p>or, in a slightly abbreviated form</p>
+<p><span class="math display">\[
+dy = \frac{\partial y}{\partial x_1} dx_1
+   + \frac{\partial y}{\partial x_2} dx_2
+\]</span></p>
+<p>Plugging in the values above we obtain \(dy = dx_1 + dx_2\). This
+is the form we will use for the forward derivative of addition. Now
+apply the chain rule to \(\alpha\), a hypothetical function of
+\(y\)</p>
+<p><span class="math display">\[
+\left(\frac{\partial\alpha}{\partial x_1},
+      \frac{\partial\alpha}{\partial x_2}\right)
+  = \left(\frac{d\alpha}{dy} \frac{\partial y}{\partial x_1},
+          \frac{d\alpha}{dy} \frac{\partial y}{\partial x_2}\right)
+\]</span></p>
+<p>which in abbreviated form is</p>
+<p><span class="math display">\[
+\left(\frac{\partial}{\partial x_1},
+      \frac{\partial}{\partial x_2}\right)
+  = \left(\frac{d}{dy} \frac{\partial y}{\partial x_1},
+          \frac{d}{dy} \frac{\partial y}{\partial x_2}\right)
+\]</span></p>
+<p>Plugging in the values above we obtain</p>
+<p><span class="math display">\[
+\left(\frac{\partial}{\partial x_1},
+      \frac{\partial}{\partial x_2}\right)
+= \left(\frac{d}{dy}, \frac{d}{dy}\right)
+\]</span></p>
+<p>This is a perfectly valid way of expressing the derivative of
+addition! It will probably seem very strange – we’ve never seen
+anything like this in our multivariate calculus courses – but it is a
+form of the derivative of addition. It is the form of the derivative
+of addition that we will use in our reverse mode code.</p>
+<h3 id="multiplication">Multiplication</h3>
+<p>Now let’s consider multiplication, specifically \(y = x_1 x_2\).
+Taking partial derivatives we obtain</p>
+<p><span class="math display">\[
+\frac{\partial y}{\partial x_1} = x_2 \, ; \,
+\frac{\partial y}{\partial x_2} = x_1
+\]</span></p>
+<p>Following the same recipe as above we deduce that the form of
+derivative that we will use for multiplication in forward mode is
+\(dy = x_2 \, dx_1 + x_1 \, dx_2\) and the form we will use in
+reverse mode is</p>
+<p><span class="math display">\[
+\left(\frac{\partial}{\partial x_1},
+\frac{\partial}{\partial x_2} \right)
+= \left(x_2 \, \frac{d}{dy},
+x_1 \, \frac{d}{dy} \right)
+\]</span></p>
+<p>Again this does not look like the derivative of multiplication, but it
+is!</p>
+<h3 id="division">Division</h3>
+<p>Consider \(y = x_1 / x_2\). The partial derivatives are</p>
+<p><span class="math display">\[
+\frac{\partial y}{\partial x_1} = \frac{1}{x_2} \, ; \,
+\frac{\partial y}{\partial x_2} = -\frac{x_1}{x_2^2}
+\]</span></p>
+<p>Therefore the forward mode derivative is \(dy = dx_1 / x_2 - (x_1 /
+x_2^2) \, dx_2\) and the reverse mode derivative is</p>
+<p><span class="math display">\[
+\left(\frac{\partial}{\partial x_1},
+\frac{\partial}{\partial x_2} \right)
+= \left(\frac{1}{x_2} \, \frac{d}{dy},
+-\frac{x_1}{x_2^2} \, \frac{d}{dy} \right)
+\]</span></p>
+<h3 id="duplication">Duplication</h3>
+<p>Duplication corresponds to the mathematical function \((y_1, y_2) =
+(x, x)\). The partial derivatives are</p>
+<p><span class="math display">\[
+\frac{dy_1}{dx} = 1 \, ; \, \frac{dy_2}{dx} = 1
+\]</span></p>
+<p>Therefore the forward mode derivative is \((dy_1, dy_2) = (dx, dx)\)
+and the reverse mode derivative is</p>
+<p><span class="math display">\[
+\frac{\partial}{\partial x}
+= \frac{\partial}{\partial y_1}
++ \frac{\partial}{\partial y_2}
+\]</span></p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

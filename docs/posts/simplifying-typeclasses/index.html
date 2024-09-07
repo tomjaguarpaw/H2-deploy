@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>simplifying-typeclasses</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>simplifying-typeclasses</h3>
+  <h1 id="simplifying-typeclasses">Simplifying typeclasses</h1>
+<p>– <em>Guest post by Daniel Smith (tysonzero)</em></p>
+<p>The current implementation of typeclasses in GHC/Haskell is quite complex, as they have a variety of
+different features. A small portion of these features are fundamental to typeclasses and cannot be
+removed, but many of these features already exist in other forms in Haskell, and those other forms
+should be used instead.</p>
+<p>These features include:</p>
+<ul>
+<li><p>Defining a typeclass</p></li>
+<li><p>Defining superclasses of typeclasses</p></li>
+<li><p>Defining instances of typeclasses</p></li>
+<li><p>Defining structures of typeclasses</p></li>
+<li><p>Defining a typeclass instance by defining only a subset of its structure</p></li>
+<li><p>Deriving typeclasses based on the structure of a type</p></li>
+<li><p>Deriving typeclasses based on an existing instance that type has</p></li>
+<li><p>Deriving typeclasses on a newtype by coercing the instances of the underlying type</p></li>
+<li><p>Deriving typeclasses based on a newtype that is a member of that typeclass</p></li>
+<li><p>Convert between instances by direct manipulation of their structure</p></li>
+<li><p>Handle situations where there are multiple useful instances that overlap</p></li>
+</ul>
+<p>I am going to argue that only the first 3 of the above features are necessary, and that the rest can
+be done using existing Haskell features. We can thus reduce the featureset of typeclasses
+substantially to just the first 3 plus the needed hooks to interact with the rest of Haskell. This
+should be simpler and easier and actually more expressive, as regular Haskell is more expressive
+than the featureset built around typeclasses.</p>
+<h3 id="defining-a-typeclass">Defining a typeclass</h3>
+<p>Typeclasses are fundamentally different than regular data types, so we need a separate syntax of
+some sort to define them.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Eq</span> a</span></code></pre></div>
+<h3 id="defining-superclasses-of-typeclasses">Defining superclasses of typeclasses</h3>
+<p>Haskell doesn’t really have any notion of subtyping outside of typeclasses, so this is also pretty
+fundamental.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Eq</span> a <span class="ot">=&gt;</span> <span class="dt">Ord</span> a</span></code></pre></div>
+<h3 id="defining-instances-of-typeclasses">Defining instances of typeclasses</h3>
+<p>Classes can be thought of as open and extensible functions from the type level to the value level,
+thus instance declerations are extending this function with specific clauses. Again pretty unique
+and fundamental.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Eq</span> <span class="dt">Int</span></span></code></pre></div>
+<h3 id="defining-structures-of-typeclasses">Defining structures of typeclasses</h3>
+<p>Haskell already has a concept of “structure” in the form of algabreic data types, so instead of
+defining structures of typeclasses separately, we should just specify in the form of a regular
+Haskell type what the underlying structure of a typeclass is.</p>
+<p>Old:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Monoid</span> a <span class="kw">where</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="ot">    mempty ::</span> a</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="ot">    mappend ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a</span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Monoid</span> a <span class="ot">= monoid ::</span> <span class="dt">Monoid_</span> a</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Monoid_</span> a <span class="ot">=</span> <span class="dt">Monoid</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    {<span class="ot"> mempty ::</span> a</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    ,<span class="ot"> mappend ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    }</span></code></pre></div>
+<h3 id="defining-a-typeclass-instance-by-defining-only-a-subset-of-its-structure">Defining a typeclass instance by defining only a subset of its structure</h3>
+<p>Haskell already allows you to do this for regular data structures through smart constructors. So
+instead of defining a bunch of mutually recursive definitions and requiring an extra <code>MINIMAL</code>
+pragma you can simply expose as many smart constructors as you would like.</p>
+<p>Old:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Eq</span> a <span class="kw">where</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="ot">    (==) ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="ot">    (/=) ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    x <span class="op">==</span> y <span class="ot">=</span> <span class="fu">not</span> (x <span class="op">/=</span> y)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    x <span class="op">/=</span> y <span class="ot">=</span> <span class="fu">not</span> (x <span class="op">==</span> y)</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="ot">{-# MINIMAL (==) | (/=) #-}</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Eq</span> <span class="dt">Int</span> <span class="kw">where</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    x <span class="op">==</span> y <span class="ot">=</span> <span class="op">...</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Eq</span> <span class="dt">Bool</span> <span class="kw">where</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    x <span class="op">/=</span> y <span class="ot">=</span> <span class="op">...</span></span></code></pre></div>
+<p>New:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Eq</span> a <span class="ot">= (==) ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="ot">(/=) ::</span> <span class="dt">Eq</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>x <span class="op">/=</span> y <span class="ot">=</span> <span class="fu">not</span> (x <span class="op">==</span> y)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="ot">invertRel ::</span> (a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>invertRel f x y <span class="ot">=</span> <span class="fu">not</span> (f x y)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Eq</span> <span class="dt">Int</span> <span class="ot">=</span> <span class="op">...</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Eq</span> <span class="dt">Bool</span> <span class="ot">=</span> invertRel <span class="op">...</span></span></code></pre></div>
+<h3 id="deriving-typeclasses-based-on-the-structure-of-a-type">Deriving typeclasses based on the structure of a type</h3>
+<p>I am referring to GHC knowing how to derive Eq, Ord, Show, Generic etc.</p>
+<p>This cannot be solved by this current proposal alone, but with extensible rows/records/variants etc.
+all new nominal types will be newtypes over some underyling structure, and thus the newtype section
+of this proposal will apply.</p>
+<h3 id="deriving-typeclasses-based-on-an-existing-instance-that-type-has">Deriving typeclasses based on an existing instance that type has</h3>
+<p>This is currently done by defining a default implementation in the class itself, so that
+DeriveAnyClass can use it. This is particularly useful for typeclasses that can be built on the
+underlying structure of a type via Generic. This approach has the obvious and rather annoying
+limitation of only allowing one class to be used as a way to build another, whereas many classes
+can be built in multiple different ways (Traversable -&gt; Functor) (Applicative -&gt; Functor).</p>
+<p>Instead of this approach you can simply define functions that convert directly from one typeclass
+structure to another typeclass structure. This allows you to define as many different conversions
+between as many pairs of typeclasses you want. You can also make classes as desired for various
+common patterns of converting between typeclasses, to avoid having to import as many names.</p>
+<p>Old:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Monad</span> <span class="dt">Foo</span> <span class="kw">where</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    (<span class="op">&gt;&gt;=</span>) <span class="ot">=</span> <span class="op">...</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">Foo</span> <span class="kw">where</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">pure</span> <span class="ot">=</span> <span class="op">...</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    (<span class="op">&lt;*&gt;</span>) <span class="ot">=</span> ap</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">Foo</span> <span class="kw">where</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fmap</span> <span class="ot">=</span> liftA</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Bar</span> <span class="ot">=</span> <span class="op">...</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">deriving</span> (<span class="dt">Generic</span>, <span class="dt">FromJSON</span>, <span class="dt">ToJSON</span>)</span></code></pre></div>
+<p>New:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Monad</span> <span class="dt">Foo</span> <span class="ot">=</span> <span class="dt">Monad</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    { mBind <span class="ot">=</span> <span class="op">...</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    , mPure <span class="ot">=</span> <span class="op">...</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">Foo</span> <span class="ot">=</span> monadToApplicative monad</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">Foo</span> <span class="ot">=</span> monadToFunctor monad</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Bar</span> <span class="ot">=</span> <span class="op">...</span> <span class="kw">deriving</span> <span class="dt">Generic</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">FromJSON</span> <span class="dt">Bar</span> <span class="ot">=</span> genericToFromJSON generic</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">ToJSON</span> <span class="dt">Bar</span> <span class="ot">=</span> genericToToJSON generic</span></code></pre></div>
+<h3 id="deriving-typeclasses-on-a-newtype-by-coercing-the-instances-of-the-underlying-type">Deriving typeclasses on a newtype by coercing the instances of the underlying type</h3>
+<p>This is currently done via GeneralizedNewtypeDeriving, which coerces every member of the underlying
+instance into a valid member of the new instance. This implementation should be simpler with this
+new approach as the entire structure can be coerced at once. It also makes the newtype deriving less
+important, as you can just use coerce explicitly.</p>
+<p>Old:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">Foo</span> <span class="ot">=</span> <span class="dt">Foo</span> <span class="dt">Int</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">deriving</span> (<span class="dt">Bar</span>, <span class="dt">Baz</span>)</span></code></pre></div>
+<p>New:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">Foo</span> <span class="ot">=</span> <span class="dt">Foo</span> <span class="dt">Int</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Bar</span> <span class="dt">Foo</span> <span class="ot">=</span> coerce (bar <span class="op">@</span><span class="dt">Int</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Baz</span> <span class="dt">Foo</span> <span class="ot">=</span> coerce (baz <span class="op">@</span><span class="dt">Int</span>)</span></code></pre></div>
+<h3 id="deriving-typeclasses-based-on-a-newtype-that-is-a-member-of-that-typeclass">Deriving typeclasses based on a newtype that is a member of that typeclass</h3>
+<p>This is currently achieved with DerivingVia, which generalizes GeneralizedNewtypeDeriving to allow
+for the use of types other than the underyling type. However an extra extension and new syntax would
+not be needed with this new approach, as you can simply adjust the explicit coerces above:</p>
+<p>Old:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">Foo</span> <span class="ot">=</span> <span class="dt">Foo</span> <span class="dt">Int</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">deriving</span> <span class="dt">Monoid</span> via (<span class="dt">Sum</span> <span class="dt">Int</span>)</span></code></pre></div>
+<p>New:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">Foo</span> <span class="ot">=</span> <span class="dt">Foo</span> <span class="dt">Int</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Monoid</span> <span class="dt">Foo</span> <span class="ot">=</span> coerce (monoid <span class="op">@</span>(<span class="dt">Sum</span> <span class="dt">Int</span>))</span></code></pre></div>
+<h3 id="convert-between-instances-by-direct-manipulation-of-their-structure">Convert between instances by direct manipulation of their structure</h3>
+<p>This isn’t really possible in current Haskell, you essentially just have to manipulate each
+individual class member one by one. See things like <code>fmapDefault</code>. One might argue DerivingVia
+achieves this by allowing you to define a newtype for each conversion you need, but this is not
+expressive enough to count as true direct manipulation. For example if you can define many different
+conversions from <code>Foo</code> to <code>Bar</code> each parameterized by an Int or a String, suddenly DerivingVia
+cannot help you. I also don’t like the ergonomics of defining a brand new top level type for every
+possible conversion when a function is much more direct and lightweight.</p>
+<p>Old:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">Modulo7</span> a <span class="ot">=</span> <span class="dt">Modulo7</span> a</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Integral</span> a <span class="ot">=&gt;</span> <span class="dt">Num</span> (<span class="dt">Modulo7</span> a) <span class="kw">where</span> <span class="op">...</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">Modulo1B7</span> a <span class="ot">=</span> <span class="dt">Modulo1B7</span> a</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Integral</span> a <span class="ot">=&gt;</span> <span class="dt">Num</span> (<span class="dt">Modulo1B7</span> a) <span class="kw">where</span> <span class="op">...</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="ot">sumModuloN ::</span> (<span class="dt">Foldable</span> f, <span class="dt">Integral</span> a) <span class="ot">=&gt;</span> f a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>sumModuloN <span class="ot">=</span> <span class="op">...</span></span></code></pre></div>
+<p>New:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="ot">numModuloN ::</span> <span class="dt">Integral</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Num_</span> a</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>numModuloN <span class="ot">=</span> <span class="op">...</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">Modulo7</span> <span class="ot">=</span> <span class="dt">Modulo7</span> a</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Integral</span> a <span class="ot">=&gt;</span> <span class="dt">Num</span> (<span class="dt">Modulo7</span> a) <span class="ot">=</span> coerce <span class="op">@</span>(<span class="dt">Num_</span> a) (numModuloN <span class="dv">7</span>)</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">Modulo1B7</span> a <span class="ot">=</span> <span class="dt">Modulo1B7</span> a</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Integral</span> a <span class="ot">=&gt;</span> <span class="dt">Num</span> (<span class="dt">Modulo1B7</span> a) <span class="ot">=</span> coerce <span class="op">@</span>(<span class="dt">Num_</span> a) (numModuloN <span class="dv">1000000007</span>)</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="ot">sumModuloN ::</span> (<span class="dt">Foldable</span> f, <span class="dt">Integral</span> a) <span class="ot">=&gt;</span> f a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>sumModuloN xs n <span class="ot">=</span> sumX (numModuloN n) xs</span></code></pre></div>
+<h3 id="handle-situations-where-there-are-multiple-useful-instances-that-overlap">Handle situations where there are multiple useful instances that overlap</h3>
+<p>This is currently handled with newtypes. Whenever you want to call a function with a different
+instance you wrap the type with a newtype that has the desired instance. If you want to change
+multiple instances for a single call you just have to hope that the newtypes compose nicely by
+lifting through instances that are unrelated to the newtype’s purpose. This is fairly ugly in my
+opinion and prohibits you from doing anything overly expressive and dynamic, as the newtype must
+be hardcoded on the top level and cannot be parameterized.</p>
+<p>The other way it is potentially going to be handled in future is with ApplyingVia. Which is
+essentially the same underlying principal as the above, but with special TypeApplications sugar
+that allows for codegening the necessary coercions. I personally think this syntax is quite ugly
+and not beginner friendly.</p>
+<p>If the underlying typeclass structures are exposed, you can simply define variants of functions that
+take in an explicit typeclass dictionary or multiple explicit typeclass dictionaries.</p>
+<p>Old:</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span><span class="ot"> ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> [a] <span class="ot">-&gt;</span> a</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span> <span class="ot">=</span> getSum <span class="op">.</span> <span class="fu">foldMap</span> <span class="dt">Sum</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="fu">product</span><span class="ot"> ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> [a] <span class="ot">-&gt;</span> a</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="fu">product</span> <span class="ot">=</span> getProduct <span class="op">.</span> <span class="fu">foldMap</span> <span class="dt">Product</span></span></code></pre></div>
+<p>Proposed:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span><span class="ot"> ::</span> <span class="kw">forall</span> a<span class="op">.</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> [a] <span class="ot">-&gt;</span> a</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span> <span class="ot">=</span> fold <span class="op">@</span>_ <span class="op">@</span>(a via <span class="dt">Sum</span> a)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="fu">product</span><span class="ot"> ::</span> <span class="kw">forall</span> a<span class="op">.</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> [a] <span class="ot">-&gt;</span> a</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="fu">product</span> <span class="ot">=</span> fold <span class="op">@</span>_ <span class="op">@</span>(a via <span class="dt">Product</span> a)</span></code></pre></div>
+<p>New:</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span><span class="ot"> ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> [a] <span class="ot">-&gt;</span> a</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span> <span class="ot">=</span> foldX addMonoid</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="fu">product</span><span class="ot"> ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> [a] <span class="ot">-&gt;</span> a</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="fu">product</span> <span class="ot">=</span> foldX multMonoid</span></code></pre></div>
+<h2 id="proposal">Proposal</h2>
+<p>The above can more or less be acheieved in current Haskell, simply by choosing to only ever give
+typeclasses a single member. So my proposal to the community is to do exactly that.</p>
+<p>With that said there are some ergonomic improvements that can be made, such as the <code>=</code> based syntax
+I use above:</p>
+<p>Old:</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Eq</span> a <span class="kw">where</span><span class="ot"> (==) ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Eq</span> <span class="dt">Int</span> <span class="kw">where</span> (<span class="op">==</span>) <span class="ot">=</span> <span class="op">...</span></span></code></pre></div>
+<p>New:</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Eq</span> a <span class="ot">= (==) ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Bool</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Eq</span> <span class="dt">Int</span> <span class="ot">=</span> <span class="op">...</span></span></code></pre></div>
+<p>Extensible rows/records/variants etc. and associated dot syntax sugar would also help with the
+ergonomics of the above, as you wouldn’t have to come up with a separate name for the top level
+typeclass member and the field of the underlying data type. See: <code>mBind</code> and <code>mPure</code> above.</p>
+<p>The long term proposal would be for everyone to move away from the old approach and stop using
+various typeclass extensions and features, until eventually they can be deprecated and then
+removed. I can understand if some prefer the old syntax for some of the above, but note that using
+only single member typeclasses would not prevent use of the old syntax, so if the community prefers
+keeping various typeclass features they don’t necessarily have to be removed.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

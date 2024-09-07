@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>scrap-your-lazy-lists</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>scrap-your-lazy-lists</h3>
+  <h1 id="scrap-your-lazy-lists">Scrap your lazy lists</h1>
+<p>Instead of lazy lists you probably want a streaming abstraction, such as</p>
+<ul>
+<li><code>streaming</code></li>
+<li><code>pipes</code></li>
+<li><code>conduit</code></li>
+</ul>
+<p>or a strict linear data structure, such as</p>
+<ul>
+<li><code>Seq</code></li>
+<li><code>Array</code></li>
+<li><code>Vector</code></li>
+</ul>
+<p>Using lazy lists leads to bugs such as</p>
+<ul>
+<li><a href="https://www.reddit.com/r/haskell/comments/8b7jkd/awful_memory_consumption_when_using_lazy/" class="uri">https://www.reddit.com/r/haskell/comments/8b7jkd/awful_memory_consumption_when_using_lazy/</a></li>
+</ul>
+<p><a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dj13bn0/">Haskell Reddit on when we really need lazy
+lists</a></p>
+<p>The benefits are</p>
+<ol type="1">
+<li><p><a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dixkt23/">Laziness is more “reusable” or
+“composable”</a></p>
+<p>See <a href="http://augustss.blogspot.com.br/2011/05/more-points-for-lazy-evaluation-in.html%3E">Lennart’s write
+up</a></p></li>
+<li><p>Ed Kmett’s <a href="https://stackoverflow.com/a/3209189">memo table</a>
+(N.B. this has linear lookup time though – the memo table based on
+trees is much better)</p></li>
+<li><p><code>take n . sort</code> (although this is possible with streams too, I
+think)</p></li>
+<li><p>As a unifying type for <code>Alternative</code>’s <code>many</code></p>
+<p>See
+<a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/diwhzwf/" class="uri">https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/diwhzwf/</a></p></li>
+</ol>
+<h2 id="evidence-that-people-believe-that-lists-should-be-used-as-control-structures">Evidence that people believe that lists should be used as control structures</h2>
+<ul>
+<li><p><a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dixg3gx/" class="uri">https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dixg3gx/</a></p></li>
+<li><p><a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dixjjd6/" class="uri">https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dixjjd6/</a></p></li>
+<li><p><a href="https://www.reddit.com/r/haskell/comments/qaeryr/avoiding_memoization_in_haskell/" class="uri">https://www.reddit.com/r/haskell/comments/qaeryr/avoiding_memoization_in_haskell/</a></p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

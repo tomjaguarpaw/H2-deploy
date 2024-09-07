@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>using-brain-less-refactoring-yahtzee</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>using-brain-less-refactoring-yahtzee</h3>
+  <h1 id="using-our-brain-less-in-refactoring-yahtzee">Using our brain less in refactoring Yahtzee</h1>
+<p>Cameron Gera and Taylor Fausak <a href="https://haskellweekly.news/episode/22.html">produced a
+podcast</a> on <a href="../good-design-and-type-safety-in-yahtzee/">an article of
+mine about good design and
+typesafety</a> using code
+from an implementation of the game Yahtzee. The article is
+about refactoring code to improve design and how that goes
+hand-in-hand with type safety. Intriguingly, listening to others talk
+about my article gave me fresh ideas.</p>
+<p>At one point in the article we observed that a variable to an argument
+was unused. Subsequently we removed it. The only justification given
+that the removal of the argument was valid was that we could convince
+ourselves that it was unused by looking at the implementation of the
+function, and that we could insert a run time check.</p>
+<p>Hearing Cameron and Taylor talk about the article made me think again.
+There were only two changes to the code that really relied upon
+understanding what it does; everything else was mechanical
+transformation. Both of those changes were to do with the unused
+argument.</p>
+<p>Einstein said “chalk is cheaper than grey matter”. Can we avoid
+using “grey matter” (our brains) to remove the unused argument,
+instead just relying on “chalk” (mechanical transformations)? The
+answer is yes! Let’s see how to do it.</p>
+<h3 id="the-starting-point">The starting point</h3>
+<p>We start from the “Add <code>pop</code> function” stage of the <a href="../good-design-and-type-safety-in-yahtzee/">previous
+article</a>. We’ve got a
+suspicion that, although the argument <code>n</code> to <code>allRolls</code> <em>is</em> used, the
+argument <code>n-1</code> to the recursive call is not. How can we transform the
+code to make that clear?</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">DiceChoice</span> <span class="ot">=</span> [ <span class="dt">Bool</span> ]</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">DiceVals</span>   <span class="ot">=</span> [ <span class="dt">Integer</span> ]</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">DiceState</span>  <span class="ot">=</span> (<span class="dt">DiceVals</span>, <span class="dt">Integer</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ot">pop ::</span> <span class="dt">DiceChoice</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="ot">-&gt;</span> <span class="dt">DiceVals</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="ot">-&gt;</span> <span class="dt">Maybe</span> ((<span class="dt">Bool</span>, <span class="dt">Integer</span>), (<span class="dt">DiceChoice</span>, <span class="dt">DiceVals</span>))</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>pop [] [] <span class="ot">=</span> <span class="dt">Nothing</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>pop (chosen<span class="op">:</span>choices) (v<span class="op">:</span>vs) <span class="ot">=</span> <span class="dt">Just</span> ((chosen, v), (choices, vs))</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>pop (_<span class="op">:</span>_) [] <span class="ot">=</span> <span class="fu">error</span> <span class="st">&quot;Invariant violated: missing val&quot;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>pop [] (_<span class="op">:</span>_) <span class="ot">=</span> <span class="fu">error</span> <span class="st">&quot;Invariant violated: missing choice&quot;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="ot">allRolls ::</span> <span class="dt">DiceChoice</span> <span class="ot">-&gt;</span> <span class="dt">DiceState</span> <span class="ot">-&gt;</span> [ <span class="dt">DiceState</span> ]</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>allRolls choices (vs, n) <span class="ot">=</span> <span class="kw">case</span> pop choices vs <span class="kw">of</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Nothing</span> <span class="ot">-&gt;</span> [ ([], n<span class="op">-</span><span class="dv">1</span>) ]</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Just</span> ((chosen, v), (choices, vs)) <span class="ot">-&gt;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    allRolls choices (vs, n<span class="op">-</span><span class="dv">1</span>) <span class="op">&gt;&gt;=</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        \(roll,_) <span class="ot">-&gt;</span> [ (d<span class="op">:</span>roll,  n<span class="op">-</span><span class="dv">1</span>) <span class="op">|</span> d <span class="ot">&lt;-</span> rollList ]</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>          <span class="kw">where</span> rollList <span class="ot">=</span> <span class="kw">if</span> chosen <span class="kw">then</span> [v] <span class="kw">else</span> [ <span class="dv">1</span><span class="op">..</span><span class="dv">6</span> ]</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>example <span class="ot">=</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> diceChoices <span class="ot">=</span> [ <span class="dt">False</span>, <span class="dt">True</span>, <span class="dt">True</span>, <span class="dt">False</span>, <span class="dt">False</span> ]</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>      diceVals <span class="ot">=</span> [ <span class="dv">6</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">3</span>, <span class="dv">1</span> ]</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  <span class="kw">in</span> <span class="fu">mapM_</span> <span class="fu">print</span> <span class="op">$</span> allRolls diceChoices (diceVals, <span class="dv">2</span>)</span></code></pre></div>
+<h3 id="use-do-notation">Use <code>do</code>-notation</h3>
+<p>Let’s immediately simplify by using <code>do</code>-notation. In the <a href="../good-design-and-type-safety-in-yahtzee/">previous
+article</a> we left this stage
+until later but given that the recursive call is currently part of a
+<code>&gt;&gt;=</code> expression let’s apply the simplification now.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">allRolls ::</span> <span class="dt">DiceChoice</span> <span class="ot">-&gt;</span> <span class="dt">DiceState</span> <span class="ot">-&gt;</span> [ <span class="dt">DiceState</span> ]</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>allRolls choices (vs, n) <span class="ot">=</span> <span class="kw">case</span> pop choices vs <span class="kw">of</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Nothing</span> <span class="ot">-&gt;</span> [ ([], n<span class="op">-</span><span class="dv">1</span>) ]</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Just</span> ((chosen, v), (choices, vs)) <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    (roll, _) <span class="ot">&lt;-</span> allRolls choices (vs, n<span class="op">-</span><span class="dv">1</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    [ (d<span class="op">:</span>roll, n<span class="op">-</span><span class="dv">1</span>) <span class="op">|</span> d <span class="ot">&lt;-</span> rollList ]</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>          <span class="kw">where</span> rollList <span class="ot">=</span> <span class="kw">if</span> chosen <span class="kw">then</span> [v] <span class="kw">else</span> [ <span class="dv">1</span><span class="op">..</span><span class="dv">6</span> ]</span></code></pre></div>
+<h3 id="observe-that-both-branches-pair-a-list-with-n-1">Observe that both branches pair a list with <code>n-1</code></h3>
+<p>If the argument <code>n</code> were not used at all then our job would be much
+easier. However, it <em>is</em> used, so let’s try to separate the place it
+is used from the place where (we believe) it is not used.</p>
+<p>Where is it used? We can see that each branch of the <code>case</code> statement
+returns a list of tuples where the second element of each tuple is
+<code>n-1</code>. Put another way, each branch produces a list and then maps the
+“pair with <code>n-1</code>” function over it.</p>
+<p>I’ll write the “pair with <code>n-1</code>” function as <code>(, n-1)</code> (using the
+<code>TupleSections</code> extension). The usual alternative would be to write
+<code>\x -&gt; (x, n-1)</code> but in this article I want to keep things compact.</p>
+<pre><code> allRolls :: DiceChoice -&gt; DiceState -&gt; [ DiceState ]
+ allRolls choices (vs, n) = case pop choices vs of
+-  Nothing -&gt; [ ([], n-1) ]
++  Nothing -&gt; fmap (, n-1) [ [] ]
+   Just ((chosen, v), (choices, vs)) -&gt; do
+     (roll, _) &lt;- allRolls choices (vs, n-1)
+-    [ (d:roll,  n-1) | d &lt;- rollList ]
++    fmap (, n-1) [ d:roll | d &lt;- rollList ]</code></pre>
+<h3 id="lift-fmap-outside-do">Lift <code>fmap</code> outside <code>do</code></h3>
+<p>Now <code>n</code> is used, we think, just twice, and in each case to map the
+“pair with <code>n-1</code>” function over a list. We’ve made this duplication
+obvious but we can’t yet remove it. First we have to lift the <code>fmap</code>
+outside the <code>do</code>. We use the rule that</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">do</span> <span class="op">...</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>   <span class="fu">fmap</span> f e</span></code></pre></div>
+<p>can be rewritten to</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fmap</span> f <span class="op">$</span> <span class="kw">do</span> <span class="op">...</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>            e</span></code></pre></div>
+<p>Why is this rewriting valid? Informally, a <code>do</code> block is like a
+procedure, and this rule says that “applying <code>f</code> and then returning
+from the procedure” is the same as “returning from the procedure and
+then applying <code>f</code>”. Formally, it can be proved using the monad laws.</p>
+<p>This is how the rewriting applies in our case:</p>
+<pre><code>-  Just ((chosen, v), (choices, vs)) -&gt; do
++  Just ((chosen, v), (choices, vs)) -&gt; fmap (, n-1) $ do
+     (roll, _) &lt;- allRolls choices (vs, n-1)
+-    fmap (, n-1) [ d:roll | d &lt;- rollList ]
++    [ d:roll | d &lt;- rollList ]</code></pre>
+<h3 id="combine-duplicated-functions-at-top-level">Combine duplicated functions at top level</h3>
+<p>Now that both branches of the <code>case</code> statement are <code>fmap (, n-1)</code> of
+something, we can apply <code>fmap (, n-1)</code> to the overall <code>case</code>
+statement instead. Specifically, the rule is that we can rewrite</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">case</span> x <span class="kw">of</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Case1</span> <span class="ot">-&gt;</span> f <span class="op">$</span> body1</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Case2</span> <span class="ot">-&gt;</span> f <span class="op">$</span> body2</span></code></pre></div>
+<p>to</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>f <span class="op">$</span> <span class="kw">case</span> x <span class="kw">of</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Case1</span> <span class="ot">-&gt;</span> body1</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Case2</span> <span class="ot">-&gt;</span> body2</span></code></pre></div>
+<p>which in our code leads to</p>
+<pre><code>-allRolls choices (vs, n) = case pop choices vs of
+-  Nothing -&gt; fmap (, n-1) [ [] ]
+-  Just ((chosen, v), (choices, vs)) -&gt; fmap (, n-1) $ do
++allRolls choices (vs, n) = fmap (, n-1) $ case pop choices vs of
++  Nothing -&gt; [ [] ]
++  Just ((chosen, v), (choices, vs)) -&gt; do</code></pre>
+<h3 id="split-function-body-into-separate-function">Split function body into separate function</h3>
+<p>We want to carefully separate the parts of the code for which the
+value of <code>n</code> matters from the parts of the code for which the value of
+<code>n</code> does not matter. To this end we split the body of <code>allRolls</code> into
+a separate function called <code>allRollsBody</code>.</p>
+<pre><code> allRolls :: DiceChoice -&gt; DiceState -&gt; [ DiceState ]
+-allRolls choices (vs, n) = fmap (, n-1) $ case pop choices vs of
++allRolls choices (vs, n) = fmap (, n-1) $ allRollsBody choices (vs, n)
++
++allRollsBody :: DiceChoice -&gt; DiceState -&gt; [ DiceVals ]
++allRollsBody choices (vs, n) = case pop choices vs of
+</code></pre>
+<h3 id="substitute-definition-of-allrolls">Substitute definition of <code>allRolls</code></h3>
+<p>Now we are in the nice situation that, although we are yet to prove it
+to our satisfaction, the value of <code>allRollsBody</code> does not depend on
+its argument <code>n</code>.</p>
+<p>However, we’ve ended up with a pair of mutually recursive functions!
+That’s somewhat unusual. In order to make <code>allRollsBody</code> recurse only
+on itself we substitute the definition of <code>allRolls</code> back into
+<code>allRollsBody</code>. Additionally, that makes <code>allRolls</code> not recursive at
+all.</p>
+<pre><code>-    (roll, _) &lt;- allRolls choices (vs, n-1)
++    (roll, _) &lt;- fmap (, n-1) $ allRollsBody choices (vs, n-1)</code></pre>
+<h3 id="remove-redundant-pairing">Remove redundant pairing</h3>
+<p>We’re pairing every element of a list with <code>n-1</code> and then immediately
+removing it. Let’s just avoid the pairing in the first place.</p>
+<pre><code>-    (roll, _) &lt;- fmap (, n-1) $ allRollsBody choices (vs, n-1)
++    roll &lt;- allRollsBody choices (vs, n-1)</code></pre>
+<h3 id="generalise-type-of-allrollsbody">Generalise type of <code>allRollsBody</code></h3>
+<p>Now the magic happens! Our code currently looks like this.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ot">allRolls ::</span> <span class="dt">DiceChoice</span> <span class="ot">-&gt;</span> <span class="dt">DiceState</span> <span class="ot">-&gt;</span> [ <span class="dt">DiceState</span> ]</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>allRolls choices (vs, n) <span class="ot">=</span> <span class="fu">fmap</span> (, n<span class="op">-</span><span class="dv">1</span>) <span class="op">$</span> allRollsBody choices (vs, n)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="ot">allRollsBody ::</span> <span class="dt">DiceChoice</span> <span class="ot">-&gt;</span> <span class="dt">DiceState</span> <span class="ot">-&gt;</span> [ <span class="dt">DiceVals</span> ]</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>allRollsBody choices (vs, n) <span class="ot">=</span> <span class="kw">case</span> pop choices vs <span class="kw">of</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Nothing</span> <span class="ot">-&gt;</span> [ [] ]</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Just</span> ((chosen, v), (choices, vs)) <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>    roll <span class="ot">&lt;-</span> allRollsBody choices (vs, n<span class="op">-</span><span class="dv">1</span>)</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>    [ d<span class="op">:</span>roll <span class="op">|</span> d <span class="ot">&lt;-</span> rollList ]</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>          <span class="kw">where</span> rollList <span class="ot">=</span> <span class="kw">if</span> chosen <span class="kw">then</span> [v] <span class="kw">else</span> [ <span class="dv">1</span><span class="op">..</span><span class="dv">6</span> ]</span></code></pre></div>
+<p><a href="(../good-design-and-type-safety-in-yahtzee/)">Previously</a>
+we had to use our brains to spot that the <code>Integer</code>
+argument to the recursive call was unused. We inserted a run time
+check to convince ourselves that we were right. Now we have split the
+original function into two, only one of which contains a recursive
+call. We can see clearly that the only use for the argument <code>n</code> to
+<code>allRollsBody</code> is to be modified and passed to the recursive call.
+The value of that argument is never used in any other way. From that
+observation alone we are probably satisfied that we can remove it.</p>
+<p>In fact we can go one step better. We can make a small change to our
+code so that we do not even have to inspect the implementation to know
+that <code>n</code> is unused. The compiler will check the property for us!
+However, the check is demonstrated in a strange way, and if you’re not
+familiar with it then it will look utterly bizarre.</p>
+<p>We generalise the type signature so that the function doesn’t just
+work for an <code>Integer</code> but rather for <em>any</em> type of numeric argument <code>a</code>,
+that is, any type <code>a</code> with an instance of the <code>Num</code> type class.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="ot">allRollsBody ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> <span class="dt">DiceChoice</span> <span class="ot">-&gt;</span> (<span class="dt">DiceVals</span>, a) <span class="ot">-&gt;</span> [<span class="dt">DiceVals</span>]</span></code></pre></div>
+<p>Believe it or not, from this type signature alone, without knowing
+anything about the implementation, we can conclude that the <code>a</code>
+argument is not used! How on earth can we conclude that? It’s
+because of the
+<a href="https://en.wikipedia.org/wiki/Parametricity">parametricity</a> property
+enjoyed by Haskell’s type system. Basically, the type signature says
+that the only operations involving type <code>a</code> that <code>allRollsBody</code> can
+use are the ones from the <code>Num</code> type class. <a href="https://www.stackage.org/haddock/lts-13.21/base-4.12.0.0/Prelude.html#t:Num">Looking at
+them</a>,
+we see that they give us a way to <em>make</em> new <code>a</code>s from an <code>Integer</code>
+(<code>fromInteger</code>) and ways to <em>combine</em> <code>a</code>s to give other <code>a</code>s (<code>+</code>,
+<code>*</code>, etc.). On the other hand, there is no way that a value of
+another type can be <em>created from</em> an <code>a</code>. Therefore, the only way
+that an argument of type <code>a</code> could be used to affect the result is if
+the type variable <code>a</code> appears in the type of the result. The result
+has type <code>[DiceVals]</code> so it cannot be affected by the argument of type
+<code>a</code>!</p>
+<p>If that seems baffling to you, do not be despondent. Although
+parametricity is an extremely sophisticated property
+using it in practice becomes second nature. Haskell
+programmers use it to great advantage in creating APIs which remain
+flexible whilst providing strong guarantees via their type signatures.</p>
+<h3 id="remove-unused-argument">Remove unused argument</h3>
+<p>One way or another, our program transformations have taken us to a
+place where we feel comfortable removing the <code>Integer</code> argument
+without having to think too hard about the justification. We can
+inspect the body and see that the argument is not used in a way that can affect the
+result or we can use parametricity to deduce the same thing. Either
+way we can remove it.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="ot">allRolls ::</span> <span class="dt">DiceChoice</span> <span class="ot">-&gt;</span> <span class="dt">DiceState</span> <span class="ot">-&gt;</span> [ <span class="dt">DiceState</span> ]</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>allRolls choices (vs, n) <span class="ot">=</span> <span class="fu">fmap</span> (, n<span class="op">-</span><span class="dv">1</span>) <span class="op">$</span> allRollsBody choices vs</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="ot">allRollsBody ::</span> <span class="dt">DiceChoice</span> <span class="ot">-&gt;</span> <span class="dt">DiceVals</span> <span class="ot">-&gt;</span> [ <span class="dt">DiceVals</span> ]</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>allRollsBody choices vs <span class="ot">=</span> <span class="kw">case</span> pop choices vs <span class="kw">of</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Nothing</span> <span class="ot">-&gt;</span> [ [] ]</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Just</span> ((chosen, v), (choices, vs)) <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>    roll <span class="ot">&lt;-</span> allRollsBody choices vs</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>    [ d<span class="op">:</span>roll <span class="op">|</span> d <span class="ot">&lt;-</span> rollList ]</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>          <span class="kw">where</span> rollList <span class="ot">=</span> <span class="kw">if</span> chosen <span class="kw">then</span> [v] <span class="kw">else</span> [ <span class="dv">1</span><span class="op">..</span><span class="dv">6</span> ]</span></code></pre></div>
+<h2 id="conclusion">Conclusion</h2>
+<p>In the <a href="../good-design-and-type-safety-in-yahtzee/">earlier article</a> I
+said that “the only way I can suggest that one discovers [that the
+argument is unused] is to think through how the the code actually
+works … this is not just a simple refactoring”. I was wrong! There
+is a small sequence of simple transformations that improve the code
+whilst at the same time taking us to a place where we easily see that
+the argument is unused. For the latter either we use a small amount
+of brainpower to inspect the implementation or we take advantage of
+parametricity. This is great! We want to save as much brainpower as
+possible for the really hard problems.</p>
+<p>A small amount of Haskell knowledge was required but that is
+because the code is written in Haskell. Other languages will
+have their own particular constructs and equivalent transformations,
+although if they lack <code>case</code> statements and expression-valued blocks
+the transformations might appear a bit more clunky. The only
+typed-functional-language-specific concept in this article is
+parametricity. In this small example we were happy to just inspect
+the body of the function. Parametricity really shines in more
+complicated codebases where unrelated, opaque, pieces of functionality
+are being combined.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

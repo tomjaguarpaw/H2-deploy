@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>unhelpful-ghc-error-messages</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>unhelpful-ghc-error-messages</h3>
+  <h1 id="unhelpful-ghc-error-messages">Unhelpful GHC error messages</h1>
+<h2 id="or-perhaps-you-meant-to-enable-blockarguments">“Or perhaps you meant to enable BlockArguments?”</h2>
+<p>Here’s a simple Haskell program with a silly error. The <code>bar = 3</code>
+line is indented one space too few.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>main <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> foo <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>     bar <span class="ot">=</span> <span class="dv">3</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span> (foo <span class="op">+</span> bar)</span></code></pre></div>
+<p>Under GHC 8.4 I get the helpful error message</p>
+<pre><code>bad-block-args.hs:3:6: error: parse error on input ‘bar’
+  |
+3 |      bar = 3
+  |      ^^^</code></pre>
+<p>but under GHC 8.6 I get the completely baffling and useless error
+message</p>
+<pre><code>bad-block-args.hs:1:8: error:
+    Unexpected do block in function application:
+        do let foo = 1
+    You could write it with parentheses
+    Or perhaps you meant to enable BlockArguments?
+  |
+1 | main = do
+  |        ^^...</code></pre>
+<p>No, I didn’t mean to enable <code>BlockArguments</code>. I was not a supporter
+of the <code>BlockArguments</code> extension in the first place, and now it is
+providing me with <em>negative</em> value when I’m not even trying to use it.
+I have had
+this occur to me a few times in the wild, always in an unwieldy <code>do</code>
+block that is difficult to understand even when GHC isn’t complaining
+about a syntax error. I would like GHC’s <em>help</em> here not a reference
+to an unrelated <a href="https://osa1.net/posts/2020-01-22-no-small-syntax-extensions.html">small syntax
+extension</a>.</p>
+<p>Under GHC 8.10 I get an error message in the correct place, but <em>also</em>
+the unhelpful and misleading error about enabling <code>BlockArguments</code>.
+Ah well, that’s better than nothing.</p>
+<pre><code>badd.hs:1:8: error:
+    Unexpected do block in function application:
+        do let foo = 1
+    You could write it with parentheses
+    Or perhaps you meant to enable BlockArguments?
+  |
+1 | main = do
+  |        ^^...
+
+badd.hs:3:10: error:
+    parse error on input ‘=’
+    Perhaps you need a 'let' in a 'do' block?
+    e.g. 'let x = 5' instead of 'x = 5'
+  |
+3 |      bar = 3
+  |          ^</code></pre>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

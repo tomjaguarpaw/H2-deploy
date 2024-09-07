@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>accidentally-exponential</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>accidentally-exponential</h3>
+  <h1 id="accidentally-exponential-in-a-compiler">Accidentally exponential in a compiler</h1>
+<h2 id="the-introduction">The introduction</h2>
+<p>I accidentally introduced exponential run time into a compiler I was
+writing and did not realise for over three years.</p>
+<h2 id="the-language">The language</h2>
+<p>Once upon a time I was writing an AST to represent expressions in a
+programming language. In reality the language was SQL, but for the
+sake accessibility let’s pretend it was a simple arithmetic language
+that allows us to write zero, one, and (non-empty) sums and products.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Expr</span> a <span class="ot">=</span> <span class="dt">Zero</span> a</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> <span class="dt">One</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> <span class="dt">Sum</span> (<span class="dt">NonEmpty</span> (<span class="dt">Expr</span> a))</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>            <span class="op">|</span> <span class="dt">Prod</span> (<span class="dt">NonEmpty</span> (<span class="dt">Expr</span> a))</span></code></pre></div>
+<p>The reason why <code>Zero</code> has an argument will be explained in due course.
+First, let’s implement wrapper functions to provide a nice API and
+write an example expression.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">zero ::</span> <span class="dt">Expr</span> ()</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>zero <span class="ot">=</span> <span class="dt">Zero</span> ()</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="ot">(.+) ::</span> <span class="dt">Expr</span> a <span class="ot">-&gt;</span> <span class="dt">Expr</span> a <span class="ot">-&gt;</span> <span class="dt">Expr</span> a</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>e1 <span class="op">.+</span> e2 <span class="ot">=</span> <span class="dt">Sum</span> (<span class="fu">pure</span> e1 <span class="op">&lt;&gt;</span> <span class="fu">pure</span> e2)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="ot">(.*) ::</span> <span class="dt">Expr</span> a <span class="ot">-&gt;</span> <span class="dt">Expr</span> a <span class="ot">-&gt;</span> <span class="dt">Expr</span> a</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>e1 <span class="op">.*</span> e2 <span class="ot">=</span> <span class="dt">Prod</span> (<span class="fu">pure</span> e1 <span class="op">&lt;&gt;</span> <span class="fu">pure</span> e2)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="ot">example ::</span> <span class="dt">Expr</span> ()</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>example <span class="ot">=</span> (<span class="dt">One</span> <span class="op">.+</span> zero <span class="op">.+</span> zero <span class="op">.+</span> <span class="dt">One</span>) <span class="op">.*</span> (zero <span class="op">.+</span> <span class="dt">One</span> <span class="op">.+</span> <span class="dt">One</span>)</span></code></pre></div>
+<p>We expect the example expression to evaluate to <code>2 * 2</code>, i.e. <code>4</code>.
+Let’s write an evaluator and check. The evaluator will be recursive
+on the structure of terms of type <code>Expr</code>. We are good functional
+programmers so we will write a data type and general fold function to
+encapsulate the recursion pattern. They basically write themselves,
+given the definition of <code>Expr</code>.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">ExprFold</span> a r <span class="ot">=</span> <span class="dt">ExprFold</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  {<span class="ot"> zeroF ::</span> a <span class="ot">-&gt;</span> r</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  ,<span class="ot"> oneF  ::</span> r</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  ,<span class="ot"> sumF  ::</span> <span class="dt">NonEmpty</span> r <span class="ot">-&gt;</span> r</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  ,<span class="ot"> prodF ::</span> <span class="dt">NonEmpty</span> r <span class="ot">-&gt;</span> r</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="ot">exprFold ::</span> <span class="dt">ExprFold</span> a r <span class="ot">-&gt;</span> <span class="dt">Expr</span> a <span class="ot">-&gt;</span> r</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>exprFold f <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Zero</span> a  <span class="ot">-&gt;</span> zeroF f a</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">One</span>     <span class="ot">-&gt;</span> oneF f</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Prod</span> es <span class="ot">-&gt;</span> prodF f (<span class="fu">fmap</span> (exprFold f) es)</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Sum</span> es  <span class="ot">-&gt;</span> sumF f (<span class="fu">fmap</span> (exprFold f) es)</span></code></pre></div>
+<p>Now it’s simple, almost tautological, to write an evaluator to
+interpret terms in the integers.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">int ::</span> <span class="dt">Expr</span> a <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>int <span class="ot">=</span> exprFold <span class="dt">ExprFold</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  { zeroF <span class="ot">=</span> <span class="fu">const</span> <span class="dv">0</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  , oneF  <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  , sumF  <span class="ot">=</span> <span class="fu">sum</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  , prodF <span class="ot">=</span> <span class="fu">product</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  }</span></code></pre></div>
+<pre><code>&gt; int example
+4</code></pre>
+<h2 id="the-task">The task</h2>
+<p>Now I’ll explain the reason for the argument to the <code>Zero</code>
+constructor. The backend that we are targeting doesn’t have a very
+good concept of <code>Zero</code>! We can happily send <code>One</code> to it but sending
+<code>Zero</code> is quite tricky. In reality the backend is SQL and it’s not
+terribly straightforward to generically represent an empty query in
+SQL.</p>
+<p>Instead of dealing with that problem directly, my approach was to give
+<code>Expr</code> a type parameter. Then expressions of type <code>Expr ()</code> can
+contain <code>Zero</code> and expressions of type <code>Expr Void</code> cannot.</p>
+<p>Expressions that might contain <code>Zero</code> need to have it removed before
+the query is sent to the backend. The following function removes all
+occurrences of <code>Zero</code> from an expression. If the expression itself
+was actually zero it returns <code>Nothing</code>, otherwise it returns a <code>Just</code>.
+Because the type parameter in the return type is polymorphic we have a
+static guarantee that the result doesn’t contain any <code>Zero</code>s!</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Just an expression, or Nothing.  Nothing means that the value</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- of the expression is zero.</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="ot">removeZero ::</span> <span class="dt">Expr</span> unit <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (<span class="dt">Expr</span> void)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>removeZero <span class="ot">=</span> exprFold <span class="dt">ExprFold</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  { zeroF   <span class="ot">=</span> <span class="fu">const</span> <span class="dt">Nothing</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- ^ Zero is converted to Nothing</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  , oneF    <span class="ot">=</span> <span class="fu">pure</span> <span class="dt">One</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- ^ One does not need to change</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  , sumF    <span class="ot">=</span> \es <span class="ot">-&gt;</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>       <span class="dt">Sum</span> <span class="op">&lt;$&gt;</span> nonEmpty (catMaybes (toList es))</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- ^ We filter all zeros out of the Sum.  Terms that are zero</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- (Nothing) are removed by catMaybes. If they were *all* zero</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- then the argument to nonEmpty is [] so it returns Nothing.</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- If some were not zero then we end up with a NonEmpty list of</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- non-zeroes.</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  , prodF   <span class="ot">=</span> \es <span class="ot">-&gt;</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>       <span class="dt">Prod</span> <span class="op">&lt;$&gt;</span> (<span class="fu">traverse</span> removeZero <span class="op">=&lt;&lt;</span> <span class="fu">sequence</span> es)</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- ^ If any of the terms in a Prod is Nothing then the entire</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- product is Nothing (because the product of a list</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- containing zero is itself zero).</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>  }</span></code></pre></div>
+<pre><code>&gt;  fmap int (removeZero example)
+Just 4
+&gt; fmap int (removeZero (zero .* One))
+Nothing</code></pre>
+<p>We’re only ever going to use <code>removeZero</code> at type</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ot">removeZero ::</span> <span class="dt">Expr</span> () <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (<span class="dt">Expr</span> <span class="dt">Void</span>)</span></code></pre></div>
+<p>but the more general type signature</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ot">removeZero ::</span> <span class="dt">Expr</span> unit <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (<span class="dt">Expr</span> void)</span></code></pre></div>
+<p>is valid, so let’s use that instead. After all, more polymorphism
+gives fewer places for bugs to hide, right?</p>
+<h2 id="the-bug">The bug</h2>
+<p><code>removeZero</code> calculates the correct result but regrettably it has
+exponential run time! How can this be? The point of expressing
+<code>removeZero</code> in terms of a fold function was to make it brainlessly
+simple to write it efficiently and correctly.</p>
+<p>The problem is that I called <code>removeZero</code> in the body of its own
+definition. I wasn’t supposed to do that! <code>exprFold</code> was supposed to
+encapsulate all the recursion so that I need not use explicit
+recursion myself. For the <code>prodF</code> field I wrote</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>prodF <span class="ot">=</span> \es <span class="ot">-&gt;</span> <span class="dt">Prod</span> <span class="op">&lt;$&gt;</span> (<span class="fu">traverse</span> removeZero <span class="op">=&lt;&lt;</span> <span class="fu">sequence</span> es)</span></code></pre></div>
+<p>when I should have written</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>prodF <span class="ot">=</span> \es <span class="ot">-&gt;</span> <span class="dt">Prod</span> <span class="op">&lt;$&gt;</span> <span class="fu">sequence</span> es</span></code></pre></div>
+<p>The argument to <code>prodF</code>, <code>es</code>, has <em>already</em> had the recursive call of
+<code>removeZero</code> applied to each element by <code>exprFold</code>. I didn’t need to
+call <code>removeZero</code> again. Calling it again doesn’t change the result
+(because there are no longer any zeros) but it doubles the amount of
+work at each <code>Prod</code> node, making the run time exponential.</p>
+<h2 id="the-stars-aligned">The stars aligned</h2>
+<p>Ironically, if <code>removeZero</code> were less polymorphic, taking an argument
+of type <code>Expr ()</code> instead of <code>Expr unit</code>, then the type checker would
+have caught this bug. The recursive call is at type <code>Expr void</code> which
+Haskell’s polymorphic recursion very happily allows to unify with
+<code>Expr unit</code>. Furthermore, if <code>removeZero</code> were not idempotent then
+this bug would have been quickly discovered by the test suite. The bug could only occur because the following three conditions coincided:</p>
+<ul>
+<li><code>removeZero</code> is idempotent</li>
+<li>I chose to generalise the type signature</li>
+<li>Haskell supports polymorphic recursion</li>
+</ul>
+<h2 id="the-reality">The reality</h2>
+<p>This bug occurred in real life in
+<a href="https://github.com/tomjaguarpaw/haskell-opaleye">Opaleye</a>, my
+PostgreSQL
+<a href="https://en.wikipedia.org/wiki/Domain-specific_language">EDSL</a>. The
+bug was <a href="https://github.com/tomjaguarpaw/haskell-opaleye/commit/784caea91f4715208a5e15e1528deb1f2a378191#diff-0da0d5fe745a7b37120073cdbb34a662R40-R41">added in Feb
+2016</a>
+and only <a href="https://github.com/tomjaguarpaw/haskell-opaleye/commit/895a6781d8e95163ee6e82085eb56a12993012a0?diff=unified#diff-0da0d5fe745a7b37120073cdbb34a662L40-R40">removed nearly three and a half years
+later</a>,
+after being
+<a href="https://github.com/tomjaguarpaw/haskell-opaleye/issues/434">reported</a>
+by <a href="https://github.com/csasarak">Christopher Sasarak</a>. (Despite the
+commit message the slowdown is exponential, not quadratic. Suppose
+that each level of the tree has only one branch. We’re running
+<code>removeEmpty</code> twice for each branch, so <code>cost (Prod es) = 2 * sum (cost es)</code>.)</p>
+<h2 id="the-conclusion">The conclusion</h2>
+<p>Opaleye makes good use of Haskell’s type system to check correctness.
+It has a comprehensive set of unit tests and property tests. However,
+because the buggy function returns the correct result there is no way
+that Haskell’s type system can spot the error. Nor can unit tests,
+property tests, Liquid Haskell, or any other system which only checks
+the calculated value. Some form of performance testing is required.
+If you have a library without a performance testing suite perhaps you
+will be lucky enough, like me, that your users act as performance
+testers for you!</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

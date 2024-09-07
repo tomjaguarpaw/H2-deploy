@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-play-video-on-linux</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-play-video-on-linux</h3>
+  <h1 id="how-i-play-video-on-linux">How I play video on Linux</h1>
+<p>– specifically, Debian</p>
+<h2 id="how-to-back-up-dvds-to-a-hard-disk">How to back up DVDs to a hard disk</h2>
+<pre><code>% sudo apt-get install vobcopy libdvd-pkg</code></pre>
+<p>You may need to subsequently</p>
+<pre><code>sudo dpkg-reconfigure libdvd-pkg</code></pre>
+<p>Then the DVD device must be mounted, for example</p>
+<pre><code>sudo mount /dev/sr0 /mnt/&lt;target&gt;</code></pre>
+<p>even though you don’t actually need to mention the mount directory
+when you issue the backup command. To back up to the current
+directory issue:</p>
+<pre><code>vobcopy -m</code></pre>
+<h2 id="how-to-get-decent-audio-balance-from-surround-sound-dvds">How to get decent audio balance from surround sound DVDs</h2>
+<p>If you try to play a DVD with a 6-channel (“5.1”) surround sound audio
+track from a stereo speaker setup then the audio balance will likely
+be terrible. Symptoms include too quiet dialogue and speech and too
+loud music, sound effects and background noise.</p>
+<p>I found it very hard to find a decent resolution to this problem, but
+ultimately the following works well for me. It may be possible to
+make it work even better by tweaking the parameters.</p>
+<pre><code>% mpv --deinterlace=yes \
+      --alang=en \
+      '-af=pan=&quot;stereo|FL=0.707*FC+0.3*FL+0.1*SL+0.1*LFE|FR=0.707*FC+0.3*FR+0.1*SR+0.1*LFE&quot;' \
+      --dvd-device=VIDEO_TS/ \
+      dvd://&lt;number&gt;</code></pre>
+<h3 id="notes">Notes</h3>
+<ul>
+<li><p>To play the first track on the DVD choose <code>&lt;number&gt;</code> to be <code>0</code>. To
+play subsequent tracks increment <code>&lt;number&gt;</code> accordingly.</p></li>
+<li><p><code>VIDEO_TS</code> is the top-level directory created by <code>vobcopy</code>.</p></li>
+<li><p>For old recordings the dialogue may only play from the front centre
+(<code>FC</code>) channel. In that case you might want to omit <code>FL</code>, <code>FR</code>,
+<code>SL</code> and <code>SR</code> completely in the formula.</p></li>
+<li><p>It seems important to play DVD files through <code>--dvd-device   ... dvd://&lt;number&gt;</code> so the correct audio track for the correct
+language can be chosen by name (here <code>en</code>). The mapping between
+language names and audio track IDs seems to be stored in the <code>.IFO</code>
+file so if you play the <code>.VOB</code> files directly the mapping will not
+be used and you might find it hard to select the correct language.</p></li>
+<li><p>In theory <code>--audio-channels=stereo</code>, with or without
+<code>--ad-lavc-downmix=yes</code>, should perform the down mixing, but it
+didn’t seem to make any difference for me.</p></li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li><p><a href="https://github.com/mpv-player/mpv/issues/1118" class="uri">https://github.com/mpv-player/mpv/issues/1118</a></p></li>
+<li><p><a href="https://github.com/mpv-player/mpv/issues/3979" class="uri">https://github.com/mpv-player/mpv/issues/3979</a></p></li>
+<li><p><a href="https://github.com/mpv-player/mpv/issues/6343" class="uri">https://github.com/mpv-player/mpv/issues/6343</a></p></li>
+<li><p><a href="https://github.com/mpv-player/mpv/issues/6563" class="uri">https://github.com/mpv-player/mpv/issues/6563</a></p></li>
+<li><p><a href="https://superuser.com/questions/852400/properly-downmix-5-1-to-stereo-using-ffmpeg/1410620#1410620" class="uri">https://superuser.com/questions/852400/properly-downmix-5-1-to-stereo-using-ffmpeg/1410620#1410620</a></p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

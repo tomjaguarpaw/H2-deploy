@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>postgres-weirdness</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>postgres-weirdness</h3>
+  <h1 id="postgres-weirdness">Postgres weirdness</h1>
+<ul>
+<li>Array indices cannot be applied separately</li>
+</ul>
+<pre><code>select ('{{1,2}, {3,4}}' :: integer[])[1][2];
+ int4 
+------
+    2
+(1 row)
+
+select ('{{1,2}, {3,4}}' :: integer[])[1];
+ int4 
+------
+ 
+(1 row)
+
+select foo[2]
+from (select ('{{1,2}, {3,4}}' :: integer[])[1] as foo) as t1;
+ERROR:  cannot subscript type integer because it is not an array
+
+select ('{{1,2}, {3,4}}' :: integer[])[1:1][2:2];
+ int4  
+-------
+ {{2}}
+(1 row)
+
+select foo[2:2]
+from (select ('{{1,2}, {3,4}}' :: integer[])[1:1] as foo) as t1;
+ foo 
+-----
+ {}
+(1 row)</code></pre>
+<ul>
+<li><code>GROUP BY</code></li>
+</ul>
+<p>This orders by the second column</p>
+<pre><code>SELECT * from table ORDER BY 2;</code></pre>
+<p>whereas this orders by the constant 1 + 1, i.e. 2.</p>
+<pre><code>SELECT * from table ORDER BY 1 + 1;</code></pre>
+<ul>
+<li><p><a href="https://stackoverflow.com/questions/42588304/postgresql-why-cant-i-create-composite-foreign-key-based-on-unique-column-wit" class="uri">https://stackoverflow.com/questions/42588304/postgresql-why-cant-i-create-composite-foreign-key-based-on-unique-column-wit</a></p></li>
+<li><p><a href="https://edgedb.com/blog/we-can-do-better-than-sql/" class="uri">https://edgedb.com/blog/we-can-do-better-than-sql/</a></p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

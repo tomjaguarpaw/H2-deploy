@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>polymorphic-recursion-combinator</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>polymorphic-recursion-combinator</h3>
+  <h1 id="polymorphic-recursion-combinator-in-haskell">Polymorphic recursion combinator in Haskell</h1>
+<p>– or “polymorphic fixed point combinator”</p>
+<p>This article explains recursion combinators and polymorphic recursion,
+and deduces a polymorphic recursion combinator.</p>
+<h2 id="recursion">Recursion</h2>
+<p>Haskell allows us to write recursive functions, that is functions
+which refer to themselves in their definitions. Here is a recursively
+defined (and somewhat inefficient) list length function.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Type can be inferred</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ot">lengthList ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>lengthList xs <span class="ot">=</span> <span class="kw">case</span> xs <span class="kw">of</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>[]       <span class="ot">-&gt;</span> <span class="dv">0</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>(_<span class="op">:</span>rest) <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="op">+</span> lengthList rest</span></code></pre></div>
+<pre><code>&gt; lengthList [1,2,3]
+3</code></pre>
+<p>Another approach is to factor out the recursive call and make the
+recursion happen elsewhere. Notice how the parameter <code>recurse</code>
+replaces the recursive call.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Type can be inferred</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ot">lengthListF ::</span> ([a] <span class="ot">-&gt;</span> <span class="dt">Int</span>) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>lengthListF recurse xs <span class="ot">=</span> <span class="kw">case</span> xs <span class="kw">of</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  []       <span class="ot">-&gt;</span> <span class="dv">0</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  (_<span class="op">:</span>rest) <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="op">+</span> recurse rest</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Type can be inferred</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="ot">lengthList2 ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>lengthList2 <span class="ot">=</span> lengthListF lengthList2</span></code></pre></div>
+<pre><code>-- &gt; lengthList2 [1,2,3]
+-- 3</code></pre>
+<p>We can abstract this pattern even further by writing a “recursion
+combinator” or “fixed point combinator”.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Type can be inferred</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="ot">fix ::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> a</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>fix f <span class="ot">=</span> f (fix f)</span></code></pre></div>
+<p>The recursion combinator allows us to write</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Type can be inferred</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="ot">lengthList3 ::</span> [a] <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>lengthList3 <span class="ot">=</span> fix lengthListF</span></code></pre></div>
+<pre><code>-- &gt; lengthList3 [1,2,3]
+-- 3</code></pre>
+<p>As an aside, the actual definition of <code>fix</code> in the Haskell standard
+library is a more efficient version, but that’s not important in this
+article.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- More efficient fix</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="ot">fix ::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> a</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>fix f <span class="ot">=</span> <span class="kw">let</span> x <span class="ot">=</span> f x <span class="kw">in</span> x</span></code></pre></div>
+<h2 id="polymorphic-recursion">Polymorphic recursion</h2>
+<p>As well as recursive data structures and functions like lists and
+<code>length</code>, Haskell also allows us to write <em>polymorphically</em> recursive
+data structures and functions.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Nested</span> a <span class="ot">=</span> <span class="dt">Nil</span> <span class="op">|</span> a <span class="op">:&lt;</span> <span class="dt">Nested</span> [a]</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="kw">infixr</span> <span class="dv">5</span> <span class="op">:&lt;</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>nested <span class="ot">=</span> <span class="dv">1</span> <span class="op">:&lt;</span> [<span class="dv">2</span>, <span class="dv">3</span>] <span class="op">:&lt;</span> [[<span class="dv">3</span>, <span class="dv">4</span>], [<span class="dv">5</span>]] <span class="op">:&lt;</span> <span class="dt">Nil</span></span></code></pre></div>
+<p><code>Nested</code> is recursively defined in terms of itself but the recursive
+parameter is <code>[a]</code> not the original <code>a</code>, so this recursive data type
+definition is called “polymorphic”. We can write a recursive function
+to calculate the length of <code>Nested</code>s.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Type cannot be inferred</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="ot">lengthNested ::</span> <span class="dt">Nested</span> a <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>lengthNested ns <span class="ot">=</span> <span class="kw">case</span> ns <span class="kw">of</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Nil</span>      <span class="ot">-&gt;</span> <span class="dv">0</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  _ <span class="op">:&lt;</span> nns <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="op">+</span> lengthNested nns</span></code></pre></div>
+<pre><code>-- &gt; lengthNested nested
+-- 3</code></pre>
+<p>This is a <em>polymorphically</em> recursive function because the type of the
+argument <code>ns</code>, <code>Nested a</code>, differs from the type of the argument to
+the recursive call <code>nns</code>, which is <code>Nested [a]</code>. Nonetheless we can
+play the same trick as above, replacing the recursive call with a
+parameter.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Type can be inferred</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="ot">lengthNestedF ::</span> (<span class="dt">Nested</span> [a] <span class="ot">-&gt;</span> <span class="dt">Int</span>) <span class="ot">-&gt;</span> <span class="dt">Nested</span> a <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>lengthNestedF recurse ns <span class="ot">=</span> <span class="kw">case</span> ns <span class="kw">of</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Nil</span>      <span class="ot">-&gt;</span> <span class="dv">0</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  _ <span class="op">:&lt;</span> nns <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="op">+</span> recurse nns</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Type cannot be inferred</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="ot">lengthNested2 ::</span> <span class="dt">Nested</span> a <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>lengthNested2 <span class="ot">=</span> lengthNestedF lengthNested2</span></code></pre></div>
+<pre><code>-- &gt; lengthNested3 nested
+-- 3</code></pre>
+<p>But trying to define this in terms of <code>fix</code> does not work.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="ot">lengthNested2 ::</span> <span class="dt">Nested</span> a <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>lengthNested2 <span class="ot">=</span> fix lengthNestedF</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Couldn't match type `a' with `[a]'</span></span></code></pre></div>
+<p>The argument to <code>lengthNestedF</code> has type <code>Nested [a] -&gt; Int</code> and the
+return value has type <code>Nested a -&gt; Int</code>. <code>fix</code> will not work here
+because the argument and return type must be the same. We can try to
+be sneaky by providing a more general type.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Requires RankNTypes</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Type cannot be inferred</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="ot">lengthNestedF2 ::</span> (<span class="kw">forall</span> a<span class="op">.</span> <span class="dt">Nested</span> a <span class="ot">-&gt;</span> <span class="dt">Int</span>) <span class="ot">-&gt;</span> <span class="dt">Nested</span> a <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>lengthNestedF2 recurse ns <span class="ot">=</span> <span class="kw">case</span> ns <span class="kw">of</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Nil</span>      <span class="ot">-&gt;</span> <span class="dv">0</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>  _ <span class="op">:&lt;</span> nns <span class="ot">-&gt;</span> <span class="dv">1</span> <span class="op">+</span> recurse nns</span></code></pre></div>
+<p>This gets us closer but not close enough.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="ot">lengthNested2 ::</span> <span class="dt">Nested</span> a <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>lengthNested2 <span class="ot">=</span> fix lengthNestedF</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Couldn't match type `forall a1. Nested a1 -&gt; Int'</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- with `Nested a -&gt; a'</span></span></code></pre></div>
+<p>What hope is there of representing polymorphic recursion with a
+combinator? The answer is that we need to generalise the type of
+<code>fix</code>.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Requires ScopedTypeVariables</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Type signature must be provided.</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="ot">fixPolymorphic ::</span> <span class="kw">forall</span> f<span class="op">.</span> ((<span class="kw">forall</span> a<span class="op">.</span> f a) <span class="ot">-&gt;</span> (<span class="kw">forall</span> a<span class="op">.</span> f a))</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>               <span class="ot">-&gt;</span> <span class="kw">forall</span> a<span class="op">.</span> f a</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>fixPolymorphic f <span class="ot">=</span> <span class="kw">let</span><span class="ot"> x ::</span> f b</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>                       x <span class="ot">=</span> f x</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>                   <span class="kw">in</span> x</span></code></pre></div>
+<p>To use this with <code>lengthNestedF2</code> we also need an ad hoc data type
+that does nothing except massage the type <code>Nested a -&gt; Int</code> into a
+different form.</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">NestedFunction</span> a <span class="ot">=</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">NestedFunction</span> {<span class="ot"> unNestedFunction ::</span> <span class="dt">Nested</span> a <span class="ot">-&gt;</span> <span class="dt">Int</span> }</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Type signature is not required</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="ot">lengthNested2 ::</span> <span class="dt">Nested</span> a <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>lengthNested2 <span class="ot">=</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>  unNestedFunction (fixPolymorphic (\x <span class="ot">-&gt;</span> <span class="dt">NestedFunction</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>                                       (lengthNestedF2</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>                                           (unNestedFunction x))))</span></code></pre></div>
+<pre><code>-- &gt; lengthNested2 nested
+-- 3</code></pre>
+<p>Because <code>NestedFunction</code> is a <code>newtype</code>, <code>NestedFunction</code> and
+<code>unNestedFunction</code> don’t actually do anything. We only need
+<code>NestedFunction</code> to massage type parameters around. Morally, the
+definition of <code>lengthNested2</code> is just</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="ot">lengthNested2 ::</span> <span class="dt">Nested</span> a <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>lengthNested2 <span class="ot">=</span> fixPolymorphic lengthNestedF2</span></code></pre></div>
+<p>And there we have it, a polymorphic recursion combinator.</p>
+<h2 id="polymorphic-recursion-is-just-recursion">Polymorphic recursion is just recursion</h2>
+<p>It’s a bit disappointing that we have <em>two</em> different combinators,
+though. Can we combine them? Yes! With another ad hoc data type</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">Forall</span> f <span class="ot">=</span> <span class="dt">Forall</span> {<span class="ot"> unForall ::</span> <span class="kw">forall</span> a<span class="op">.</span> f a }</span></code></pre></div>
+<p>we can write</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="ot">fixPolymorphic2 ::</span> <span class="kw">forall</span> f<span class="op">.</span> ((<span class="kw">forall</span> a<span class="op">.</span> f a) <span class="ot">-&gt;</span> (<span class="kw">forall</span> a<span class="op">.</span> f a))</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>                <span class="ot">-&gt;</span> <span class="kw">forall</span> a<span class="op">.</span> f a</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>fixPolymorphic2 f <span class="ot">=</span> unForall (fix (\x <span class="ot">-&gt;</span> <span class="dt">Forall</span> (f (unForall x))))</span></code></pre></div>
+<p>As above, <code>Forall</code> and <code>unForall</code> really don’t do anything, and
+morally the definition of the polymorphic recursion combinator is</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="ot">fixPolymorphic2 ::</span> <span class="kw">forall</span> f<span class="op">.</span> ((<span class="kw">forall</span> a<span class="op">.</span> f a) <span class="ot">-&gt;</span> (<span class="kw">forall</span> a<span class="op">.</span> f a))</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>                <span class="ot">-&gt;</span> <span class="kw">forall</span> a<span class="op">.</span> f a</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>fixPolymorphic2 f <span class="ot">=</span> fix f</span></code></pre></div>
+<p>That is, recursion and polymorphic recursion in Haskell are exactly
+the same thing!</p>
+<p>(Thanks to winterkoninkje on Reddit for <a href="https://www.reddit.com/r/haskell/comments/4kcqdp/polymorphic_recursion_combinator_in_haskell/d3esf8j">explaining a type system
+issue</a>.)</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

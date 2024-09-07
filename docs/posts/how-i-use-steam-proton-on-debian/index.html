@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-use-steam-proton-on-debian</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-use-steam-proton-on-debian</h3>
+  <h1 id="how-i-use-steam-proton-on-debian">How I use Steam Proton on Debian</h1>
+<h2 id="mouse-coordinate-transform-matrix-bug">Mouse coordinate transform matrix bug</h2>
+<p>If you have used <code>xinput</code> to change your mouse’s coordinate transform
+matrix this may cause a problem with Steam Proton where the mouse gets
+stuck in the top-left corner. In a first person game this will
+manifest as the camera turning upwards and to the left (or downwards
+to the left if the mouse is inverted). The solution is to reset your
+coordinate transformation matrix to the default.</p>
+<ol type="1">
+<li><p>Run <code>xinput list</code> to see the list of devices, and note the name of
+the mouse device, for example <code>Logitech USB Optical Mouse</code>.</p></li>
+<li><p>Run <code>xinput list-props "Logitech USB Optical Mouse"</code> to see the
+list of properties, and note the name of the coordinate
+tranformation matrix property, probably <code>Coordinate Transformation    Matrix</code>.</p></li>
+<li><p>Run</p></li>
+</ol>
+<pre><code>xinput set-prop &quot;Logitech USB Optical Mouse&quot; &quot;Coordinate Transformation Matrix&quot; 1 0 0 0 1 0 0 0 1</code></pre>
+<p>to set the coordinate transformation matrix to its default value.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><p><a href="https://i.reddit.com/r/linux_gaming/comments/3nxnzg/mouse_stuck_in_topleft_corner_please_help/" class="uri">https://i.reddit.com/r/linux_gaming/comments/3nxnzg/mouse_stuck_in_topleft_corner_please_help/</a></p></li>
+<li><p><a href="../how-i-use-baba-is-you/">how-i-use-baba-is-you/</a></p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

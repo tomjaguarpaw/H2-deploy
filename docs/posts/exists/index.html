@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>exists</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>exists</h3>
+  <h1 id="why-does-haskell-not-have-an-exists-keyword">Why does Haskell not have an <code>exists</code> keyword?</h1>
+<p>In Haskell we can use <code>Rank2Types</code> or <code>RankNTypes</code> to pass arguments
+which contain universally quantified parameters, for example</p>
+<pre><code>{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE ExistentialQuantification #-}
+
+showBoth :: (Show b, Show c)
+         =&gt; (forall a. Show a =&gt; a -&gt; String) -&gt; (b, c)
+         -&gt; (String, String)
+showBoth myShow (b, c) = (myShow b, myShow c)
+
+example1 :: (String, String)
+example1 = showBoth show (1, &quot;foo&quot;)</code></pre>
+<p>We can also make datatypes that contain existential variables, that
+means we know they have <em>some</em> type, but we don’t know which.</p>
+<pre><code>data Showable = forall a. Show a =&gt; Showable a
+
+showShowable :: Showable -&gt; String
+showShowable (Showable a) = show a
+
+showAll :: [Showable] -&gt; [String]
+showAll = map showShowable
+
+example2 :: [String]
+example2 = showAll [Showable &quot;bar&quot;, Showable 5, Showable True]</code></pre>
+<p>However, what we’d really like to do is this:</p>
+<pre><code>showAll :: [exists a. Show a =&gt; a] -&gt; [String]
+showAll = map show</code></pre>
+<p>Why can’t we do this? Well, the reason that we can manipulate
+<code>forall</code> is that it desugars directly into something in the
+polymorphic lambda calculus (System F). The type</p>
+<pre><code>   (Show b, Show c)
+=&gt; (forall a. Show a =&gt; a -&gt; String) -&gt; (b, c)
+-&gt; (String, String)</code></pre>
+<p>actually means</p>
+<pre><code>   (Show b, Show c)
+=&gt; (/\a -&gt; Show a =&gt; a -&gt; String) -&gt; (b, c)
+-&gt; (String, String)</code></pre>
+<p>(modulo desugaring of the typeclass contexts). Here <code>/\</code> is a
+higher-level lambda, and its use means that the caller of the argument
+(i.e. the body of <code>showBoth</code>) gets to choose to instantiate the <code>a</code> to
+possibly many different types and use that function at all of them.
+On the other hand, there is nothing for <code>exists</code> to directly desugar
+to. We would like the type</p>
+<pre><code>[exists a. Show a =&gt; a] -&gt; [String]</code></pre>
+<p>could mean something like</p>
+<pre><code>[{Show a =&gt; a, a}] -&gt; [String]</code></pre>
+<p>where the <code>{...}</code> notation indicates a dependent sum. However, there
+is no such construction available in Haskell’s Core intermediate
+language.</p>
+<p>I certainly recall seeing these dependent products in some
+presentations of polymorphic lambda calculus so perhaps there is no
+impediment to them in principle.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

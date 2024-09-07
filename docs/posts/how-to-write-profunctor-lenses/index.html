@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-to-write-profunctor-lenses</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-to-write-profunctor-lenses</h3>
+  <h1 id="how-to-write-profunctor-lenses">How to write profunctor lenses</h1>
+<p>– and prisms</p>
+<p>A profunctor optic has the following general form</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">LensLike</span> p s t a b <span class="ot">=</span> p a b <span class="ot">-&gt;</span> p s t</span></code></pre></div>
+<p>Compare this with the van Laarhoven version</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">LensLikeVL</span> f s t a b <span class="ot">=</span> (a <span class="ot">-&gt;</span> f b) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> f t</span></code></pre></div>
+<p>The way we write lenses in profunctor form is to see <code>p a b</code> as some
+sort of converter from <code>a</code> to <code>b</code> and transform it to a converter from
+<code>s</code> to <code>t</code>. Lenses work with the profunctor typeclass <code>Strong</code>,
+defined by the following method:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">first' ::</span> p a b <span class="ot">-&gt;</span> p (a, c) (b, c)</span></code></pre></div>
+<p>That allows a converter from <code>a</code> to <code>b</code> to be transformed into a
+converter from “<code>a</code> and some stuff” “<code>b</code> and some stuff”, that is any
+product containing an <code>a</code> that can be “converted to” a <code>b</code>! That means
+we can write a lens (in terms of <code>second'</code> rather than <code>first'</code> since
+it makes the sequel slightly more convenient) by splitting <code>s</code> into
+“<code>a</code> and some stuff” and feeding it into one end of the <code>Strong</code>
+profunctor. Then we assemble <code>t</code> on the other end from “<code>b</code> and some
+stuff”.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">_1 ::</span> <span class="dt">Strong</span> p <span class="ot">=&gt;</span> p a a' <span class="ot">-&gt;</span> p (a, b, c) (a', b, c)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>_1 <span class="ot">=</span> dimap (\(a, b, c) <span class="ot">-&gt;</span> ((b, c), a)) (\((b, c), a) <span class="ot">-&gt;</span> (a, b, c)) <span class="op">.</span> second'</span></code></pre></div>
+<p>In fact there are different representations for “stuff”. The stuff
+could even have been the assembling function itself:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ot">_1' ::</span> <span class="dt">Strong</span> p <span class="ot">=&gt;</span> p a a' <span class="ot">-&gt;</span> p (a, b, c) (a', b, c)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>_1' <span class="ot">=</span> dimap (\(a, b, c) <span class="ot">-&gt;</span> (\a' <span class="ot">-&gt;</span> (a', b, c), a)) (\(b_c, a) <span class="ot">-&gt;</span> b_c a) <span class="op">.</span> second'</span></code></pre></div>
+<p>This suggests the following, which turns out to be a way of creating a
+profunctor lens from a getter/setter:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ot">lens ::</span> <span class="dt">Strong</span> p <span class="ot">=&gt;</span> (s <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> t, a)) <span class="ot">-&gt;</span> p a b <span class="ot">-&gt;</span> p s t</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>lens f <span class="ot">=</span> dimap f (<span class="fu">uncurry</span> (<span class="op">$</span>)) <span class="op">.</span> second'</span></code></pre></div>
+<p>Prisms work with the profunctor typeclass <code>Choice</code>, defined by the
+following method:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ot">left' ::</span> p a b <span class="ot">-&gt;</span> p (<span class="dt">Either</span> a c) (<span class="dt">Either</span> b c)</span></code></pre></div>
+<p>This time we don’t use “<code>a</code> and some stuff” but instead “<code>a</code> <em>or</em> some
+stuff”.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ot">_Just ::</span> <span class="dt">Choice</span> p <span class="ot">=&gt;</span> p a a' <span class="ot">-&gt;</span> p (<span class="dt">Maybe</span> a) (<span class="dt">Maybe</span> a')</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>_Just <span class="ot">=</span> dimap (\<span class="kw">case</span> {<span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="dt">Right</span> (); <span class="dt">Just</span> a <span class="ot">-&gt;</span> <span class="dt">Left</span> a})</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>              (\<span class="kw">case</span> {<span class="dt">Left</span> a' <span class="ot">-&gt;</span> <span class="dt">Just</span> a'; <span class="dt">Right</span> () <span class="ot">-&gt;</span> <span class="dt">Nothing</span>})</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span> left'</span></code></pre></div>
+<p>As before there’s an equivalent way of presenting this</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ot">_Just' ::</span> <span class="dt">Choice</span> p <span class="ot">=&gt;</span> p a a' <span class="ot">-&gt;</span> p (<span class="dt">Either</span> a t) ((a' <span class="ot">-&gt;</span> t) <span class="ot">-&gt;</span> t)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>_Just' <span class="ot">=</span> rmap (\<span class="kw">case</span> {<span class="dt">Left</span> a' <span class="ot">-&gt;</span> (<span class="op">$</span> a'); <span class="dt">Right</span> t <span class="ot">-&gt;</span> <span class="fu">const</span> t})</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>         <span class="op">.</span> left'</span></code></pre></div>
+<p>which leads to a way of creating a prism from a match and constructor.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ot">prism ::</span> <span class="dt">Choice</span> p</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>      <span class="ot">=&gt;</span> (s <span class="ot">-&gt;</span> <span class="dt">Either</span> a t) <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> t) <span class="ot">-&gt;</span> p a b <span class="ot">-&gt;</span> p s t</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>prism f g <span class="ot">=</span> dimap f (\<span class="kw">case</span> {<span class="dt">Left</span> a' <span class="ot">-&gt;</span> g a'; <span class="dt">Right</span> t <span class="ot">-&gt;</span> t}) <span class="op">.</span> left'</span></code></pre></div>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-use-hp-deskjet-1050a</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-use-hp-deskjet-1050a</h3>
+  <h1 id="how-i-use-hp-deskjet-1050a-on-debian-gnulinux">How I use HP Deskjet 1050A on Debian GNU/Linux</h1>
+<h2 id="printing">Printing</h2>
+<p>I use CUPS to manager the printer. Install <code>cups</code> to get it. The
+default driver for this printer that CUPS chooses does not work! (<code>HP DesignJet 1050c pcl, 1.0 (color)</code>). Instead I installed <code>hplip</code> and
+<code>printer-driver-hpcups</code> (perhaps only one of these was required) and
+chose the driver <code>HP Deskjet 1050 j410 Series, hpcups 3.21.2 (color)</code>.</p>
+<p>I tend to prefer to use “fast draft” quality, which can be set in the
+CUPS administration options page.</p>
+<h2 id="scanning">Scanning</h2>
+<p>Seems to require the <code>hplip</code> and <code>libsane-hpaio</code> packages. I use
+<code>simple-scan</code> for scanning. I had to <code>chown</code> the device file
+<code>/dev/bus/usb/002/005</code>.</p>
+<p>If <code>xscanimage</code> or <code>sane-find-scanner</code> report that no scanner was
+identified then you probably need one of the above pacakges.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

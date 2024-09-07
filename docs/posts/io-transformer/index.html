@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>io-transformer</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>io-transformer</h3>
+  <h1 id="an-io-transformer">An <code>IO</code> transformer</h1>
+<p><a href="http://stackoverflow.com/questions/13056663/why-is-there-no-io-transformer-in-haskell">It has been
+claimed</a>
+that there is no <code>IO</code> transformer in Haskell. This seems overly
+pessimistic. The obvious approach is to use</p>
+<pre><code>newtype IOT m a = IOT (m (IO a))</code></pre>
+<p>However, we get stuck when we try to define</p>
+<pre><code>join :: Monad m =&gt; m (IO (m (IO a))) -&gt; m (IO a)</code></pre>
+<p>The typical approach would be to try to commute the <code>IO (m ...)</code> to <code>m (IO ...)</code> but there’s just no way to do that. We can’t even do it for
+some simple choices of <code>m</code> like <code>Maybe</code> let alone uniformly for all
+<code>Monad</code>s <code>m</code>.</p>
+<p>But there’s a another way. If we can turn all the <code>m</code>s into <code>IO</code> then
+we can just join them all together into one <code>IO</code> action. This
+suggests an <code>IO</code> transformer like</p>
+<pre><code>newtype IOT m a = IOT ((forall a. m a -&gt; IO a) -&gt; IO a)</code></pre>
+<p>In fact, it’s just a use of the <code>Reader</code> transformer.</p>
+<pre><code>newtype Morph f g = Morph { runMorph :: forall a. (f a -&gt; g a) }
+newtype IOT m a = IOT { runIOT :: ReaderT (Morph m IO) IO a }</code></pre>
+<p>Using <code>ReaderT</code> here is just a convenience that means we automatically
+get a <code>Monad</code> instance cheaply. It doesn’t play a role of any substance.</p>
+<pre><code>instance Monad (IOT m) where
+  return = IOT . return
+  m &gt;&gt;= f = IOT (runIOT m &gt;&gt;= (runIOT . f))</code></pre>
+<p>The <code>MonadTrans</code> instance is</p>
+<pre><code>instance MonadTrans IOT where
+  lift act = IOT $ do
+    f &lt;- ask
+    lift (runMorph f act)</code></pre>
+<p>That is, we just convert all the <code>m</code> actions into <code>IO</code> actions. (Note
+that the latter <code>lift</code> is in <code>ReaderT</code>). Does it satisfy <a href="http://hackage.haskell.org/package/transformers-0.3.0.0/docs/Control-Monad-Trans-Class.html">the
+<code>MonadTrans</code>
+laws</a>?
+Well (eliding <code>runMorph</code> and <code>IOT</code> wrapping/unwrapping for notational
+convenience),</p>
+<pre><code>lift (return x) = do
+    f &lt;- ask
+    lift (f (return x))</code></pre>
+<p>which is</p>
+<pre><code>lift (return x) = do
+    f &lt;- ask
+    return x</code></pre>
+<p>in the case where <code>f (return x)</code> = <code>return x</code>, i.e. <code>lift . return = return</code>. Additionally</p>
+<pre><code>lift (m &gt;&gt;= g) = do
+    f &lt;- ask
+    lift (f (m &gt;&gt;= g))</code></pre>
+<p>which is</p>
+<pre><code>lift (m &gt;&gt;= g) = do
+    f &lt;- ask
+    x &lt;- lift (f m)
+    f' &lt;- ask
+    lift (f' (g x))</code></pre>
+<p>i.e.</p>
+<pre><code>lift m &gt;&gt;= \x -&gt; lift (g x)</code></pre>
+<p>that is</p>
+<pre><code>lift m &gt;&gt;= (lift . g)</code></pre>
+<p>in the case where <code>f (m &gt;&gt;= g) = f m &gt;&gt;= (f . g)</code>. So <code>lift (m &gt;&gt;= g) = lift m &gt;&gt;= (lift . g)</code>.</p>
+<p>Thus we see that <code>IOT</code> is a monad transformer <em>if the reader
+environment is a monad morphism</em> <code>f</code> satisfying</p>
+<ul>
+<li><code>f (return x) = return x</code></li>
+<li><code>f (m &gt;&gt;= g) = f m &gt;&gt;= (f . g)</code></li>
+</ul>
+<h1 id="how-to-use-iot">How to use <code>IOT</code></h1>
+<p>You can run an <code>IOT m</code> action by providing a way of interpreting an
+<code>m</code> action in <code>IO</code>. (Remember the interpretation has to be a monad
+morphism for the monad laws to hold).</p>
+<pre><code>runIOT' :: (forall a. m a -&gt; IO a) -&gt; IOT m a -&gt; IO a
+runIOT' f m = runReaderT (runIOT m) (Morph f)</code></pre>
+<p>It seems that there are several uses of this transformer.</p>
+<h2 id="maybe"><code>Maybe</code></h2>
+<p>For <code>m = Maybe</code> we can throw an error for <code>Nothing</code>.</p>
+<pre><code>handleMaybe :: Maybe a -&gt; IO a
+handleMaybe Nothing = error &quot;Nothing&quot;
+handleMaybe (Just a) = return a
+
+maybeExample :: IO ()
+maybeExample = runIOT' handleMaybe $ do
+  liftIO (putStrLn &quot;Hello&quot;)
+  lift Nothing
+  liftIO (putStrLn &quot;Goodbye&quot;)
+
+&gt; maybeExample 
+Hello
+*** Exception: Nothing</code></pre>
+<h2 id="either"><code>Either</code></h2>
+<p>For <code>m = Either e</code> we can throw an error which depends on the
+<code>Left</code> value.</p>
+<pre><code>handleEither :: Show e =&gt; Either e a -&gt; IO a
+handleEither (Left e) = error (show e)
+handleEither (Right a) = return a
+
+eitherExample :: IO ()
+eitherExample = runIOT' handleEither $ do
+  liftIO (putStrLn &quot;Hello&quot;)
+  lift (Left 1234)
+  liftIO (putStrLn &quot;Goodbye&quot;)
+
+&gt; eitherExample 
+Hello
+*** Exception: 1234</code></pre>
+<h2 id="writer"><code>Writer</code></h2>
+<p>For <code>m = Writer [w]</code> we can print a log message.</p>
+<pre><code>handleWriter :: Show w =&gt; Writer [w] a -&gt; IO a
+handleWriter m = mapM_ print ws &gt;&gt; return a
+  where (a, ws) = runWriter m
+
+writerExample :: IO ()
+writerExample = runIOT' handleWriter $ do
+  liftIO (putStrLn &quot;Hello&quot;)
+  lift (tell [&quot;log1&quot;, &quot;log2&quot;])
+  liftIO (putStrLn &quot;Goodbye&quot;)
+  lift (tell [&quot;log3&quot;])
+
+&gt; writerExample 
+Hello
+&quot;log1&quot;
+&quot;log2&quot;
+Goodbye
+&quot;log3&quot;</code></pre>
+<h2 id="state-s"><code>State s</code></h2>
+<p>For <code>m = State s</code> we can use an <code>IORef</code> to hold the state.</p>
+<pre><code>stateExample :: IO ()
+stateExample = do
+  ref &lt;- newIORef 0
+  let handleState :: State Integer a -&gt; IO a
+      handleState m = do
+        s &lt;- readIORef ref
+        let (a, s') = runState m s
+        writeIORef ref s'
+        return a
+
+  runIOT' handleState $ do
+    x &lt;- lift get
+    liftIO (print x)
+    lift (modify (+1))
+    y &lt;- lift get
+    liftIO (print y)
+
+&gt; stateExample 
+0
+1</code></pre>
+<h1 id="is-this-really-an-io-transformer">Is this really an <code>IO</code> transformer?</h1>
+<p>Firstly note that <code>IOT Maybe</code>, <code>IOT (Either e)</code> and <code>IOT (State s)</code>
+seem to give strictly less power than <code>MaybeT IO</code>, <code>EitherT e IO</code> and
+<code>StateT s IO</code> respectively. <code>IOT (Writer [w])</code> does seem to be
+different to <code>WriterT [w] IO</code> in that it preserves the ordering of
+<code>IO</code> and <code>Writer</code> actions.</p>
+<p>But is there some definition for “<code>M</code> transformer”, for an arbitrary
+monad <code>M</code>? And what is the justification for saying that Haskell has
+no <code>IO</code> transformer? Even though it may not be especially useful,
+this <code>IOT</code> seems like a reasonable candidate for one.</p>
+<h1 id="the-code">The code</h1>
+<pre><code>{-# LANGUAGE Rank2Types #-}
+
+import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Writer
+import Control.Monad.Trans.State
+import Control.Monad.Trans.Class
+import Data.IORef
+
+newtype Morph f g = Morph { runMorph :: forall a. (f a -&gt; g a) }
+
+newtype IOT m a = IOT { runIOT :: ReaderT (Morph m IO) IO a }
+
+instance Monad (IOT m) where
+  return = IOT . return
+  m &gt;&gt;= f = IOT (runIOT m &gt;&gt;= (runIOT . f))
+
+instance MonadTrans IOT where
+  lift act = IOT $ do
+    f &lt;- ask
+    lift (runMorph f act)
+
+liftIO :: IO a -&gt; IOT m a
+liftIO = IOT . lift
+
+handleMaybe :: Maybe a -&gt; IO a
+handleMaybe Nothing = error &quot;Nothing&quot;
+handleMaybe (Just a) = return a
+
+runIOT' :: (forall a. m a -&gt; IO a) -&gt; IOT m a -&gt; IO a
+runIOT' f m = runReaderT (runIOT m) (Morph f)
+
+maybeExample :: IO ()
+maybeExample = runIOT' handleMaybe $ do
+  liftIO (putStrLn &quot;Hello&quot;)
+  lift Nothing
+  liftIO (putStrLn &quot;Goodbye&quot;)
+
+handleEither :: Show e =&gt; Either e a -&gt; IO a
+handleEither (Left e) = error (show e)
+handleEither (Right a) = return a
+
+eitherExample :: IO ()
+eitherExample = runIOT' handleEither $ do
+  liftIO (putStrLn &quot;Hello&quot;)
+  lift (Left 1234)
+  liftIO (putStrLn &quot;Goodbye&quot;)
+
+handleWriter :: Show w =&gt; Writer [w] a -&gt; IO a
+handleWriter m = mapM_ print ws &gt;&gt; return a
+  where (a, ws) = runWriter m
+
+writerExample :: IO ()
+writerExample = runIOT' handleWriter $ do
+  liftIO (putStrLn &quot;Hello&quot;)
+  lift (tell [&quot;log1&quot;, &quot;log2&quot;])
+  liftIO (putStrLn &quot;Goodbye&quot;)
+  lift (tell [&quot;log3&quot;])
+
+stateExample :: IO ()
+stateExample = do
+  ref &lt;- newIORef 0
+  let handleState :: State Integer a -&gt; IO a
+      handleState m = do
+        s &lt;- readIORef ref
+        let (a, s') = runState m s
+        writeIORef ref s'
+        return a
+
+  runIOT' handleState $ do
+    x &lt;- lift get
+    liftIO (print x)
+    lift (modify (+1))
+    y &lt;- lift get</code></pre>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

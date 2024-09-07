@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>multiset-semantics</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>multiset-semantics</h3>
+  <h1 id="multiset-semantics">Multiset semantics</h1>
+<p>Here’s an example of why relational databases need multiset (or
+multirelation) semantics, rather than set (or relation) semantics.</p>
+<p>Suppose I have two tables:</p>
+<ul>
+<li>Apples with columns <code>owner :: String</code> and <code>quantity :: Int</code></li>
+<li>Oranges with columns <code>owner :: String</code> and <code>quantity :: Int</code></li>
+</ul>
+<p>If I want to work out how many fruits each owner has I can do</p>
+<pre><code>SELECT owner, SUM(quantity)
+FROM (apples UNION ALL oranges)
+GROUP BY owner</code></pre>
+<p>I can’t do the same with <code>UNION</code> in the place of <code>UNION ALL</code> because
+if an owner has the same number of apples as oranges then the <code>UNION</code>
+will coalesce those two rows into one! In set semantics we would have
+to artificially add arbitrary identifiers to the <code>apples</code> and
+<code>oranges</code> tables so the <code>UNION</code> can distinguish their rows, and
+discard the identifier after aggregation.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-use-firefox</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-use-firefox</h3>
+  <h1 id="how-i-use-firefox">How I use Firefox</h1>
+<ul>
+<li><p>Create a profile using the profile manager</p>
+<pre><code>firefox -no-remote -profileManager</code></pre>
+<p>I have different profiles for different usages of Firefox, to keep
+them separate. Hopefully that increases my privacy a bit. For
+example I have separate profiles for general browsing, Twitter,
+WhatsApp, Facebook, Google Calendar and my bank website.</p></li>
+<li><p>Launch Firefox with a profile with</p>
+<pre><code>firefox -no-remote -P &quot;name_of_the_profile&quot;</code></pre></li>
+<li><p>Set prefers colour scheme to dark</p>
+<blockquote>
+<p>You can update the style used by Firefox by going to <code>about:config</code>
+and adding a new property <code>ui.systemUsesDarkTheme</code> of integer type
+with value <code>1</code>.</p>
+</blockquote></li>
+</ul>
+<p>From
+<a href="https://stackoverflow.com/questions/56401662/firefox-how-to-test-prefers-color-scheme/56757527#56757527">StackOverflow</a></p>
+<ul>
+<li><p>Make everything dark with <a href="https://github.com/SrKomodo/shadowfox-updater" class="uri">https://github.com/SrKomodo/shadowfox-updater</a></p></li>
+<li><p>Reduce Firefox’s memory consumption</p>
+<p><a href="https://support.mozilla.org/en-US/kb/firefox-uses-too-much-memory-or-cpu-resources?redirectslug=firefox-uses-too-much-memory-ram&amp;redirectlocale=en-US" class="uri">https://support.mozilla.org/en-US/kb/firefox-uses-too-much-memory-or-cpu-resources?redirectslug=firefox-uses-too-much-memory-ram&amp;redirectlocale=en-US</a></p>
+<p>Performance</p>
+<p>uncheck Use recommended performance settingsLearn more</p>
+<p>Content process limit -&gt; 1</p></li>
+<li><p>Disable “Ctrl-Tab cycles through tabs in recently used order”</p></li>
+<li><p><a href="https://support.mozilla.org/en-US/questions/929983#answer-34412"><code>browser.search.context.loadInBackground =   true</code></a></p></li>
+</ul>
+<h2 id="config">Config</h2>
+<ul>
+<li><p>Set <code>full-screen-api.ignore-widgets</code> to <code>false</code> (which is probably
+the default) otherwise <code>xmonad</code> fullscreen doesn’t cover xmobar.</p></li>
+<li><p>Disable JIT compilation</p>
+<pre><code>javascript.options.baselinejit
+javascript.options.wasm_baselinejit
+javascript.options.wasm_optimizingjit
+javascript.options.ion</code></pre></li>
+</ul>
+<h2 id="issues">Issues</h2>
+<p>There is a very annoying bug whereby the volume of a video, set with
+pulseaudio, resets on interactions such as forward, rewind, and
+various others. See
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1422637" class="uri">https://bugzilla.mozilla.org/show_bug.cgi?id=1422637</a>.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

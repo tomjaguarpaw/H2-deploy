@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>data-structures-matter</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>data-structures-matter</h3>
+  <h1 id="programming-as-if-the-correct-data-structure-and-performance-mattered">Programming as if the Correct Data Structure (and Performance) Mattered</h1>
+<h2 id="abstract">Abstract</h2>
+<p>What if focusing on the correct data structure, while still understanding
+your algorithm, could improve maintainability and collaterally speed up
+execution by a factor of over 15x compared to over-engineered C# code?</p>
+<h2 id="introduction">Introduction</h2>
+<p>Once upon a time, I saw this problem come up in a <a href="https://drive.google.com/file/d/0B59Tysg-nEQZUkdRT2lfUVM3cVk">misguided
+polemic</a>:</p>
+<blockquote>
+<p>You are given an input array whose each element represents the height of a
+line towers. The width of every tower is 1. It starts raining. How much
+water is collected between the towers?</p>
+</blockquote>
+<h2 id="cutting-a-long-story-short">Cutting a long story short</h2>
+<p>You can write a neat and correct solution in Haskell.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">rainfall ::</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>rainfall xs <span class="ot">=</span> <span class="fu">sum</span> (<span class="fu">zipWith</span> (<span class="op">-</span>) mins xs)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    mins <span class="ot">=</span> <span class="fu">zipWith</span> <span class="fu">min</span> maxl maxr</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    maxl <span class="ot">=</span> <span class="fu">scanl1</span> <span class="fu">max</span> xs</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    maxr <span class="ot">=</span> <span class="fu">scanr1</span> <span class="fu">max</span> xs</span></code></pre></div>
+<p>The trouble is, it’s quite slow (7.2s – including setting up the
+world, since you didn’t exclude that from your benchmark). From here
+you have two options. Your first option is to write a long rant about
+how slow this code is and share it on the internet. Your second
+option is to use the right data structure and get a 114x speed up
+(61ms) for almost zero effort.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">rainfall' ::</span> <span class="dt">Vector</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>rainfall' xs <span class="ot">=</span> V.sum (V.zipWith3 (\l r x <span class="ot">-&gt;</span> (<span class="fu">min</span> l r) <span class="op">-</span> x) maxl maxr xs)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    maxl <span class="ot">=</span> V.scanl1' <span class="fu">max</span> xs</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    maxr <span class="ot">=</span> V.scanr1' <span class="fu">max</span> xs</span></code></pre></div>
+<p>This popular hipster code is also 15x faster than some over-engineered C# code. The
+drawback of the fast Haskell code is that it’s not so easy to change if
+your boss decides to shift the requirements under you because he
+believes there are real towers filling with water and insists that he
+wants to be able to drill holes in the walls.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Use the correct data structure. If you’re not sure, hold back on the
+sarcasm and ask <a href="https://github.com/Porges">Porges</a> to help you out. He
+seems to be a smart cookie.</p>
+<h2 id="acknowledgements">Acknowledgements</h2>
+<ul>
+<li><a href="https://gist.github.com/Porges/9ca15a9ec01bf055edcd88394496dbe3">Some nice code</a>,
+Porges</li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

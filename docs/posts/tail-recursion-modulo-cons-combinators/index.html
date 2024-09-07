@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>tail-recursion-modulo-cons-combinators</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>tail-recursion-modulo-cons-combinators</h3>
+  <h1 id="tail-recursion-modulo-cons-combinators">Tail recursion modulo cons combinators</h1>
+<h2 id="recursion-combinators">Recursion combinators</h2>
+<p>In Haskell we can write a function that adds <code>1</code> to every element of a list as follows</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">addOne ::</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> [<span class="dt">Int</span>]</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>addOne <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  [] <span class="ot">-&gt;</span> []</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  x<span class="op">:</span>xs <span class="ot">-&gt;</span> (x <span class="op">+</span> <span class="dv">1</span>) <span class="op">:</span> addOne xs</span></code></pre></div>
+<p>and we can write a function that sums a list as follows</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span><span class="ot"> ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> [<span class="dt">Int</span>] <span class="ot">-&gt;</span> <span class="dt">Int</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span> <span class="op">!</span>total <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  [] <span class="ot">-&gt;</span> total</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  x<span class="op">:</span>xs <span class="ot">-&gt;</span> <span class="fu">sum</span> (x <span class="op">+</span> total) xs</span></code></pre></div>
+<p>Typically though, we’d prefer to use recursion combinators designed for the job:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>addOne <span class="ot">=</span> <span class="fu">map</span> (<span class="op">+</span><span class="dv">1</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span> <span class="ot">=</span> foldl' (<span class="op">+</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- where</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">map</span><span class="ot"> ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [b]</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">map</span> f <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  [] <span class="ot">-&gt;</span> []</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  x<span class="op">:</span>xs <span class="ot">-&gt;</span> f x <span class="op">:</span> <span class="fu">map</span> f xs</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="ot">foldl' ::</span> (s <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> s) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> s</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>foldl' f <span class="op">!</span>z <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  [] <span class="ot">-&gt;</span> z</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  x<span class="op">:</span>xs <span class="ot">-&gt;</span> foldl' f (f z x) xs</span></code></pre></div>
+<p>Why? One reason is that a recursion combinator describe the “shape” or “structure” of a recursion so that we can easily know properties about a function implemented using it without careful analysis of the body of the function. For example, the output of the function written as</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>addOne <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  [] <span class="ot">-&gt;</span> []</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  x<span class="op">:</span>xs <span class="ot">-&gt;</span> (x <span class="op">+</span> <span class="dv">1</span>) <span class="op">:</span> addOne xs</span></code></pre></div>
+<p>has the same length as its input, but you have to carefully analyse the body of the function to work that out. Writing <code>addOne = map (+1)</code> instead makes that property obvious. That property is simply a property that <code>map</code> has! Once you know it, you know it every time you see it. Similarly, during evaluation of</p>
+<pre><code>sum !total = \case
+  [] -&gt; total
+  x:xs -&gt; sum (x + total) xs</code></pre>
+<p>the input list is consumed linearly and incrementally, that is, the elements of the list are read from left to right and once they have been read they are discarded. Again, to convince yourself of that you have to carefully read the implementation. Writing <code>sum = foldl' (+)</code> makes it obvious. That property is simply a property that <code>foldl'</code> has! Once you know it, you know it every time you see it.</p>
+<h2 id="tail-recursion">Tail recursion</h2>
+<p>Tail recursion is, informally speaking, a form of recursion where any recursive call is “the last thing the function does”. In particular no resources from the body are held on to once the recursive call is invoked. <code>sum</code> above is an example of a tail recursive function. Writing it in the following form makes it clearer how the “tail” and “last thing the function does” terminology applies.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span> <span class="op">!</span>total <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  [] <span class="ot">-&gt;</span> total</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  x<span class="op">:</span>xs <span class="ot">-&gt;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> nextTotal <span class="ot">=</span> x <span class="op">+</span> total</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">in</span> <span class="fu">sum</span> nextTotal xs</span></code></pre></div>
+<p>Either the function finishes, returning <code>total</code>, or it proceeds with calculation, finally making a tail recursive call. Nested expression can always be converted into a sequence of <code>let</code> expressions, and a tail recursive function is one in which, when you do so, the recursive call only ever appears as the body of a let, i.e. after the <code>in</code>.</p>
+<p><code>foldl'</code> is also tail recursive. To see that we can write it as</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>foldl' f <span class="op">!</span>z <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  [] <span class="ot">-&gt;</span> z</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  x<span class="op">:</span>xs <span class="ot">-&gt;</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> nextZ <span class="ot">=</span> f z x</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">in</span> foldl' f nextZ xs</span></code></pre></div>
+<p>Either it returns with its result <code>z</code>, or it calls itself tail recursively, i.e. after the <code>in</code>.</p>
+<h2 id="the-tail-recursion-combinator">The tail recursion combinator</h2>
+<p>There is a combinator that abstracts the notion of tail recursion itself!</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ot">loop ::</span> (s <span class="ot">-&gt;</span> <span class="dt">Either</span> s r) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> r</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>loop f s <span class="ot">=</span> <span class="kw">case</span> f s <span class="kw">of</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Right</span> r <span class="ot">-&gt;</span> r</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Left</span> nextS <span class="ot">-&gt;</span> loop f nextS</span></code></pre></div>
+<p>We pass it a function <code>f</code> and an initial state <code>s</code>. The combinator runs <code>f</code> on the state. If <code>f</code> returns a <code>Right r</code> then <code>r</code> is the final result. If <code>f</code> returns a <code>Left nextS</code> then <code>nextS</code> is the new state for the tail recursion.</p>
+<p>We can write <code>foldl'</code> in terms of <code>loop</code> by considering the pair of accumulator <code>z</code> and list <code>xs</code> as the state.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ot">foldl' ::</span> (s <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> s) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> s</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>foldl' f z xs <span class="ot">=</span> loop (\<span class="kw">case</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Either we have run out of list, so we are done</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  (z, []) <span class="ot">-&gt;</span> <span class="dt">Right</span> z</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Or we have another list element, in which case</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- we combine it with `z` and recurse on the tail</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  (<span class="op">!</span>z, x<span class="op">:</span>xs) <span class="ot">-&gt;</span> <span class="dt">Left</span> (f z x, xs))</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  (z, xs)</span></code></pre></div>
+<h2 id="tail-recursion-modulo-bind">Tail recursion modulo bind</h2>
+<p>What about the following function? Is it tail recursive?</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ot">countdown ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>countdown n <span class="ot">=</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">if</span> n <span class="op">&lt;=</span> <span class="dv">0</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">then</span> <span class="fu">putStrLn</span> <span class="st">&quot;Lift off!&quot;</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">else</span> <span class="kw">do</span> <span class="fu">print</span> n</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>          countdown (n <span class="op">-</span> <span class="dv">1</span>)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- &gt; countdown 5</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- 5</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- 4</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- 3</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="co">-- 2</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="co">-- 1</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="co">-- Lift off!</span></span></code></pre></div>
+<p>It looks like the recursive call to <code>countdown</code> is “the last thing that happens” but if we rewrite <code>countdown</code> into the list of lets form then we see that the recursive call <em>doesn’t</em> happen immediately after the <code>in</code>.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>countdown n <span class="ot">=</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">if</span> n <span class="op">&lt;=</span> <span class="dv">0</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">then</span> <span class="fu">putStrLn</span> <span class="st">&quot;Lift off!&quot;</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">else</span> <span class="kw">let</span> m1 <span class="ot">=</span> <span class="fu">print</span> n</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>           m2 <span class="ot">=</span> countdown (n <span class="op">-</span> <span class="dv">1</span>)</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>       <span class="kw">in</span> m1 <span class="op">&gt;&gt;</span> m2</span></code></pre></div>
+<p>Still, no resources from the body are held on to after the recursive call is invoked</p>
+<p>TODO:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ot">loopM ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> (s <span class="ot">-&gt;</span> m (<span class="dt">Either</span> s r)) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> m r</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>loopM f s <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  f s <span class="op">&gt;&gt;=</span> \<span class="kw">case</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Left</span> nextS <span class="ot">-&gt;</span> loopM f nextS</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Right</span> r <span class="ot">-&gt;</span> <span class="fu">pure</span> r</span></code></pre></div>
+<h2 id="tail-recursion-modulo-cons">Tail recursion modulo cons</h2>
+<p>TODO:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ot">loopL ::</span> (s <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (x, s)) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> [x]</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>loopL f s <span class="ot">=</span> <span class="kw">case</span> f s <span class="kw">of</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Nothing</span> <span class="ot">-&gt;</span> []</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Just</span> (x, nextS) <span class="ot">-&gt;</span> x <span class="op">:</span> loopL f nextS</span></code></pre></div>
+<p>cons<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<section class="footnotes" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1" role="doc-endnote"><p>blah<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

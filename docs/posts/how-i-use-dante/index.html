@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-use-dante</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-use-dante</h3>
+  <h1 id="how-i-use-dante">How I use dante</h1>
+<h2 id="introduction">Introduction</h2>
+<p><a href="https://github.com/jyp/dante">Dante</a> is an “Emacs mode for
+Interactive Haskell” (that is, an IDE) with a high power-to-weight
+ratio, being easy to configure, reliable and featureful. I will take
+you on a brief tour of how I use dante, starting with installation and
+configuration, demonstrating the features, and explaining how to
+resolve some typical problems.</p>
+<p>Dante works by spawning an interactive ghc process (ghci, cabal repl,
+stack repl), loading your code in it, and talking to it to find out
+all sorts of information regarding types, errors, warnings, suggested
+fixes, and more.</p>
+<h2 id="installation">Installation</h2>
+<p>The most difficult part of setting up dante was learning how to
+effectively manage Emacs packages. The only sane way that I have
+found is to use
+<a href="https://github.com/raxod502/straight.el/"><code>straight.el</code></a>. It
+provides some hope that one can define a reproducible package
+environment. Thus to install dante I do the following.</p>
+<ul>
+<li><p>Install <code>straight.el</code></p>
+<p>I use the snippet in “<a href="https://github.com/raxod502/straight.el/blob/develop/README.md#bootstrapping-straightel">Bootstrapping
+<code>straight.el</code></a>”.</p></li>
+<li><p>Install <code>use-package</code></p>
+<p>I use the following line, from “<a href="https://github.com/raxod502/straight.el#integration-with-use-package">Integration with
+<code>use-package</code></a>”</p></li>
+</ul>
+<div class="sourceCode" id="cb1"><pre class="sourceCode lisp"><code class="sourceCode commonlisp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>(straight-use-package <span class="dt">'use-package</span>)</span></code></pre></div>
+<ul>
+<li>Install <code>dante</code> and <code>attrap</code> (with <code>straight.el</code>-using <code>use-package</code> stanzas)</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre class="sourceCode lisp"><code class="sourceCode commonlisp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>(<span class="kw">use-package</span> attrap</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  :straight <span class="kw">t</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>(<span class="kw">use-package</span> dante</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  :straight <span class="kw">t</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  :after haskell-mode</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  :commands <span class="dt">'dante-mode</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  :init</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  (add-hook <span class="dt">'haskell-mode-hook</span> <span class="dt">'flycheck-mode</span>)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  (add-hook <span class="dt">'haskell-mode-hook</span> <span class="dt">'dante-mode</span>)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  :config</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  (flycheck-add-next-checker <span class="dt">'haskell-dante</span> '(info . haskell-hlint))</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div>
+<p>These are the default install commands from the
+<a href="https://github.com/jyp/dante#installation">dante</a> and
+<a href="https://github.com/jyp/attrap#attrap-emacs-mode-to-fix-the-flycheck-error-at-point">attrap</a>
+installation guides, adapted to use <code>straight.el</code> and slightly
+simplified.</p>
+<h2 id="dantes-features">Dante’s features</h2>
+<ul>
+<li><p>Red-squiggly type checking</p>
+<p>Dante provides underlines for errors and warnings (via
+<a href="https://www.flycheck.org/en/latest/">flycheck</a>) . You can navigate
+them with</p>
+<ul>
+<li><code>C-c ! n</code>: next error/warning</li>
+<li><code>C-c ! p</code>: previous error/warning</li>
+<li><code>C-c ! l</code>: list errors/warnings</li>
+</ul></li>
+<li><p>HLint suggestions</p></li>
+<li><p>Automatic error fixing</p>
+<p>Dante can automatically repair a large number of errors and
+warnings. For example, if I have omitted the type signature of a
+top-level binding then I place the point over it, type <code>C-c /</code>, and
+the type signature appears!</p>
+<ul>
+<li><code>C-c /</code>: apply ghc suggestion at point</li>
+</ul>
+<p>Dante has the ability to</p>
+<ul>
+<li>automatically fill value and type holes</li>
+<li>add missing type signatures and add missing constraints to type signatures</li>
+<li>add missing imports and extensions</li>
+<li>rename mistyped, and remove unused, variables, types, imports and constraints</li>
+</ul>
+<p>The full list of repairable conditions can be found under <code>def attrap-ghc-fixer</code> in
+<a href="https://github.com/jyp/attrap/blob/master/attrap.el"><code>attrap.el</code></a>.</p></li>
+<li><p>Info at point</p>
+<p>Dante can tell you some basic info about the code under the point,
+or within the region.</p>
+<ul>
+<li><code>C-c .</code>: type of selection</li>
+<li><code>C-c ,</code>: info at point (including site of definition)</li>
+</ul></li>
+<li><p>Definition and use sites</p>
+<p>Dante can jump to the definition site of an identifier and find all the
+uses of a definition.</p>
+<ul>
+<li><code>M-.</code>: go to definition</li>
+<li><code>M-?</code>: find uses</li>
+</ul></li>
+<li><p>Completion</p>
+<p>Dante interfaces with <a href="https://company-mode.github.io/">company
+mode</a> to provide completion
+suggestions.</p>
+<p>Personally I’m not familiar with company mode as I tend to use the
+extremely low-tech but reasonably useful <code>M-/</code>
+(<a href="https://www.gnu.org/software/emacs/manual/html_node/emacs/Dynamic-Abbrevs.html">dabbrev-expand</a>).
+Unfortunately, Company mode doesn’t seem to be able to complete
+identifiers defined in the current module which makes it rather less
+useful than it might otherwise be.</p></li>
+</ul>
+<h2 id="problems">Problems</h2>
+<ul>
+<li><p>dante can get stuck.</p>
+<p>It forgets what it’s doing and gives either no errors or meaningless
+errors. Sometimes dante thinks its temporary file (with a name like
+<code>/tmp/dante9eOz40.hs</code>) is your real source file. This seems to
+happen to me if I change a source file underneath dante, for example
+with <code>git reset --hard</code>.</p>
+<p>To fix this problem I do <code>M-x dante-restart</code> and re-save the file.
+Then it becomes unstuck.</p></li>
+<li><p>Dante cannot add missing type signatures with constraints</p>
+<p>Unfortunately dante doesn’t seem able to add a missing type
+signature if the type signature requires constraints (for example,
+<code>Monad m =&gt; m Int</code>). In that case you have to manually add a
+partial type signature <code>foo :: _</code> and then fill in the hole.</p>
+<p>This is probably a ghc issue rather than a dante issue, per se.</p></li>
+<li><p>I wish it were easier to understand the diagnostics from
+<code>dante-diagnose</code>.</p></li>
+<li><p>Dante doesn’t seem to cope with hs-boot files</p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

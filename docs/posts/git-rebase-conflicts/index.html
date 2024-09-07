@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>git-rebase-conflicts</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>git-rebase-conflicts</h3>
+  <h1 id="resolving-git-rebase-conflicts">Resolving git rebase conflicts</h1>
+<h2 id="a-note-about-terminology">A note about terminology</h2>
+<p>This article is about <code>git rebase</code> conflicts. A similar article with
+slightly different technical details could be written for <code>git merge</code>
+conflicts. I use “merge” as a non-technical term for combining the
+content of two different repository states, not to refer to <code>git merge</code>ing specifically.</p>
+<h2 id="introduction">Introduction</h2>
+<p>When a git rebase conflict occurs you will be presented with a
+conflict region (or “hunk”) that shows why the rebased commit couldn’t
+be applied to the base branch. To resolve a rebase conflict, your
+task is to apply the logically-intended (i.e. semantic) change of the
+rebased commit to the base branch.</p>
+<p>Some merge tools (for example <a href="https://emacs.stackexchange.com/questions/16469/how-to-merge-git-conflicts-in-emacs/16470#16470">Emacs
+SMerge</a>)
+offer you the option to “keep their changes” or “keep our changes”.
+This is almost always wrong. The whole point of merging (remember,
+I’m using that word in the non-technical sense, not to refer to <code>git merge</code>ing specifically) is to <em>combine</em> two conflicting things, not to
+choose one over the other. By choosing one you ignore a change in the
+other that may be required by other parts of the same commit (parts
+that may not see because they merged without conflict!).</p>
+<p>The existence of a conflict means that the patches could not be merged
+textually. However, the aim is actually to merge them <em>semantically</em>.
+Merge tools are rarely (perhaps never) clever enough to be able to
+perform semantic merges so they settle for textual merges. In the
+cases where textual merges are not possible the task is left to human
+ingenuity.</p>
+<p>Key takeaway: the aim is to apply the logical (i.e. semantic) content
+of the rebased commit to the base branch.</p>
+<h2 id="summary-of-the-conflict-resolution-procedure">Summary of the conflict resolution procedure</h2>
+<p>Resolving a rebase conflict requires understanding the logically
+intended (semantic) change of the rebased commit and applying it
+manually to the base branch. Here is the procedure to follow. The
+details will be explained by way of example later.</p>
+<ol type="1">
+<li><p>Issue the <code>git rebase</code> command.</p>
+<p>Use the <code>diff3</code> conflict style option because it shows important
+information in the conflict markers that would otherwise be absent.</p>
+<pre><code>git -c merge.conflictStyle=diff3 rebase ...</code></pre></li>
+<li><p>For each conflict, observe the logical change that the rebased
+commit was intended to make.</p>
+<ul>
+<li><p>Either look at the difference between the middle hunk section and
+the bottom hunk section of the marked conflict, or</p></li>
+<li><p>look at <code>git show REBASE_HEAD</code></p></li>
+</ul></li>
+<li><p>Observe the state of the base branch at each conflict region.</p>
+<ul>
+<li><p>Either look at the top hunk section of the marked conflict, or</p></li>
+<li><p>look at <code>git show HEAD:&lt;filename&gt;</code></p></li>
+</ul></li>
+<li><p>Apply, to the base branch, the logical change that the rebased
+commit was intended to make.</p>
+<p>This will probably be easiest to do by editing the top hunk section
+of the conflict and then deleting the others.</p></li>
+<li><p>Add the file and continue the rebase, with <code>git add</code> and</p>
+<pre><code>git -c merge.conflictStyle=diff3 rebase --continue</code></pre></li>
+</ol>
+<h2 id="why-use-diff3">Why use <code>diff3</code>?</h2>
+<p>It is literally impossible to resolve conflicts using the default merge
+conflict style. I suggest setting <code>diff3</code> in your global options.</p>
+<pre><code>git config --global merge.conflictStyle diff3</code></pre>
+<p>Why is it literally impossible? Consider a branch which adds a
+function <code>foo1</code> at a particular source file location</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> foo1():</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">&quot;foo1&quot;</span>)</span></code></pre></div>
+<p>and another branch which adds a function <code>foo2</code> at the same location</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> foo2():</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">&quot;foo2&quot;</span>)</span></code></pre></div>
+<p>If I rebase one on the other I get a conflict. The default merge
+conflict style will show</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="va">++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a> +def foo1():</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a> +    print(&quot;foo1&quot;)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="va">++=======</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="va">+ def foo2():</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="va">+     print(&quot;foo2&quot;)</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="va">++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Add foo2</span></span></code></pre></div>
+<p>What are the conflict markers telling me? They’re telling me that I
+need to <em>add</em> both <code>foo1</code> and <code>foo2</code> to the file, right?
+Unfortunately not! Consider a file in which <code>foo1</code> and <code>foo2</code> already
+exist, and two branches, one of which removes <code>foo1</code> and one of which
+removes <code>foo2</code>. If I rebase one on the other what is the result? The
+default merge conflict style will show</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="va">++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a> +def foo1():</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a> +    print(&quot;foo1&quot;)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="va">++=======</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="va">+ def foo2():</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="va">+     print(&quot;foo2&quot;)</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="va">++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Remove foo1</span></span></code></pre></div>
+<p>Under the default conflict style the case of removing two functions is
+indistinguishable from the case of adding two functions
+(besides the text of the commit message which can only ever be a
+hint)! Therefore the default conflict style is insufficient for purpose of
+resolving conflicts. This probably explains why resolving conflicts
+is seen as a dark art. <code>diff3</code> not only makes it possible, below we
+will see that it is often easy.</p>
+<h2 id="example-file">Example file</h2>
+<p>The examples will based on changes to this example Python file.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> foo1():</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">&quot;foo1&quot;</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> foo2():</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">&quot;foo2&quot;</span>)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> foo3():</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">&quot;foo3&quot;</span>)</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> foo4():</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">&quot;foo4&quot;</span>)</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> foo5():</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">&quot;foo5&quot;</span>)</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> main():</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>    foo1()</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>    foo2()</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>    foo3()</span></code></pre></div>
+<h2 id="worked-example-adding-two-different-things">Worked example: adding two different things</h2>
+<p>Suppose I have a patch that adds a call of <code>foo4</code> and another patch
+that adds a call of <code>foo5</code>, that is</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a> def main():</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>     foo1()</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>     foo2()</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>     foo3()</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="va">+    foo4()</span></span></code></pre></div>
+<p>and</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a> def main():</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>     foo1()</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>     foo2()</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>     foo3()</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="va">+    foo5()</span></span></code></pre></div>
+<p>If I try to rebase the latter on the former then the result is a
+conflict. The conflict is marked in the file by conflict markers, as
+below. This is sometimes referred to as a “hunk”. There are three
+sections in the hunk:</p>
+<ol type="1">
+<li><p>Between <code>&lt;&lt;&lt;</code> and <code>|||</code>: the state of the base branch, i.e. what
+the rebase commit actually saw when it tried to apply its change</p></li>
+<li><p>Between <code>|||</code> and <code>===</code>: the state that the rebased commit
+expected to see</p></li>
+<li><p>Between <code>===</code> and <code>&gt;&gt;&gt;</code>: what the result of applying the rebased
+commit would have been, if it had seen what it expected</p></li>
+</ol>
+<p>These three sections are always different from each other. If any
+pair were the same then there would be no conflict!</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>      foo1()</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>      foo2()</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>      foo3()</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="va">++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a> +    foo4()</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="va">++||||||| merged common ancestors</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="va">++=======</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="va">+    foo5()</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="va">++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Add foo 5</span></span></code></pre></div>
+<h3 id="the-intent-of-the-rebased-commit">The intent of the rebased commit</h3>
+<p>There are two equivalent ways to see the logical intent of the rebased
+commit.</p>
+<ul>
+<li><p>It is the difference between the middle hunk section (below “merged common
+ancestors”) and the bottom hunk section (above the commit description, “Add
+foo 5”).</p></li>
+<li><p>It is shown in the output of <code>git show REBASE_HEAD</code>. This is
+generally easier to interpret than the above, but more verbose as it
+also contains diffs relating to non-conflicting parts of the commit.
+In this case it shows</p></li>
+</ul>
+<div class="sourceCode" id="cb12"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>     foo1()</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>     foo2()</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>     foo3()</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="va">+    foo5()</span></span></code></pre></div>
+<p>Using either method you can see that the logical change of the rebased
+commit is to add <code>foo5()</code> after <code>foo3()</code>.</p>
+<h3 id="the-state-of-the-base-branch">The state of the base branch</h3>
+<p>There are two equivalent ways to see the state of the base branch.</p>
+<ul>
+<li><p>The top hunk section (below <code>HEAD</code>)</p></li>
+<li><p>The output of <code>git show HEAD:&lt;filename&gt;</code>. This latter form is
+probably less useful than the former because it shows the entire
+state of <code>&lt;filename&gt;</code> without drawing your attention to the
+conflicting section. In this case it shows</p></li>
+</ul>
+<pre><code>...
+def main():
+    foo1()
+    foo2()
+    foo3()
+    foo4()</code></pre>
+<p>Either way, you can see that the base branch has <code>foo4()</code> after
+<code>foo3()</code>.</p>
+<h3 id="resolving-the-conflict">Resolving the conflict</h3>
+<p>The correct way to resolve this conflict is to apply the logical
+change of the rebased commit—adding <code>foo5()</code> after <code>foo3()</code>—to
+state of the base branch—which has <code>foo4()</code> after <code>foo3()</code>. In your
+editor this will typically be easiest to do by making the change to
+the top hunk section and then deleting the other hunk sections. It
+requires semantic understanding to know exactly which way of resolving
+the conflict is satisfactory, if any. For example, we could put
+<code>foo5()</code> either before or after the appearance of <code>foo4()</code>. Let’s
+choose the latter and add <code>foo5()</code> below <code>foo4()</code> in the top hunk
+section (i.e. below <code>HEAD</code>).</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>      foo1()</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>      foo2()</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>      foo3()</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="va">++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a> +    foo4()</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a> +    foo5()</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="va">++||||||| merged common ancestors</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="va">++=======</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="va">+    foo5()</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a><span class="va">++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Add foo 5</span></span></code></pre></div>
+<p>and then delete the middle and bottom hunk sections, and the conflict
+markers, to get</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> main():</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    foo1()</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    foo2()</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    foo3()</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    foo4()</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    foo5()</span></code></pre></div>
+<p>Once this change has been made the file can be <code>git add</code>ed and the
+rebase can continue via <code>git rebase --continue</code>.</p>
+<h2 id="worked-example-removing-two-different-things">Worked example: removing two different things</h2>
+<p>Suppose I have a patch that removes the call of <code>foo2</code> and another patch
+that removes the call of <code>foo3</code>, that is</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>def main():</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>     foo1()</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="st">-    foo2()</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>     foo3()</span></code></pre></div>
+<p>and</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a> def main():</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>     foo1()</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>     foo2()</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="st">-    foo3()</span></span></code></pre></div>
+<p>If I try to rebase the latter onto the former the conflict is</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>      foo1()</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="va">++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a> +    foo3()</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="va">++||||||| merged common ancestors</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="va">+     foo2()</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a><span class="va">++    foo3()</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="va">++=======</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="va">++    foo2()</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a><span class="va">++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Remove foo3</span></span></code></pre></div>
+<h3 id="the-intent-of-the-rebased-commit-1">The intent of the rebased commit</h3>
+<p>By looking at the difference between the middle hunk section and the
+bottom hunk section, or by looking at <code>git show REBASE_HEAD</code>—which
+shows</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a> def main():</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>     foo1()</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>     foo2()</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="st">-    foo3()</span></span></code></pre></div>
+<p>—we can see that the intent of the rebased patch was to remove
+<code>foo3()</code>.</p>
+<h3 id="the-state-of-the-base-branch-1">The state of the base branch</h3>
+<p>On the other hand, the hunk section under <code>HEAD</code>, and <code>git show HEAD:&lt;filename&gt;</code>—which is</p>
+<pre><code>def main():
+    foo1()
+    foo3()</code></pre>
+<p>—show that the base branch does not contain <code>foo2()</code>, but <code>foo3()</code>
+is still there, ripe for removal. We need to apply the logical intent
+of the rebased patch to this context, which is done by removing the
+appearance of <code>foo3()</code> in the hunk section below <code>HEAD</code></p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>      foo1()</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="va">++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="va">++||||||| merged common ancestors</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="va">+     foo2()</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="va">++    foo3()</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="va">++=======</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="va">++    foo2()</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="va">++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Remove foo3</span></span></code></pre></div>
+<p>and then we delete the middle and bottom hunk sections and the
+conflict markers to get</p>
+<pre><code>def main():
+    foo1()</code></pre>
+<h2 id="worked-example-one-addition-one-removal">Worked example: one addition, one removal</h2>
+<p>If I rebase the addition of <code>foo4()</code> on the removal of <code>foo3()</code> the
+conflict is</p>
+<pre><code>  def main():
+      foo1()
+      foo2()
+++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+++||||||| merged common ancestors
+++    foo3()
+++=======
++     foo3()
++     foo4()
+++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Add foo4</code></pre>
+<p><code>git show REBASE_HEAD</code> shows</p>
+<pre><code>     foo1()
+     foo2()
+     foo3()
++    foo4()</code></pre>
+<p>so the intention of the rebased commit is to add <code>foo4()</code>. Doing this
+in the top hunk section (i.e. below <code>HEAD</code>) leads to</p>
+<pre><code>  def main():
+      foo1()
+      foo2()
+++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+ +    foo4()
+++||||||| merged common ancestors
+++    foo3()
+++=======
++     foo3()
++     foo4()
+++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Add foo4</code></pre>
+<p>and after deleting the deleting the other hunk sections we are left with</p>
+<pre><code>def main():
+    foo1()
+    foo2()
+    foo4()</code></pre>
+<h2 id="worked-example-a-renaming-and-a-removal">Worked example: a renaming and a removal</h2>
+<p>Suppose I rename <code>foo1</code> to <code>foo1_new_name</code> like so</p>
+<div class="sourceCode" id="cb27"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="st">-def foo1():</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="va">+def foo1_new_name():</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>     print(&quot;foo1&quot;)</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>...</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a> def main():</span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a><span class="st">-    foo1()</span></span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a><span class="va">+    foo1_new_name()</span></span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>     foo2()</span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>     foo3()</span></code></pre></div>
+<p>and rebase the removal of <code>foo2()</code> (as above) on top. Then the
+conflict markers show</p>
+<pre><code>  def main():
+++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+ +    foo1_new_name()
+ +    foo2()
+++||||||| merged common ancestors
++     foo1()
+++    foo2()
+++=======
+++    foo1()
+++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Remove foo2
+      foo3()</code></pre>
+<p>and <code>git show REBASE_HEAD</code> shows</p>
+<pre><code>def main():
+     foo1()
+-    foo2()
+     foo3()</code></pre>
+<p>Therefore to apply the logical intent of the rebased commit I need to
+remove <code>foo2()</code>. Doing so in the top hunk section gives</p>
+<pre><code>  def main():
+++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+ +    foo1_new_name()
+++||||||| merged common ancestors
++     foo1()
+++    foo2()
+++=======
+++    foo1()
+++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Remove foo2
+      foo3()</code></pre>
+<p>and after deleting the other hunk sections and conflict markers we are
+left with</p>
+<pre><code>def main():
+    foo1_new_name()
+    foo3()</code></pre>
+<h2 id="worked-example-a-renaming-and-an-extraction">Worked example: a renaming and an extraction</h2>
+<p>Suppose I rebase the patch changing <code>foo1</code> to <code>foo1_new_name</code> as above
+onto a commit which combines <code>foo1</code> and <code>foo2</code> into a new function
+called <code>foo1and2</code> like so</p>
+<pre><code> def foo2():
+     print(&quot;foo2&quot;)
+
++def foo1and2():
++    foo1()
++    foo2()
++
+ def foo3():
+     print(&quot;foo3&quot;)
+
+...
+
+ def main():
+-    foo1()
+-    foo2()
++    foo1and2()
+     foo3()</code></pre>
+<p>The conflict is</p>
+<pre><code>  def main():
+++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+ +    foo1and2()
+++||||||| merged common ancestors
+++    foo1()
+++    foo2()
+++=======
++     foo1_new_name()
++     foo2()
+++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Rename foo1 to foo1_new_name
+      foo3()</code></pre>
+<p>What was the logical intent of the rebased commit? <code>git show REBASE_HEAD</code> shows</p>
+<pre><code>-def foo1():
++def foo1_new_name():
+     print(&quot;foo1&quot;)
+
+...
+
+ def main():
+-    foo1()
++    foo1_new_name()
+     foo2()
+     foo3()</code></pre>
+<p>so the logical intent is to rename <code>foo1</code> to <code>foo1_new_name</code>. This
+poses a conundrum. There is no way to make this change within the
+conflict region itself! The call of <code>foo1</code> has been moved into a
+different function. We must make the change there instead, leading to
+a final result of</p>
+<pre><code>def foo1and2():
+    foo1_new_name()
+    foo2()
+
+...
+
+def main():
+    foo1and2()
+    foo3()</code></pre>
+<h2 id="worked-example-a-semantic-conflict">Worked example: a semantic conflict</h2>
+<p>Suppose we renamed <code>foo1</code> as above and then tried to rebase upon it a
+commit that renames <code>foo1</code> to something else. The conflict would look
+something like</p>
+<pre><code>++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+ +def foo1_new_name():
+++||||||| merged common ancestors
+++def foo1():
+++=======
++ def foo1_another_new_name():
+++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Rename foo1 again
+      print(&quot;foo1&quot;)
+
+...
+
+  def main():
+++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+ +    foo1_new_name()
+++||||||| merged common ancestors
+++    foo1()
+++=======
++     foo1_another_new_name()
+++&gt;&gt;&gt;&gt;&gt;&gt;&gt; Rename foo1 again
+      foo2()
+      foo3()</code></pre>
+<p><code>git show REBASE_HEAD</code> shows</p>
+<pre><code>-def foo1():
++def foo1_another_new_name():
+     print(&quot;foo1&quot;)
+
+...
+
+ def main():
+-    foo1()
++    foo1_another_new_name()
+     foo2()
+     foo3()</code></pre>
+<p>that is, the logical change is that <code>foo1</code> is renamed
+<code>foo1_another_new_name</code>. On the other hand, <code>git show HEAD:&lt;filename&gt;</code> shows</p>
+<pre><code>def foo1_new_name():
+    print(&quot;foo1&quot;)
+
+...
+
+def main():
+    foo1_new_name()
+    foo2()
+    foo3()</code></pre>
+<p>There is nothing called <code>foo1</code>! This is a genuine semantic conflict.
+Should the new name of <code>foo1</code> be <code>foo1_new_name</code> or
+<code>foo1_another_new_name</code>? The knowledge required to answer that
+question is not contained within the conflict markers of the merge
+conflict. Local reasoning can’t help. You now have to think globally
+about the meaning of the two branches in question.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Resolving rebase conflicts is straightforward as long as you have a
+clear idea of what the logically-intended changes introduced by the
+rebased commit are, and you can see the state of base branch that you
+need to apply them to—and there is semantic compatibility between
+the two!</p>
+<p>The git tooling can be used to provide useful information. It’s not
+ideal though. I explore a better conflict marker format in <a href="../git-rebase-conflicts-display/">Better
+display for git rebase conflicts</a>.</p>
+<h2 id="references">References</h2>
+<p>I found David Winterbottom’s <a href="https://codeinthehole.com/guides/resolving-conflicts-during-a-git-rebase/">article on the same
+topic</a>
+helpful when writing this one.</p>
+<ul>
+<li><p><a href="https://stackoverflow.com/a/7589612">A Stackoverflow answer</a> with
+compatible information</p></li>
+<li><p><a href="https://blog.nilbus.com/take-the-pain-out-of-git-conflict-resolution-use-diff3/">An earlier
+article</a>
+that I didn’t know about when writing this one and is perhaps even
+better!</p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

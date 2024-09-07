@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>space-leaks-real-world</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>space-leaks-real-world</h3>
+  <h1 id="space-leaks-in-the-real-world">Space leaks in the real world</h1>
+<p>Work in progress</p>
+<ul>
+<li><p><code>maximumBy</code> in <code>base</code></p>
+<p><a href="https://gitlab.haskell.org/ghc/ghc/-/issues/10830" class="uri">https://gitlab.haskell.org/ghc/ghc/-/issues/10830</a></p></li>
+<li><p>A leak in Shake</p>
+<p><a href="https://neilmitchell.blogspot.com/2013/02/chasing-space-leak-in-shake.html" class="uri">https://neilmitchell.blogspot.com/2013/02/chasing-space-leak-in-shake.html</a></p></li>
+<li><p>Two leaks in Hoogle and one in Shake</p>
+<p><a href="https://neilmitchell.blogspot.com/2015/09/three-space-leaks.html" class="uri">https://neilmitchell.blogspot.com/2015/09/three-space-leaks.html</a></p></li>
+<li><p>A simple space leak in a recursive accumulator</p>
+<p><a href="https://stackoverflow.com/questions/48034553/how-to-avoid-haskell-space-leak" class="uri">https://stackoverflow.com/questions/48034553/how-to-avoid-haskell-space-leak</a></p></li>
+<li><p>Two leaks in Shake, one in <code>HashMap</code></p>
+<p><a href="https://neilmitchell.blogspot.com/2020/05/fixing-space-leaks-in-ghcide.html" class="uri">https://neilmitchell.blogspot.com/2020/05/fixing-space-leaks-in-ghcide.html</a></p></li>
+<li><p>discogs2pg</p>
+<p>I’m not sure I really consider this a space leak. It’s just bad
+design that <code>getTables</code> takes a list that it doesn’t need. On the
+other hand it’s probably also bad design that <code>store</code> takes a <code>[a]</code>
+rather than some sort of stream.</p>
+<p><a href="https://clrnd.com.ar/posts/2015-08-21-profiling-a-haskell-space-leak.html" class="uri">https://clrnd.com.ar/posts/2015-08-21-profiling-a-haskell-space-leak.html</a></p></li>
+<li><p>Space leak in GHCi</p>
+<p><a href="https://simonmar.github.io/posts/2018-06-20-Finding-fixing-space-leaks.html" class="uri">https://simonmar.github.io/posts/2018-06-20-Finding-fixing-space-leaks.html</a></p></li>
+<li><p>Space leak in nested monadic loops</p>
+<p>Quite different from most space leaks, and really, <em>really</em> bad</p>
+<p><a href="https://ro-che.info/articles/2017-01-10-nested-loop-space-leak" class="uri">https://ro-che.info/articles/2017-01-10-nested-loop-space-leak</a></p>
+<p><a href="https://gitlab.haskell.org/ghc/ghc/-/issues/13080">Discussion on GHC
+issue</a></p></li>
+<li><p>Space leak that should have been fixed with strict fields</p>
+<p><a href="https://sriramsami.com/haskell-optimization/" class="uri">https://sriramsami.com/haskell-optimization/</a></p></li>
+</ul>
+<h2 id="taxonomy">Taxonomy</h2>
+<ul>
+<li>Edward Yang’s <a href="http://blog.ezyang.com/2011/05/space-leak-zoo/">Space Leak Zoo</a></li>
+</ul>
+<h2 id="problems-with-unnecessary-strictness">Problems with unnecessary strictness</h2>
+<ul>
+<li><p>A strictness slowdown in <code>uniplate</code></p>
+<p><a href="https://neilmitchell.blogspot.com/2013/08/destroying-performance-with-strictness.html" class="uri">https://neilmitchell.blogspot.com/2013/08/destroying-performance-with-strictness.html</a></p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

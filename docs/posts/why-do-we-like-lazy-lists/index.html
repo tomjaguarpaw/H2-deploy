@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>why-do-we-like-lazy-lists</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>why-do-we-like-lazy-lists</h3>
+  <h1 id="why-do-we-like-lazy-lists">Why do we like lazy lists?</h1>
+<ul>
+<li><p><code>take 10 . sort</code> has optimized asymptotic time</p>
+<p><a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dixfnn0/" class="uri">https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dixfnn0/</a></p></li>
+<li><p><code>take k</code> of a lazily produced list</p>
+<p><a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dixgvj9/" class="uri">https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dixgvj9/</a></p></li>
+<li><p>Ed Kmett’s memo table</p></li>
+<li><p>General argument that they are better than fingertrees in some situations</p>
+<p><a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dj0zblk/" class="uri">https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dj0zblk/</a></p></li>
+<li><p><code>zip [1..] (...)</code></p>
+<p><a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/diw9hmx/" class="uri">https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/diw9hmx/</a></p></li>
+<li><p><code>zip (cycle [True, False])</code> and <code>take n (cycle xs)</code></p>
+<p><a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/diwnhua/" class="uri">https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/diwnhua/</a></p></li>
+<li><p>The alternative is just to make lists spine strict, but that makes guarded recursion fly out the window, the following for example will run much slower, and take asymptotically more (O(n) vs O(1)) stack space:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fmap</span> f (x <span class="op">:</span> xs) <span class="ot">=</span> f x <span class="op">:</span> <span class="fu">fmap</span> f xs</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">fmap</span> _ [] <span class="ot">=</span> []</span></code></pre></div>
+<p>traverse and basically any function that builds a list will similarly suffer, e.g toList, many, some etc.</p>
+<p><a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dizksf1/" class="uri">https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dizksf1/</a></p>
+<p>(Ah, but this can be fixed by “tail recursion modulo cons”, as is
+<a href="https://github.com/ocaml/ocaml/pull/9760">done in OCaml</a>).</p></li>
+<li><p><code>mapM XXX . fliter YYY . [AAA...BBB]</code> is meant to be running at constant space, and strict list will simply blow the heap.</p>
+<p><a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dixkihy/" class="uri">https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/dixkihy/</a></p></li>
+<li><p>Something to do with Alternative</p>
+<p><a href="https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/diwhzwf/" class="uri">https://www.reddit.com/r/haskell/comments/6h84vg/when_do_we_really_need_lazy_lists/diwhzwf/</a></p></li>
+</ul>
+<p>Lennart’s points</p>
+<ul>
+<li><p>Cyclic data structures</p></li>
+<li><p>Reuse:</p></li>
+</ul>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">any</span><span class="ot"> ::</span> (a <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> <span class="dt">Bool</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">any</span> p <span class="ot">=</span> <span class="fu">or</span> <span class="op">.</span> <span class="fu">map</span> p</span></code></pre></div>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

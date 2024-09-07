@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>summation</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>summation</h3>
+  <h1 id="summation">Summation</h1>
+<p><a href="https://www.youtube.com/watch?v=w-I6XTVZXww">Numberphile’s video on summing the positive
+integers</a> has been
+confusing people, because physicists have a way of working with
+mathematics that is very foreign to mathematicians. Let’s see what
+Numberphile’s proposed proof <em>can</em> say about the sum of the positive
+integers that is mathematically rigorous.</p>
+<p>We’ve been given</p>
+<ul>
+<li>S = 1 + 2 + 3 + 4 + 5 + …</li>
+<li>S_2 = 1 - 2 + 3 - 4 + 5 - …</li>
+</ul>
+<p>We can generalise this slightly</p>
+<ul>
+<li>S(x) = 1 + 2x + 3x^2 + 4x^3 + 5x^4 + …</li>
+<li>S_2(x) = 1 - 2x + 3x^2 - 4x^3 + 5x^4 - …</li>
+</ul>
+<p>and for full generality we will treat these as <em>formal</em> power series.
+I’m not going to consider the functions they induce until right at the
+end.</p>
+<p>Now, it’s perfectly mathematically rigorous to say that S_2(x) = 1 /
+(1 + x)^2 as formal power series (indeed it’s true when they are
+considered as functions on -1 &lt; x &lt; 1, but hold your horses!).</p>
+<p>It’s also perfectly mathematically rigorous to say that</p>
+<ul>
+<li>S(x) - S_2(x) = 4x + 8x^2 + 12x^5 + … = 4x S(x^2)</li>
+</ul>
+<p>so that</p>
+<ul>
+<li>S_2(x) = S(x) - 4x S(x^2)</li>
+</ul>
+<p>which when the right hand side is expanded is</p>
+<ul>
+<li>S_2(x) = (1 - 4x) + 2x(1-4x^2) + 3x^2(1 - 4x^3) + 4x^3(1 - 4x^4) + …</li>
+</ul>
+<p>Note that in particular this is <em>not</em> S_2(x) = -3 S(x)! Now observe
+that if we consider the functions on <strong>R</strong> induced by these power
+series we do indeed find that</p>
+<ul>
+<li>1/4 = lim (x &lt; 1) { (1 - 4x) + 2x(1-4x^2) + 3x^2(1 - 4x^3) + 4x^3(1 - 4x^4) + … }</li>
+</ul>
+<p>This is about as close as we can get, I think, using a rigourous form
+of Numberphile’s proof, to the physicists claim that</p>
+<ul>
+<li>1/4 = -3 (1 + 2 + 3 + 4 + 5 + …)</li>
+</ul>
+<h2 id="decategorification">Decategorification</h2>
+<p>I have no doubt that when physicists use their identity, what they are
+doing is completely valid. What’s going on here is analogous to
+<a href="http://ncatlab.org/nlab/show/decategorification">decategorification</a>,
+that is, forgetting some important part of the structure. The
+important part of the structure here is the formal variable x that we
+hang coefficients onto to express the sum.</p>
+<p>In the contexts that physicists use this identity, I assume that there
+is some other underlying structure which “decategorifies” to this sum
+of integers (perhaps it really is as simple as having this formal
+variable x). What’s wrong here mathematically is not the result but
+stating it and proving it in the “decategorified” setting, when the
+statement and proof are only valid in the original setting, not
+after “decategorification”.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

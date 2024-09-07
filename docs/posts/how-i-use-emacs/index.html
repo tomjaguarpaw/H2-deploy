@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-use-emacs</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-use-emacs</h3>
+  <h1 id="how-i-use-emacs">How I use emacs</h1>
+<ul>
+<li><p>Launch the emacs server.</p>
+<pre><code>PATH=~/.ghcup/bin:$PATH emacs --fg-daemon</code></pre>
+<p>I think this may require version at least 26. If there are things
+that ought to be in your <code>PATH</code> (for me <code>cabal</code> installed by ghcup)
+this is a convenient way to ensure that they are there.</p></li>
+<li><p>Launch the emacs client as a long-running editor</p>
+<pre><code>emacsclient --create-frame</code></pre>
+<p>To close this frame you will have to do <code>C-x 5 0</code>
+(<code>save-buffers-kill-terminal</code> will also work).</p></li>
+<li><p>Launch the emacs client here in this terminal (for use as a Git
+commit message editor, etc.)</p>
+<pre><code>emacsclient --create-frame --alternate-editor=jmacs [filenames]</code></pre>
+<p>You can put this in the <code>EDITOR</code> environment variable. It will fall
+back to <code>jmacs</code> as an alternative editor if the emacs server is not
+running.</p>
+<p>If no filenames were provided then you can use <code>C-x 5 0</code> to close
+the frame. If filenames were provided then you also have the option
+to close the frame by killing all their buffers.</p></li>
+<li><p>Git blame</p>
+<p><a href="https://stackoverflow.com/questions/15460550/git-blame-with-commit-details-in-emacs" class="uri">https://stackoverflow.com/questions/15460550/git-blame-with-commit-details-in-emacs</a></p></li>
+<li><p>TAB means TAB</p>
+<pre><code>M-x local-set-key&lt;RET&gt; &lt;TAB&gt; self-insert-command</code></pre>
+<p>See <a href="http://pement.org/emacs_tabs.htm#one_thing">Understanding GNU Emacs and
+Tabs</a>. I really want to
+apply this to particular files only, but I’m not sure how.</p></li>
+<li><p>Turn of LSP “signature” popups</p>
+<pre><code>(setq lsp-signature-auto-activate nil)
+(setq lsp-signature-render-documentation nil)</code></pre>
+<p><a href="https://emacs-lsp.github.io/lsp-mode/tutorials/how-to-turn-off/" class="uri">https://emacs-lsp.github.io/lsp-mode/tutorials/how-to-turn-off/</a></p></li>
+</ul>
+<h2 id="things-i-want-to-know">Things I want to know</h2>
+<ul>
+<li><p>How to do the equivalent of mouse middle button paste from the
+keyboard. See <a href="https://www.emacswiki.org/emacs/CopyAndPaste" class="uri">https://www.emacswiki.org/emacs/CopyAndPaste</a>.</p></li>
+<li><p>How to disable <code>C-t</code> from transposing characters.</p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

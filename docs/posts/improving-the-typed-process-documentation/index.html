@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>improving-the-typed-process-documentation</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>improving-the-typed-process-documentation</h3>
+  <h1 id="improving-the-typed-process-documentation">Improving the <code>typed-process</code> documentation</h1>
+<p>Summary: <em>The Haskell package
+<a href="https://hackage.haskell.org/package/typed-process"><code>typed-process</code></a>
+provides an API for launching and managing processes. It is more
+type-safe and composable than its older cousin,
+<a href="https://hackage.haskell.org/package/process"><code>process</code></a>. In this
+article I explain how I improved the
+<a href="https://hackage.haskell.org/package/typed-process"><code>typed-process</code></a>
+documentation to make this library shine brighter! Hopefully the
+techniques explained here can help other library authors with their
+documentation too.</em></p>
+<h2 id="process"><code>process</code></h2>
+<p>Haskell has a package called
+<a href="https://hackage.haskell.org/package/process"><code>process</code></a> for launching
+and managing processes using the system’s underlying UNIX or Win32
+API. Whenever I’ve used it I have found it to be a solid,
+well-implemented library. On the other hand I always struggled to
+piece together components to do anything more complicated than the
+built-in functions like
+<a href="https://hackage.haskell.org/package/process-1.6.13.2/docs/System-Process.html#v:callProcess"><code>callProcess</code></a>.
+I haven’t found the library particularly <em>composable</em>.</p>
+<p>The library does allow one to separate the configuration of processes
+from launching them. Configuration consists in defining a value of
+type
+<a href="https://hackage.haskell.org/package/process-1.6.13.2/docs/System-Process.html#t:CreateProcess"><code>CreateProcess</code></a>
+which contains parameters like the executable file path, the
+arguments, and determines what the standard input, output and error
+streams should be. Once one has defined a <code>CreateProcess</code> one can
+launch a process by using functions like
+<a href="https://hackage.haskell.org/package/process-1.6.13.2/docs/System-Process.html#v:readCreateProcess"><code>readCreateProcess</code></a>
+which takes the process’s <code>stdin</code> as a <code>String</code> argument and returns
+its <code>stdout</code> as a <code>String</code> (overriding any such settings you gave when
+you made the <code>CreateProcess</code>).</p>
+<p>But there are also functions that configure and launch in one go, such
+as
+<a href="https://hackage.haskell.org/package/process-1.6.13.2/docs/src/System.Process.html#callProcess"><code>callProcess</code></a>.
+<code>callProcess</code> takes the executable path and list of arguments just
+launches that process, no separate configuration step in sight. For
+some reason I find the mixing of two-stage functions with one-stage
+functions in the same API really hard to get my head around.</p>
+<p>Beyond the mixing that confused me there is also the daunting monster
+<code>createProcess</code>, the most general way to launch a process.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">createProcess ::</span> <span class="dt">CreateProcess</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>              <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Maybe</span> <span class="dt">Handle</span>, <span class="dt">Maybe</span> <span class="dt">Handle</span>, <span class="dt">Maybe</span> <span class="dt">Handle</span>,</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>                     <span class="dt">ProcessHandle</span>)</span></code></pre></div>
+<p>I find it daunting mostly because of the three <code>Maybe Handle</code>s (which
+correspond to the process’s input and output streams). Firstly,
+<code>Handle</code> is a rather low-level concept. Secondly, each of those
+<code>Maybe</code>s is <code>Just</code> if and only if the corresponding <code>std_in</code>,
+<code>std_out</code> or <code>std_err</code> field on the <code>CreateProcess</code> is set to
+<a href="https://hackage.haskell.org/package/process-1.6.13.2/docs/System-Process.html#v:CreatePipe"><code>CreatePipe</code></a>.
+This invariant is documented on
+<a href="https://hackage.haskell.org/package/process-1.6.13.2/docs/System-Process.html#v:createProcess"><code>createProcess</code></a>
+but it should be guaranteed by the type!</p>
+<p>Whilst trying to get my head around how <code>process</code> works I made a
+couple of small
+contributions[<a href="https://github.com/haskell/process/pull/194/files">1</a>][<a href="https://github.com/haskell/process/pull/193/files">2</a>]
+to the documentation.</p>
+<p>I recalled hearing that the
+<a href="https://hackage.haskell.org/package/typed-process"><code>typed-process</code></a>
+package was a process API with better type-level guarantees so I
+decided to check it out.</p>
+<h2 id="typed-process"><code>typed-process</code></h2>
+<p>My first foray into <code>typed-process</code> ended almost as soon as it
+started. I found the documentation more daunting than
+<code>createProcess</code>! You can look at <a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html">the Haddock page as it was
+then</a>.
+All the functions have documentation but they’re in one long, almost
+uniform, list. Without additional structure I got lost. Furthermore
+each type signature was on a long line which only wrapped at the end
+of the line, for example</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">withProcessTerm_ ::</span> <span class="dt">MonadUnliftIO</span> m <span class="ot">=&gt;</span> <span class="dt">ProcessConfig</span> stdin stdout stderr <span class="ot">-&gt;</span> (<span class="dt">Process</span> stdin stdout stderr <span class="ot">-&gt;</span> m a) <span class="ot">-&gt;</span> m a</span></code></pre></div>
+<p>I am a strong believer that types are great documentation but the
+types need space to speak for themselves and here they were being
+suffocated. I couldn’t work out how to navigate.</p>
+<p>To the credit of the package it says at the top</p>
+<blockquote>
+<p>Please see the README.md file for examples of using this API.</p>
+</blockquote>
+<p>and the README.md is a good introduction. But there was no link to
+take the reader there in one click. Little sources of friction like
+this are very discouraging to me when I am a new user. Small
+breadcrumbs to guide the way are very welcome!</p>
+<h2 id="back-to-process">Back to <code>process</code></h2>
+<p>Discouraged by <code>typed-process</code> I returned to <code>process</code> to try to work
+out how to impose the type-level guarantees I wanted. Whilst
+undertaking this work I significantly improved my understanding about
+the internals of <code>process</code>. Finally I worked out how to apply the
+type-level guarantees I wanted by using a type-level <code>Maybe</code> but the
+change was such a large departure from the current API that I guessed
+it would never be accepted.</p>
+<h2 id="back-to-typed-process">Back to <code>typed-process</code></h2>
+<p>I decided to look more closely at <code>typed-process</code>. I discovered that
+it already had the type-level guarantees I wanted! Better than that,
+it supports accessing the three standard streams in a well-typed way,
+at higher-level types than <code>Handle</code>, for example <code>ByteString</code>. It
+also firmly decides on a clear separation between configuring a
+process (using
+<a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html#t:ProcessConfig"><code>ProcessConfig</code></a>)
+and launching it (with functions like
+<a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html#v:runProcess"><code>runProcess</code></a>).
+The components that <code>typed-process</code> provides compose together very
+neatly. It makes life much more convenient than <code>process</code>.</p>
+<p>I was so impressed by the library that I decided to help improve the
+documentation in the hope of reducing the chance that someone will be
+discouraged from it like I initially was.</p>
+<h2 id="improving-the-documentation">Improving the documentation</h2>
+<p>Below is the list of all improvements I made. You can see the
+documentation <a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html">before my
+changes</a>
+and
+<a href="https://hackage.haskell.org/package/typed-process-0.2.6.3/docs/System-Process-Typed.html">afterwards</a>.
+Some of the changes (like “added an example”) are general to
+documentation of any software package and some (like “explained
+<code>mkStreamSpec</code>) are specific to <code>typed-process</code>.</p>
+<ul>
+<li><p>Added a getting started example at the <a href="https://hackage.haskell.org/package/typed-process-0.2.6.3/docs/System-Process-Typed.html">top of the
+page</a></p>
+<p>The example (copied below) is very short but provides a simple way
+to get started.</p>
+<pre><code>{-# LANGUAGE OverloadedStrings #-}
+
+runProcess &quot;ls -l /home&quot; &gt;&gt;= print</code></pre></li>
+<li><p>Linked to the <a href="https://github.com/fpco/typed-process#readme">README</a></p>
+<p>The README, which contains a simple tutorial, <a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html">was already mentioned
+at the top of the
+page</a>
+but <a href="https://hackage.haskell.org/package/typed-process-0.2.6.3/docs/System-Process-Typed.html">now it is a
+link</a>.
+It might sound silly or minor but links like this <em>really</em> reduce
+cognitive load for someone coming to the library for the first time.</p></li>
+<li><p>Forced type signatures to wrap</p>
+<p>This is perhaps the single biggest readability improvement that I
+made. Instead of <a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html#v:withProcessTerm_">wrapping at the end of the
+line</a></p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">withProcessTerm_ ::</span> <span class="dt">MonadUnliftIO</span> m <span class="ot">=&gt;</span> <span class="dt">ProcessConfig</span> stdin stdout stderr <span class="ot">-&gt;</span> (<span class="dt">Process</span> stdin stdout stderr <span class="ot">-&gt;</span> m a) <span class="ot">-&gt;</span> m a</span></code></pre></div>
+<p><a href="https://hackage.haskell.org/package/typed-process-0.2.6.3/docs/System-Process-Typed.html#v:withProcessTerm_">the signatures now wrap at each
+argument</a></p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>withProcessTerm_</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="ot">  ::</span> <span class="dt">MonadUnliftIO</span> m</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="ot">=&gt;</span> <span class="dt">ProcessConfig</span> stdin stdout stderr</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="ot">-&gt;</span> (<span class="dt">Process</span> stdin stdout stderr <span class="ot">-&gt;</span> m a)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="ot">-&gt;</span> m a</span></code></pre></div>
+<p>This format is achieved by adding dummy Haddock comments (<code>-- ^</code>)
+between each argument (see <a href="https://github.com/fpco/typed-process/commit/9eceb7bcc7c690c1933c9216f33c74913e613d1e#diff-eb95c5fd1cdf7d1916480924a11a3cfe7f450570d2fc1dacd3d4b5d183de7031">the commit in
+question</a>).</p>
+<p>EDIT: <a href="https://gitlab.haskell.org/ghc/ghc/-/issues/23935">Since GHC
+9.0</a> you have to
+use a space character after the <code>^</code>.</p></li>
+<li><p>Moved the commonly-used functions higher than the less-used
+functions</p>
+<p>For example <code>mkStreamSpec</code>, with its terrifying type signature,
+<a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html#g:5">used to be documented at the top of the “Stream specs”
+section</a>
+even though most users will only ever use the built-in
+<code>StreamSpec</code>s. Now it appears <a href="https://hackage.haskell.org/package/typed-process-0.2.6.3/docs/System-Process-Typed.html#g:7">in a sub-section of its
+own</a>
+beneath the built-in <code>StreamSpec</code>s.</p>
+<p>Similarly, <code>startProcess</code> and <code>stopProcess</code> <a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html#g:6">used to be documented
+at the top of the “Launch a process”
+section</a>
+even though you’re not supposed to use them. You’re supposed to use
+one of the <code>withProcess...</code> functions instead. Even <em>those</em>
+functions should be rarely used yet they took up positions 3-8. I
+<a href="https://hackage.haskell.org/package/typed-process-0.2.6.3/docs/System-Process-Typed.html#v:withProcessWait">reordered
+them</a>
+so that less-used functions appear lower down. The functions that
+you are most likely to want, <code>runProcess</code> and <code>readProcess</code>, <a href="https://hackage.haskell.org/package/typed-process-0.2.6.3/docs/System-Process-Typed.html#g:8">now
+appear at the top of the
+section</a>.</p>
+<p>Deprecated functions are not supposed to be used yet <a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html#v:withProcess">their
+documentation was wasting space slap-bang in the
+middle</a>
+of functions you <em>are</em> supposed to use. I moved them <a href="https://hackage.haskell.org/package/typed-process-0.2.6.3/docs/System-Process-Typed.html#g:15">to their own
+section right at the
+bottom</a>
+of the module, out of sight, out of mind. Additionally, other parts
+of the documentation referred to use of the deprecated functions. I
+changed them to refer to the replacements instead.</p></li>
+<li><p>Separated exception-throwing functions into their own section</p>
+<p>Every process-launching function has two variants: a
+non-exception-throwing variant and an exception-throwing variant.
+The name of the latter differs from the name of the former by ending
+in an underbar. The two variants used to appear next to each other
+(see, for example, <a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html#v:readProcess"><code>readProcess</code> and
+<code>readProcess_</code></a>
+). Since there is such a tight correspondence between the names and
+functionality of the non-exception-throwing and exception-throwing
+variants I decided to separate the exception-throwing functions into
+<a href="https://hackage.haskell.org/package/typed-process-0.2.6.3/docs/System-Process-Typed.html#g:9">their own
+sub-section</a>.
+Subsequently it requires less scrolling to see all the process-launching
+functions of the sort you want.</p></li>
+<li><p>Clarified the <code>mkStreamSpec</code> invariant</p>
+<p><code>mkStreamSpec</code> is the only place where a user has to be aware of the
+<code>Just</code>/<code>CreatePipe</code> invariant mentioned above in the discussion of
+<code>createProcess</code>. The old documentation <a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html#v:mkStreamSpec">used to mysteriously
+say</a>
+“This will be determined by the StdStream argument”. <a href="https://hackage.haskell.org/package/typed-process-0.2.6.3/docs/System-Process-Typed.html#v:mkStreamSpec">I changed it
+to mention the precise
+invariant</a>
+and explained that the <code>createProcess</code> documentation provides more
+details.</p></li>
+<li><p>Expanded the <code>StreamSpec</code> documentation</p>
+<p>It <a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html#t:StreamSpec">used to
+say</a></p>
+<blockquote>
+<p>A specification for how to create one of the three standard child
+streams.</p>
+</blockquote>
+<p>but I found that rather mysterious. What’s a “standard child
+stream”? I <a href="https://hackage.haskell.org/package/typed-process-0.2.6.3/docs/System-Process-Typed.html#t:StreamSpec">added an
+explanation</a>
+that it is one of <code>stdin</code>, <code>stdout</code> and <code>stderr</code>, along with other
+additional documentation.</p></li>
+<li><p>Added internal links</p>
+<p>The <code>StreamSpec</code> documentation <a href="https://hackage.haskell.org/package/typed-process-0.2.6.0/docs/System-Process-Typed.html#t:StreamSpec">used
+to</a>
+refer to the “Stream specs” section by saying “See examples below”.
+<a href="https://hackage.haskell.org/package/typed-process-0.2.6.3/docs/System-Process-Typed.html#t:StreamSpec">I changed it to link
+directly</a>
+to the “Stream specs” section. I added some other links too. The
+links make it much easier to navigate around the page.</p>
+<p>Arbitrary Haddock internal links are possible using <a href="https://stackoverflow.com/questions/51572074/how-to-link-to-a-named-chunk-of-documentation-in-haddock/69424633#69424633">a technique
+explained on
+StackOverflow</a>
+by <a href="https://stackoverflow.com/users/1013393/sjakobi">sjakobi</a>.</p></li>
+<li><p>Updated the links to the package and documentation home page.</p>
+<p>It migrated to GitHub since the library was written.</p></li>
+</ul>
+<h2 id="conclusion">Conclusion</h2>
+<p><code>typed-process</code> was always a great library but I couldn’t tell at
+first because I couldn’t make my way into the documentation.
+Hopefully my improvements make the library more accessible to
+newcomers. <code>typed-process</code> is designed such that the types are an
+integral part of the documentation. My aim was to arrange the
+documentation to allow the types to speak for themselves.
+I would welcome your feedback on what I’ve done so far or
+your suggestions for what to do next. Please <a href="http://web.jaguarpaw.co.uk/~tom/contact/">contact
+me</a>.</p>
+<h2 id="acknowledgements">Acknowledgements</h2>
+<p>Thanks to maintainer Michael Snoyman, and to all its other
+contributors, for this great library!</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

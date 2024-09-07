@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>mtl-style-for-free</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>mtl-style-for-free</h3>
+  <h1 id="mtl-style-for-free">MTL style for free</h1>
+<h2 id="introduction">Introduction</h2>
+<p>“MTL style” and “free monad style” are competing ways of implementing
+classes of effectful operations in Haskell programs. When we use MTL
+style we specify a type class of monadic operations and give various
+instances which interpret the operations in different monads. When we
+use free monad style we specify a <code>Functor</code> which encodes the monadic
+operations and we implement various interpretations of that functor
+in different monads.</p>
+<p>After reading <a href="http://www.parsonsmatt.org/2018/03/22/three_layer_haskell_cake.html">an excellent article by Matt
+Parsons</a>
+(which advocated the MTL style) I realised that you can have the best
+of both worlds! The base functor that defines the free monad also
+gives rise to an MTL style type class.</p>
+<h2 id="example">Example</h2>
+<p>Inspired by Matthew’s article on the three layer cake pattern in
+Haskell, we might have the interfaces</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">MonadTime</span> m <span class="kw">where</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ot">  getCurrentTime ::</span> m <span class="dt">UTCTime</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">MonadLock</span> m <span class="kw">where</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ot">    acquireLock ::</span> <span class="dt">NominalDiffTime</span> <span class="ot">-&gt;</span> <span class="dt">Key</span> <span class="ot">-&gt;</span> m (<span class="dt">Maybe</span> <span class="dt">Lock</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="ot">    renewLock ::</span> <span class="dt">NominalDiffTime</span> <span class="ot">-&gt;</span> <span class="dt">Lock</span> <span class="ot">-&gt;</span> m (<span class="dt">Maybe</span> <span class="dt">Lock</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="ot">    releaseLock ::</span> <span class="dt">Lock</span> <span class="ot">-&gt;</span> m ()</span></code></pre></div>
+<p>and give them interpretations which can be either effectful or pure
+mocked versions</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">acquireLockIO ::</span> <span class="dt">NominalDiffTime</span> <span class="ot">-&gt;</span> <span class="dt">Key</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Maybe</span> <span class="dt">Lock</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ot">renewLockIO   ::</span> <span class="dt">NominalDiffTime</span> <span class="ot">-&gt;</span> <span class="dt">Lock</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Maybe</span> <span class="dt">Lock</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ot">releaseLockIO ::</span> <span class="dt">Lock</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">MonadTime</span> ((<span class="ot">-&gt;</span>) <span class="dt">UTCTime</span>) <span class="kw">where</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  getCurrentTime <span class="ot">=</span> <span class="fu">id</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">MonadTime</span> <span class="dt">IO</span> <span class="kw">where</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  getCurrentTime <span class="ot">=</span> Data.Time.getCurrentTime</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">MonadLock</span> <span class="dt">IO</span> <span class="kw">where</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  acquireLock <span class="ot">=</span> acquireLockIO</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  renewLock   <span class="ot">=</span> renewLockIO</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  releaseLock <span class="ot">=</span> releaseLockIO</span></code></pre></div>
+<h2 id="mtl-style-for-free-1">MTL style for free</h2>
+<p>Instead of defining different classes for different sets of operations
+let’s define a class once and for all parameterized by a <code>Functor</code>
+which carries the operations.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">Monad_</span> f m <span class="kw">where</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ot">  interpret ::</span> <span class="kw">forall</span> r<span class="op">.</span> f r <span class="ot">-&gt;</span> m r</span></code></pre></div>
+<p>Then instead of <code>MonadTime</code> we have <code>Monad_ Time_</code> and instead of
+<code>MonadLock</code> we have <code>Monad_ Lock_</code>, where</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Time_</span> a <span class="ot">=</span> <span class="dt">GetCurrentTime</span> (<span class="dt">UTCTime</span> <span class="ot">-&gt;</span> a)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Lock_</span> a <span class="ot">=</span> <span class="dt">AcquireLock</span> (<span class="dt">Maybe</span> <span class="dt">Lock</span> <span class="ot">-&gt;</span> a) <span class="dt">NominalDiffTime</span> <span class="dt">Key</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>             <span class="op">|</span> <span class="dt">RenewLock</span> (<span class="dt">Maybe</span> <span class="dt">Lock</span> <span class="ot">-&gt;</span> a) <span class="dt">NominalDiffTime</span> <span class="dt">Lock</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>             <span class="op">|</span> <span class="dt">ReleaseLock</span> (() <span class="ot">-&gt;</span> a) <span class="dt">Lock</span></span></code></pre></div>
+<p>The way that we write a functor for a class of monadic operations is
+that we take our collection of operations of the form</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="dt">MonadOperations</span> <span class="kw">where</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="ot">    operation1 ::</span> arg1 <span class="ot">-&gt;</span> <span class="op">...</span> <span class="ot">-&gt;</span> argN <span class="ot">-&gt;</span> m result</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span></span></code></pre></div>
+<p>and convert it to a sum type of the form</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Operations_</span> a <span class="ot">=</span> <span class="dt">Operation1</span> (result <span class="ot">-&gt;</span> a) arg1 <span class="op">...</span> argN</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>                   <span class="op">|</span> <span class="op">...</span></span></code></pre></div>
+<p>We can go ahead and give instance definitions for our classes</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Monad_</span> <span class="dt">Time_</span> ((<span class="ot">-&gt;</span>) <span class="dt">UTCTime</span>) <span class="kw">where</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  interpret <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">GetCurrentTime</span> f <span class="ot">-&gt;</span> k0 <span class="fu">id</span> f</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Monad_</span> <span class="dt">Time_</span> <span class="dt">IO</span> <span class="kw">where</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  interpret <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">GetCurrentTime</span> f <span class="ot">-&gt;</span> k0 Data.Time.getCurrentTime f</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Monad_</span> <span class="dt">Lock_</span> <span class="dt">IO</span> <span class="kw">where</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  interpret <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">AcquireLock</span> f t k <span class="ot">-&gt;</span> k2 acquireLockIO f t k</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">RenewLock</span> f t l   <span class="ot">-&gt;</span> k2 renewLockIO f t l</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">ReleaseLock</span> f l   <span class="ot">-&gt;</span> k1 releaseLockIO f l</span></code></pre></div>
+<p>For each constructor we give its interpretation in the target monad.
+<code>k0</code>, <code>k1</code> and <code>k2</code> are somewhat uninteresting combinators for making
+this look cleaner.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>k0 op f <span class="ot">=</span> <span class="fu">fmap</span> f op</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>k1 op f a <span class="ot">=</span> <span class="fu">fmap</span> f (op a)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>k2 op f a b <span class="ot">=</span> <span class="fu">fmap</span> f (op a b)</span></code></pre></div>
+<p>The downside of this new style is that if we want to use direct
+function calls for our operations we have to wrap them:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- All these types are inferrable</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- with NoMonomorphismRestriction</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="ot">getCurrentTime ::</span> <span class="dt">Monad_</span> <span class="dt">Time_</span> m</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>               <span class="ot">=&gt;</span> m <span class="dt">UTCTime</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>getCurrentTime <span class="ot">=</span> j0 <span class="dt">GetCurrentTime</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="ot">acquireLock ::</span> <span class="dt">Monad_</span> <span class="dt">Lock_</span> m</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>            <span class="ot">=&gt;</span> <span class="dt">NominalDiffTime</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>            <span class="ot">-&gt;</span> <span class="dt">Key</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>            <span class="ot">-&gt;</span> m (<span class="dt">Maybe</span> <span class="dt">Lock</span>)</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>acquireLock <span class="ot">=</span> j2 <span class="dt">AcquireLock</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="ot">renewLock ::</span> <span class="dt">Monad_</span> <span class="dt">Lock_</span> m</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>          <span class="ot">=&gt;</span> <span class="dt">NominalDiffTime</span></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>          <span class="ot">-&gt;</span> <span class="dt">Lock</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>          <span class="ot">-&gt;</span> m (<span class="dt">Maybe</span> <span class="dt">Lock</span>)</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>renewLock <span class="ot">=</span> j2 <span class="dt">RenewLock</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a><span class="ot">releaseLock ::</span> <span class="dt">Monad_</span> <span class="dt">Lock_</span> m</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>            <span class="ot">=&gt;</span> <span class="dt">Lock</span></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>            <span class="ot">-&gt;</span> m ()</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>releaseLock <span class="ot">=</span> j1 <span class="dt">ReleaseLock</span></span></code></pre></div>
+<p><code>j0</code>, <code>j1</code>, and <code>j2</code> are combinators for implementing operations
+conveniently</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>j0 op <span class="ot">=</span> interpret (op <span class="fu">id</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>j1 op a <span class="ot">=</span> interpret (op <span class="fu">id</span> a)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>j2 op a b <span class="ot">=</span> interpret (op <span class="fu">id</span> a b)</span></code></pre></div>
+<p>Or we could use <code>j0 GetCurrentTime</code>, <code>j2 AcquireLock</code> etc. directly,
+but that looks rather bizarre.</p>
+<h2 id="interoperating-with-free-for-free">Interoperating with <code>Free</code> for free</h2>
+<p>The benefit we get is automatic interaction with free monads. The
+functor of operations that we defined is exactly the base functor of
+the corresponding free monad. There is a function <code>freely</code> which
+interprets <code>Free f</code> in the MTL style <code>Monad_ f m</code></p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ot">freely ::</span> (<span class="dt">Functor</span> f, <span class="dt">Monad</span> m, <span class="dt">Monad_</span> f m)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>       <span class="ot">=&gt;</span> <span class="dt">Free</span> f a <span class="ot">-&gt;</span> m a</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>freely f <span class="ot">=</span> foldFree interpret f</span></code></pre></div>
+<p>The inverse to <code>freely</code> is <code>liftF</code> (which is also the <code>interpret</code> of
+the <code>Monad_ f (Free f)</code> instance).</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Functor</span> f <span class="ot">=&gt;</span> <span class="dt">Monad_</span> f (<span class="dt">Free</span> f) <span class="kw">where</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  interpret <span class="ot">=</span> liftF</span></code></pre></div>
+<h2 id="performance">Performance</h2>
+<p>I haven’t measured the performance of this but with a suitable
+combination of inlining plus <code>RULE</code>s it feels like it should perform
+equally well to the MTL style.</p>
+<h2 id="comments">Comments</h2>
+<p>This approach doesn’t provide support for non-algebraic operations
+such as <code>Reader.local</code>, <code>Writer.listen</code> and <code>Writer.pass</code>, but perhaps
+that’s a good thing.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Implemention of classes of operations in MTL style contains a common
+pattern parametrized by a functor. Using the parametrized style gives
+you automatic interchange between MTL style and free monad style so you can
+have the best of both worlds for free!</p>
+<p>I’m probably not the first person to notice this. If anyone knows any
+prior references please <a href="http://web.jaguarpaw.co.uk/~tom/contact/">let me
+know</a> and I’ll add a
+reference.</p>
+<p><a href="https://www.reddit.com/r/haskell/comments/89njsr/mtl_style_for_free/e6sb9vb/">Oliver Charles did some stuff along these
+lines</a>.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

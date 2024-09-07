@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>strict-haskell</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>strict-haskell</h3>
+  <h1 id="strict-haskell">Strict Haskell</h1>
+<p>What would a strict version of Haskell look like? That is, a pure language
+with syntax as close to Haskell as possible but where function application
+and data constructors are evaluated strictly. Laziness should be accessible
+through an explicit thunk datatype.
+(Nikita Volkov has written a good explanation of the <a href="http://nikita-volkov.github.io/if-haskell-were-strict/">explicit thunk
+datatype</a>.)</p>
+<h2 id="what-problems-are-we-trying-to-solve">What problems are we trying to solve?</h2>
+<ul>
+<li><p>There are a lot of implicit thunks floating around in Haskell. It is
+anathema to treat <code>A -&gt; IO B</code> as if it were simply <code>A -&gt; B</code> so it seems
+odd for <code>A</code> to mean a type of computations (returning values of type <code>A</code>)
+rather than itself a type of values. Strict Haskell would be more honest
+since thunks would be represented by an explicit type.</p></li>
+<li><p>The need for <code>newtype</code> is symptomatic of the confusion introduced by
+implicit thunks.</p></li>
+<li><p>The need for <a href="http://hackage.haskell.org/package/base-4.8.0.0/docs/Control-Exception-Base.html#v:evaluate"><code>evaluate</code></a>
+<code>:: a -&gt; IO a</code> is a wart which indicates that we do
+not understand how to mix <code>IO</code> and forcing thunks.</p></li>
+<li><p>When we have a function which releases some memory how can we ensure that
+the release happens before the rest of the program continues execution?
+<a href="http://web.jaguarpaw.co.uk/~tom/blog/posts/2013-03-29-avoiding-space-leaks-when-deleting-data.html">In the pure case it seems possible to use CPS</a>
+and in IO it seems possible
+to use <code>evaluate</code> (and probably the CPS form too) but is there a unified,
+principled way? It seems unlikely that we will find one whilst thunks are
+implicit.</p></li>
+<li><p>Lots of libraries (Lens, ST, Map, ByteString, Text) have strict and
+lazy versions of functions or data structures. Lots of monads have
+strict and lazy versions. This is very confusing. Is it really
+necessary?</p></li>
+<li><p>For a <code>Functor f</code>, a value <code>x :: f a</code> often contains one or several
+thunks of type <code>a</code>. However, there is no general way to force these
+thunks. If we apply a large number of <code>fmap</code>s to <code>x</code> then even if
+we force <code>x</code> it doesn’t mean the thunks inside have been forced. We
+can experience a space leak this way. This is a demonstration <code>seq</code>
+is implicitly part of the interface of every data type, but it is
+generally not treated that way by datatype authors.</p></li>
+</ul>
+<h2 id="indications-that-explict-thunk-types-are-needed">Indications that explict thunk types are needed</h2>
+<ul>
+<li><a href="http://www.haskell.org/pipermail/libraries/2013-November/021728.html">http://www.haskell.org/pipermail/libraries/2013-November/021728.html</a></li>
+<li><a href="http://www.reddit.com/r/haskell/comments/21wvk7/foldl_is_broken/">Reddit discussion on <code>foldl</code></a></li>
+<li><a href="http://www.serpentine.com/blog/2014/05/18/top-haskell-packages-a-graph-centrality-perspective/">The fifth most popular package by “Katz centrality” is deepseq</a></li>
+</ul>
+<h2 id="drawbacks-i-anticipate-with-strictness">Drawbacks I anticipate with strictness</h2>
+<p>Note that monadic bind does not have an obvious drawback in a strict regime.
+With <code>m a -&gt; (a -&gt; m b) -&gt; m b</code> the <code>m b</code> need not actually run anything if
+the <code>m a</code> short circuits, because it’s already hidden behind a function
+(imagine <code>Maybe</code> for a prototypical case).</p>
+<p>The <code>Applicative</code> instances will be potentially more problematic. With
+<code>(&lt;*&gt;) :: f (a -&gt; b) -&gt; f a -&gt; f b</code> it will be hard (syntactically at the
+very least) to stop the <code>f a</code> computation from running, even if the <code>f (a -&gt; b)</code> short circuits. It will also only make sense to use lazy <code>Traversible</code>
+instances. Mapping an <code>Applicative</code> value creating function over an entire
+<code>Traversible</code> is a waste when it is followed by a <code>sequence</code> which can short
+circuit. Perhaps the true nature of <code>(&lt;*&gt;)</code> is <code>LazyTuple (f (a -&gt; b), f a) -&gt; f b</code>.</p>
+<p>Is Haskell’s <code>IO</code> itself lazy out of necessity? Maybe. Consider a pure
+function containing an expression <code>let x = f y :: IO A</code>. Then <code>x</code> is an
+<code>IO</code> action ready to be run, but not run yet! <code>IO</code> certainly contains some
+sort of delaying and I don’t understand the importance of this to the whole
+strict Haskell issue.</p>
+<h2 id="hughes">Hughes</h2>
+<p>Would this language be worse than Haskell? <a href="http://www.cse.chalmers.se/~rjmh/Papers/whyfp.html">Hughes talks about the
+importance of laziness for
+modularity</a> but I
+think that the issues he raises only actually apply to lazy data
+structures.</p>
+<h2 id="augustsson">Augustsson</h2>
+<p><a href="http://augustss.blogspot.co.uk/2011/05/more-points-for-lazy-evaluation-in.html">Augustsson raises some important
+points</a>,
+though a lot of his examples are based on the behaviour of <code>error</code>
+which in my opinion is just wrong. <code>error</code> is an effect and has no
+place in pure code.</p>
+<h3 id="lazy-bindings">Lazy bindings</h3>
+<p>The “error” example is just wrong. The <code>\a -&gt; a + expensive</code> example can be
+solved in a strict language through an explicit thunk data structures.</p>
+<h3 id="lazy-functions">Lazy functions</h3>
+<p>Augustsson’s charge of lazy functions is a harder one to answer. Again he
+levels the false criticism of <code>error</code>, but the point still stands. I think
+his idea of using {exp} for a thunk that when called evaluates exp is a good
+one.</p>
+<h3 id="lazy-constructors">Lazy constructors</h3>
+<p>I don’t understand Augustsson’s point about lazy constructors. Does “lazy
+constructor” mean “lazy datatype”?</p>
+<h3 id="cyclic-data-structures">Cyclic data structures</h3>
+<p>I think these are solvable with explicit thunks.</p>
+<h3 id="reuse">Reuse</h3>
+<p>I don’t understand Augustsson’s point here at all. His “biggest gripe” is
+about composability, but it seems trivially solvable with lazy data
+structures. He does seem to realise this: in the comments he says “It
+doesn’t matter if ‘or’ and ‘map’ are overloaded for different kinds of
+collections, it’s still wrong for strict collections”.</p>
+<p>Bob Harper makes an interesting point in the comments:</p>
+<p>‘In my mind however the conditional branch is not an example of [laziness].
+The expression “if e then e1 else e2” is short-hand for a case analysis,
+which binds a variable (of unit type) in each branch. So the conditional is
+not “lazy” at all; rather, it is an instance of the general rule that we do
+not evaluate under binders (ie, evaluate only closed code).’</p>
+<h2 id="kmett">Kmett</h2>
+<p><a href="http://stackoverflow.com/questions/265392/why-is-lazy-evaluation-useful/265548#265548">Edward Kmett raises some good
+points</a>
+and some that I don’t understand.</p>
+<p>I think one thing that he is hinting at is that in <code>m &gt;&gt;= f</code> the tail call
+is not <code>f</code>, rather <code>(&gt;&gt;=)</code>. Thus if <code>m</code> is evaluated strictly (in our
+setup, that corresponds to “not wrapped in a thunk”) and is a large chain of
+calls of the same structure, then a lot of stack space will be consumed.
+(Kmett mentions traversable rather than a chain of monadic binds, but I
+suspect its the same issue).</p>
+<p><a href="http://www.reddit.com/r/haskell/comments/1pjjy5/odersky_the_trouble_with_types_strange_loop_2013/cd3bgcu">Kmett later reiterated the issue and mentioned similar ones</a>.
+See the examples starting with</p>
+<ul>
+<li>“Monads are toys due to the aforementioned restriction.”</li>
+<li>“You wind up with issues like SI-3295”</li>
+</ul>
+<h3 id="equational-reasoning">Equational reasoning</h3>
+<p>I don’t really understand how laziness (or probably more accurately,
+non-strictness) is relevant to equational reasoning. I would like to find
+some explicit examples. Perhaps “Theorems for Free”?</p>
+<h3 id="value-restriction">Value restriction</h3>
+<p>I really don’t understand the relevance of this at all.</p>
+<h3 id="code-that-can-be-understood-in-pieces">Code that can be understood in pieces</h3>
+<p>This is basically just lazy bindings. I get why it’s good, but would hope
+to find a syntax which makes it less relevant.</p>
+<h3 id="elegant-expression-of-certain-algorithms">Elegant expression of certain algorithms</h3>
+<p>This is a lazy data structures only comment, as far as I can tell.</p>
+<h3 id="control-structures">Control structures</h3>
+<p>This is exactly the same as Augustsson’s point above.</p>
+<h3 id="monads">Monads</h3>
+<p>Kmett claims monads only work with laziness. I don’t understand this.</p>
+<h2 id="being-lazy-with-class">Being Lazy with Class</h2>
+<p>The “Being Lazy With Class” paper mentions two important uses of laziness:</p>
+<ul>
+<li>Recursive datastructures – this is the same as Augustsson’s “cyclic data
+structures argument” but better made. Is this easily replaceable with a
+lightweight thunking syntax?</li>
+<li>Unusual control flow – this is the same as Augusstson’s point, and
+Kmett’s “Control Structures” point</li>
+</ul>
+<h2 id="other">Other</h2>
+<p>Don Syme notes in <a href="http://research.microsoft.com/apps/pubs/default.aspx?id=79951">“Initializing Mutually Referential Abstract
+Objects: The Value Recursion
+Challenge”</a>
+that “Wadler et al. describe techniques to add on-demand computations
+to strict languages.”</p>
+<p><a href="http://anil.recoil.org/papers/2011-cufp-scribe-preprint.pdf">A CUFP paper
+notes</a>
+that Mu has demonstrated strictness to be harmful to modularity.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

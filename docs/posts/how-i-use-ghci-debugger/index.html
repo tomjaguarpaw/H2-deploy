@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-use-ghci-debugger</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-use-ghci-debugger</h3>
+  <h1 id="how-i-dont-use-the-ghci-debugger">How I (don’t) use the GHCi debugger</h1>
+<p><a href="https://downloads.haskell.org/ghc/8.10.1/docs/html/users_guide/ghci.html#the-ghci-debugger">GHCi has a
+debugger</a>
+which I would use if it supported the things I wanted to do, which is
+to analyse space leaks. Unfortunately it seems to have two
+limitations which make it essentially unusable for this purpose.</p>
+<ol type="1">
+<li><p>The only bindings it shows are those of the free variables of the
+expression being evaluated. This behaviour is so restricted that I
+find it hard to understand how anyone can use the GHCi debugger for
+<em>any</em> non-trivial purpose.</p>
+<blockquote>
+<p>We originally provided bindings for all variables in scope, rather
+than just the free variables of the expression, but found that
+this affected performance considerably, hence the current
+restriction to just the free variables.</p>
+</blockquote>
+<p><a href="https://downloads.haskell.org/ghc/6.6.1/docs/html/users_guide/ghci.html">GHCi didn’t have a debugger in version
+6.6.1</a>
+and by <a href="https://downloads.haskell.org/ghc/6.8.1/docs/html/users_guide/ghci-debugger.html#ftn.id3136849">version the next version (6.8.1) this restriction was
+already in
+force</a>.
+It’s not completely clear how hard they’ve tried to remove this
+restriction.</p></li>
+<li><p>It doesn’t show (as far as I can tell) any information about the
+structure of an unevaluated closure. In fact, this seems to be not
+a weakness of the debugger specifically but GHCi generally. The
+<code>:print</code> command doesn’t show the structure of closures.</p>
+<pre><code>&gt; let foo = [1,2 :: Int]
+&gt; let bar = foo ++ foo
+&gt; :print bar
+bar = (_t20::[Int])</code></pre>
+<p>I really want to see something like the following, otherwise the
+debugger is completely useless for diagnosing space leaks. We need
+to see when we’re building up large unevaluated thunks!</p>
+<pre><code>&gt; let foo = [1,2 :: Int]
+&gt; let bar = foo ++ foo
+&gt; :print bar
+bar = (foo ++ foo::[Int])</code></pre></li>
+</ol>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

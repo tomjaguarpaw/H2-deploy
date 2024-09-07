@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>demystifying-dlist</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>demystifying-dlist</h3>
+  <h1 id="demystifying-dlist">Demystifying DList</h1>
+<h2 id="introduction">Introduction</h2>
+<p>You may have heard that repeated left-associated appends on linked
+lists are slow. You may also have heard that the “difference list”,
+implemented in Haskell as
+“<a href="http://hackage.haskell.org/package/dlist"><code>DList</code></a>”, makes
+left-associated appends reasonable. The type of <code>DList</code> is somewhat
+mysterious. What’s really going on? In this article I will explain
+with nice <a href="http://projects.haskell.org/diagrams/">diagrams</a>.</p>
+<h2 id="the-problem-with-lists">The problem with lists</h2>
+<p>Suppose I append some lists using <code>(++)</code> in some arbitrary fashion.
+What evaluations are performed as we pattern match on the result,
+pulling off the head? I’ll show you an example Haskell expression,
+and then a graphical representation to explain the resulting
+computation. The expression is</p>
+<pre><code>(((as ++ bs) ++ (cs ++ ds)) ++ (es ++ (fs ++ gs)))</code></pre>
+<p>and the tree structure that arises in memory is this</p>
+<figure>
+<img src="../../images/dlist-appends.png" alt="In-memory structure of appends" />
+<figcaption aria-hidden="true">In-memory structure of appends</figcaption>
+</figure>
+<p>What happens when we pattern match this? Well, the definition of
+append is</p>
+<pre><code>xs ++ ys = case xs of []      -&gt; ys
+                      (x:xs') -&gt; x : (xs' ++ ys)</code></pre>
+<p>so we walk down the left branch of the first <code>(++)</code> node and pattern
+match the child node. However, the child node is itself a <code>(++)</code>
+node, so we again walk down the left branch and pattern match the
+grandchild. We have to keep walking down the left branches until we
+reach an already-evaluated list cell, in this case <code>as</code>. Then if <code>as</code>
+is a cons <code>a:as'</code> we replace <code>as</code> with <code>as'</code> and float the <code>a</code> back to
+the top. Thus it has taken <span class="math inline">\(O(d)\)</span> operations to pattern match our
+structure, where <span class="math inline">\(d\)</span> is number of left branches from the root to the
+leaf containing <code>as</code>.</p>
+<p>If we keep pattern matching on the result, continuing to pull off the
+head of each resulting tail, then we perform <span class="math inline">\(O(d)\)</span> operations each
+time we pull off the next element of <code>as</code>. Retrieving <em>all</em> of <code>as</code>
+thus takes <span class="math inline">\(O(dn)\)</span> operations, where <span class="math inline">\(n\)</span> is the length of <span class="math inline">\(as\)</span>.</p>
+<p>Once all of <code>as</code> has been floated up to the top, the <code>(++)</code> node is
+replaced by <code>bs</code> and we start matching <code>bs</code>, now walking <span class="math inline">\(d-1\)</span> steps
+down the tree to retrieve each element.</p>
+<p>In general, it seems that to retrieve a single element from a list
+<code>ls</code> in the append expression takes <span class="math inline">\(O(l)\)</span> operations where <span class="math inline">\(l\)</span> is the
+number of left branches you have to traverse to reach the leaf
+containing <code>ls</code>. Left branches correspond to left-associated appends,
+so this is why left-associated appends are problematic.</p>
+<p>However, contrary to popular belief, it seems that the list <code>as</code> is
+<em>not</em> walked several times in the construction of the result. This
+belief may be a hangover from those who are more familiar with the
+behaviour of strict languages.</p>
+<h2 id="improving-performance">Improving performance</h2>
+<p>Once upon a time some clever person noticed that if
+you encode a list as the action of preappending it then this bad
+left-associated append behaviour goes away.</p>
+<p>(The earliest reference I can find is <a href="http://www.cs.tufts.edu/~nr/cs257/archive/john-hughes/lists.pdf">John Hughes, A Novel
+Representation of Lists and its Application to the Function
+“Reverse”</a>.
+The technique seems well known in the Prolog community, too.)</p>
+<p>The encoding can be done, for example, as</p>
+<pre><code>type DList a = [a] -&gt; [a]
+
+fromList :: [a] -&gt; DList a
+fromList xs = (xs ++)
+
+toList :: DList a -&gt; [a]
+toList xsf = xsf []
+
+append :: DList a -&gt; DList a -&gt; DList a
+append xsf ysf = xsf . ysf</code></pre>
+<p>Notice that</p>
+<pre><code>toList (fromList xs `append` fromList ys)
+         = ((xs ++) . (ys ++)) []
+         = xs ++ ys ++ []
+         = xs ++ ys</code></pre>
+<p>so indeed we have a decent encoding of lists. But what does this gain
+us?</p>
+<p>Let’s observe what computation occurs when we take the head of a
+<code>DList</code>. We’ll use the same list append calculation as before, but
+encoded into <code>DList</code> form. It looks complicated as an expression, but
+nice as a tree.</p>
+<pre><code>((((as++) . (bs++)) . ((cs++) . (ds++))) . ((es++) . ((fs++) . (gs++))))</code></pre>
+<p>This is a function, and converting it to a list is done by applying
+the function to <code>[]</code>. The resulting structure is depicted here.</p>
+<figure>
+<img src="../../images/dlist-eval1.png" alt="Stage 1" />
+<figcaption aria-hidden="true">Stage 1</figcaption>
+</figure>
+<p>What happens when we pattern match this? We have a computation of the
+form <code>f . g $ x</code>, which evaluates to <code>f $ g $ x</code>. If <code>f</code> itself is a
+composition, the computation repeats the same evaluation step on <code>f</code>.
+At each stage if the outermost function call is a composition, the
+composition is unwound to a function application. This proceeds until
+the outermost function call is something that can pattern matched
+directly, i.e. <code>(as ++)</code>, the leftmost list in our append expression.</p>
+<figure>
+<img src="../../images/dlist-eval2.png" alt="Stage 2" />
+<figcaption aria-hidden="true">Stage 2</figcaption>
+</figure>
+<figure>
+<img src="../../images/dlist-eval3.png" alt="Stage 3" />
+<figcaption aria-hidden="true">Stage 3</figcaption>
+</figure>
+<figure>
+<img src="../../images/dlist-eval4.png" alt="Stage 4" />
+<figcaption aria-hidden="true">Stage 4</figcaption>
+</figure>
+<h3 id="why-is-this-better">Why is this better?</h3>
+<p>Now after performing <span class="math inline">\(O(d)\)</span> operations the computation has reached a
+state where we can pull out <em>all</em> of <code>as</code> in one go. Retrieving all
+of <code>as</code> is then <span class="math inline">\(O(d + n)\)</span> rather than <span class="math inline">\(O(dn)\)</span>. An excellent
+reduction!
+Furthermore, it looks like every left branch only has to be
+transformed once no matter how many leaves that branch supports, so
+the total cost of reading through the whole list is <span class="math inline">\(O(D + N)\)</span> where
+<span class="math inline">\(D\)</span> is the number of left branches and <span class="math inline">\(N\)</span> the sum of the lengths of
+each leaf.</p>
+<h2 id="why-did-we-need-functions">Why did we need functions?</h2>
+<p>Having observed the mechanism behind the <code>DList</code> algorithm, we can ask
+ourselves “Why is it encoded with functions?”. After all, the
+algorithm itself is simple, but the <em>implementation</em> piggybacks on
+Haskell’s function evaluation procedure in an opaque manner, perhaps
+unnecessarily. For example, one could also encode the algorithm like
+this</p>
+<pre><code>data Tree a = Leaf a | Branch (Tree a) (Tree a)
+
+fromList :: [a] -&gt; Tree [a]
+fromList = Leaf
+
+toList :: Tree [a] -&gt; [a]
+toList (Leaf x) = x
+toList (Branch (Leaf x) r) = x ++ toList r
+toList (Branch (Branch l1 l2) r)
+               = toList (Branch l1 (Branch l2 r))
+
+append :: Tree [a] -&gt; Tree [a] -&gt; Tree [a]
+append = Branch</code></pre>
+<p>The <code>toList</code> defined here in terms of a binary <code>Tree</code> datatype
+performs exactly the same algorithm as the <code>DList</code> but without
+mysteriously hiding it behind function calls and piggybacking on
+Haskell’s evaluation procedure.</p>
+<p>In practice it is indeed much faster than naive append. If you like
+you can try the following:</p>
+<pre><code>foldlTree = length (toList (foldl Branch (Leaf []) (map (Leaf . return) [1..20000])))
+
+foldlList = length (foldl (++) [] (map return [1..20000]))</code></pre>
+<p>I don’t know if <code>DList</code> will be faster than the <code>Tree</code> approach for
+some reason. I haven’t benchmarked.</p>
+<h3 id="generalizing">Generalizing</h3>
+<p>The DList concept generalizes to the “codensity transformation” which
+makes left-associated <em>monadic binds</em> more efficient. The codensity
+transformation was <a href="http://www.iai.uni-bonn.de/~jv/mpc08.pdf">first outlined, I believe, by Janis
+Voigtlander</a>. It’s not
+clear to me, though, whether the <code>Tree</code> datastructure generalizes
+equivalently.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>It’s simple to understand how the <code>DList</code> algorithm works once you
+demystify its use of function composition. However, it’s not clear if
+the more concrete implementation using <code>Tree</code> generalizes as well as
+the <code>DList</code> method.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><p>For Danvy and Nielsen, the conversion from <code>DList</code> into <code>Tree</code> is a
+form of defunctionalization: <a href="http://www.brics.dk/RS/01/23/BRICS-RS-01-23.pdf">Defunctionalization at
+Work</a>.</p></li>
+<li><p>A <a href="http://www.haskell.org/pipermail/haskell-cafe/2010-October/085757.html">Haskell-Cafe discussion of difference lists in Haskell and
+Prolog</a></p></li>
+<li><p>A <a href="http://stackoverflow.com/questions/13879260/why-are-difference-lists-more-efficient-than-regular-concatenation/13879693#13879693">Stackoverflow answer by Daniel
+Fischer</a>
+which is basically an ASCII art version of this article, and
+predates it by over a year.</p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>set-bag-irrelevance</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>set-bag-irrelevance</h3>
+  <h1 id="the-setbag-irrelevance">The Set/Bag Irrelevance</h1>
+<p>From time to time it is discussed whether SQL’s support for duplicate
+tuples in queries is useful and Codd et al’s relational model is
+lacking because it forbids them, or whether they make SQL a worse
+language and the relation model is better off for eliminating them.
+The former could be called “allowing bags”. Bags (or multisets) are
+like sets except they permit repeated elements.</p>
+<p>Date discusses the issue in the 22 pages of the “Date on Database”
+chapter “Double Trouble, Double Trouble”. His objections to
+duplicate tuples seem to be (paraphrasing)</p>
+<ol type="1">
+<li><p>“The existence of duplicate tuples implies the ability to
+distinguish identical things”. This objection I do not understand.
+He relates it vaguely to a philosophical concept of “The Principle
+of Indistinguishability of Indiscernables” though the reasoning is
+unclear. Date claims (perhaps correctly) that there is no way to
+distinguish the “two” 6s that appear in the bag {3,6,6,8,8,8,11}
+but again it is unclear why any particular conclusion should follow
+from this.</p></li>
+<li><p>“Relations are sufficient thus bags should be excluded for the sake
+of parsimony”. This argument I am susceptible to, but it crucially
+hinges on relations actually being sufficient. More on this
+later; it’s the crux of the issue!</p></li>
+</ol>
+<h2 id="why-bags-are-nice">Why bags are nice</h2>
+<p>See <a href="../multiset-semantics/">Multiset semantics</a>.</p>
+<h2 id="sets-and-bags-are-equivalent">Sets and bags are equivalent</h2>
+<p>Despite all this handwringing it turns out that in a decent relational
+query language (Date and Darwen might say “in a D”) having set
+semantics is exactly the same as having bag semantics. That is, bags
+can be implemented in terms of sets and vice versa. This shouldn’t be
+surprising really but I don’t think the consquences of this
+observation have really been thought through.</p>
+<p>Here’s how you show the (trivial) correspondence. Our decent
+relational query language will have type abstraction so whereas Date
+wants us to only use <code>Set (a, b, c, ...)</code> to represent a relation on
+<code>a</code>, <code>b</code>, <code>c</code>, … we are welcome to define</p>
+<pre><code>type Bag t = Set (t, N+)</code></pre>
+<p>where <code>N+</code> is some previously defined domain type of strictly positive
+integers. With a bit of fiddling we can define conversions from <code>Set t</code> to <code>Bag t</code> and vice versa (an adjunction or at least
+adjunction-like) as well as project, extend, restrict, join and indeed
+all our relational operators for the <code>Bag</code> type. (Union is an
+interesting case. There are at least two sensible concepts of union
+(sum and max) and it would probably be practical to provide both).</p>
+<p>If on the other hand we were living in Date’s nightmare bag-world we
+would define</p>
+<pre><code>type Set t = Bag t KEY t</code></pre>
+<p>That is, we define a <code>Set</code> to be be a <code>Bag</code> where the whole tuple is a
+key. This implies that there can exist at most one tuple of any given
+value in the multiset, i.e. it is in fact a set. As before we can
+implement all the functionality for sets in terms of existing
+functionality for bags.</p>
+<h2 id="the-argument-is-irrelevant">The argument is irrelevant</h2>
+<p>Imagine that the major proponent of a call by value lambda calculus
+claims that the only tupling operation must be binary. Detractors
+claim “no we <em>must</em> have tuples of arbitrary size”. Once you have one
+you have the other. There’s no point trying to forbid one option.</p>
+<p>Thus we see that the argument about sets and bags is irrelevant. If
+we have a decent query language that allows some degree of type
+abstraction we automatically have both if we have either. It doesn’t
+matter whether Date thinks that Occam’s razor implies we should work
+with sets only. We’ll get bags too whether he likes it or not.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

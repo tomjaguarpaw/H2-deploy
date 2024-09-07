@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>vector-space-naturally-isomorphic-dual</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>vector-space-naturally-isomorphic-dual</h3>
+  <h1 id="is-a-vector-space-naturally-isomorphic-to-its-dual">Is a vector space naturally isomorphic to its dual?</h1>
+<p>The answer is no: you know it, I know it, everyone who has spent years
+becoming familiar with this family of spaces knows through intuition
+that the answer is no: a vector space is not naturally isomorphic to
+its dual. But pinning down exactly <em>why</em> not proves challenging.</p>
+<p>I <a href="https://mathoverflow.net/questions/345136/is-a-vector-space-naturally-isomorphic-to-its-dual">originally asked this
+question</a>
+on MathOverflow on 3rd November 2019 but sadly the question was
+closed. I repeat it here verbatim before proceeding.</p>
+<h2 id="the-question">The question</h2>
+<p>This question may not be as easy to answer as you think! Some tangentially-related questions have appeared on math.stackexchange but I’m not really convinced by the answers.</p>
+<p>In what follows I will assume all vector spaces under discussion are finite dimensional.</p>
+<h3 id="a-vector-space-is-naturally-isomorphic-to-its-double-dual">A vector space is naturally isomorphic to its double dual</h3>
+<p>In an early linear algebra course we are told that “a finite dimensional vector space is naturally isomorphic to its double dual”. The isomorphism in question is <span class="math inline">\({**}_V : V \to V^{**}\)</span>, <span class="math inline">\(v^{**}(\phi) = \phi(v)\)</span>. We are told that this isomorphism is “natural” because it doesn’t depend on any arbitrary choices. The notion of “natural”, or “independent or arbitrary choice”, is made precise via the concept of a category theoretical “natural transformation”. Specifically, the operation <span class="math inline">\(**\)</span> on vector spaces gives rise to a functor whose action on maps is <span class="math inline">\(f^{**} : V^{**} \to W^{**}\)</span>, <span class="math inline">\(f^{**}(v^{**}) = f(v)^{**}\)</span>. In fact this is exactly the condition for the naturality square to commute and so <span class="math inline">\({**}_V\)</span> is indeed a natural transformation (between the identity functor and <span class="math inline">\(**\)</span>) which is an isomorphism.</p>
+<h3 id="a-vector-space-is-naturally-isomorphic-to-its-dual">A vector space is naturally isomorphic to its dual!</h3>
+<p>So far, so familiar. But there’s something that doesn’t quite hold up about all this. Let’s adapt the above to show that <span class="math inline">\(V\)</span> and <span class="math inline">\(V^*\)</span> are “naturally isomorphic”. We do this by following exactly the same procedure, replacing <span class="math inline">\(**\)</span> everywhere with <span class="math inline">\(*\)</span>. The only change we have to make is to come up with an arbitrary isomorphism <span class="math inline">\(*_V\)</span> for each <span class="math inline">\(V\)</span>. Other than that, the whole construction goes through unchanged. Specifically, once we have chosen <span class="math inline">\(*_V\)</span> we define the functorial action on morphisms to be <span class="math inline">\(f^{*} : V^{*} \to W^{*}\)</span>, <span class="math inline">\(f^{*}(v^{*}) = f(v)^{*}\)</span>.</p>
+<p>In particular I have a natural isomorphism between the identity functor and <span class="math inline">\(*\)</span>!</p>
+<h3 id="objections-to-the-construction">Objections to the construction</h3>
+<p>One could make a few objections to this construction, but they seem to be circular.</p>
+<ul>
+<li><p>“But you admitted that <span class="math inline">\(*_V\)</span> depends on an arbitrary choice!”</p>
+<p>I did, but that was informal language. In what formal sense is it arbitrary? The notion of “naturality” was supposed to rule out constructions that are arbitrary!</p></li>
+<li><p>“Your definition of <span class="math inline">\(f^*\)</span> is invalid. It depends on <span class="math inline">\(*_V\)</span>.”</p>
+<p>So what? My definition of <span class="math inline">\(f^{**}\)</span> depends on <span class="math inline">\({**}_V\)</span> but it is uncontroversial.</p>
+<p>“You should have defined <span class="math inline">\(f^{**}(\hat{v})(\phi) = \hat{v}(\phi \circ f)\)</span> and then it’s clear that it doesn’t depend on <span class="math inline">\(**_V\)</span>. You can’t do that for <span class="math inline">\(f^*\)</span>.”</p>
+<p>But your <span class="math inline">\(f^{**}\)</span> is the same as my <span class="math inline">\(f^{**}\)</span>! Is there some formal way of specifying that a functor does not depend on a natural transformation? And besides, what’s the problem if it does?</p>
+<p>“It’s a problem because it depends on something that depends on arbitrary choice …”</p></li>
+<li><p>“Whilst the functor <span class="math inline">\(**\)</span> is the real double dual functor, <span class="math inline">\(*\)</span> is one you just made up. It is indeed isomorphic to the identity functor but that doesn’t mean anything about ‘a vector space being isomorphic to its dual’”.</p>
+<p>Why not? I’ve followed exactly the same recipe for both of them, using the notion of “natural transformation” as I was supposed to.</p>
+<p>“Sure, but the result is interesting only in the case of <span class="math inline">\(**\)</span> because your definition of <span class="math inline">\(*\)</span> depended upon arbitrary choice …”</p>
+<p>And why is <span class="math inline">\(**\)</span> “the real” double dual functor?</p>
+<p>“Because its definition doesn’t depend upon arbitrary choice …”</p></li>
+<li><p>“Your definition of <span class="math inline">\(*\)</span> is not the real dual functor because it
+doesn’t satisfy <span class="math inline">\(* \circ * = **\)</span>”</p>
+<p>But you still haven’t explained why <span class="math inline">\(**\)</span> <em>is</em> “the real” double dual
+functor.</p></li>
+</ul>
+<h3 id="conclusion">Conclusion</h3>
+<p>All attempts to explain why I haven’t really shown that a finite dimensional vector space is naturally isomorphic to its dual seem to invoke circular reasoning.</p>
+<p>I can only conclude that if the notion of natural transformation is going to be used to formalise the concept of “independent of arbitrary choice” then something needs to be tightened up. My choice of <span class="math inline">\(*_V\)</span> was indeed arbitrary but it is not ruled out by the notion of natural transformation.</p>
+<p>How could we proceed? Could the absence of choice be used to rule out the construction of <span class="math inline">\(*_V\)</span>? <a href="https://math.stackexchange.com/questions/49420/natural-isomorphisms-and-the-axiom-of-choice">Answers to an earlier question seem to suggest that is an irrelevant issue</a> but in light of the above I’m not convinced. More generally, does this kind condition perhaps only make sense in a constructive or intuitionistic setting? I have a clue about how to formalise this condition in type theory via parametricity, so perhaps that is the key!</p>
+<p>(This question is similar to <a href="https://math.stackexchange.com/q/3194724/13743">an earlier one</a>. I’m not convinced by the answer. It seems to be making an objection of the third form above, which seems circular to me.)</p>
+<h2 id="proceeding-to-the-answer">Proceeding to the answer</h2>
+<p>The aim of the question is twofold: firstly to demonstrate that there
+is something fishy about the standard justification for the statement
+that “a finite-dimensional vector space is <em>naturally isomorphic</em> to
+its double dual” and secondly to ask for a less fishy definition of
+“natural” that can be used to show whether or not there is a natural
+mapping from a vector space to its dual (presumably there is not).</p>
+<p>[Terminological note: when talking about the technical and specific
+notions of <em>natural transformation</em> and <em>natural isomorphism</em> from
+category theory I will use italics; when talking about the informal
+and intuitive notion of “naturalness” I will use normal font.]</p>
+<p>The statement that “a finite dimensional vector space is <em>naturally
+isomorphic</em> to its double dual” appears in various places<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>. We
+have an intuitive sense that the isomorphism <span class="math inline">\(v \mapsto \phi \mapsto
+\phi(v)\)</span> is natural but formally pinning down what “natural” means is
+hard. The standard category theoretical explanation in terms of a
+<em>natural transformation</em> between functors offers one attempt. Indeed
+the statement holds first position in <a href="https://www.maths.ed.ac.uk/~tl/ct/zero.pdf">Tom Leinster’s
+list</a> of “phenomena, facts
+and concepts that category theory sheds light on”. But appealing to
+<em>natural transformation</em> as an explanation of naturalness falls down
+on two counts: it is too restrictive in one sense and insufficiently
+restrictive in another.</p>
+<p>The sense in which it is too restrictive is that many natural things
+cannot be expressed as a <em>natural transformation</em> between functors at
+all! For example, suppose we want to know whether it is natural to
+contract a vector with a dual vector <span class="math inline">\(V \otimes V^* \to \mathbb{R}\)</span>.
+The dual vector space functor is contravariant, so <span class="math inline">\(V \mapsto V
+\otimes V^*\)</span> is not a functor at all and the notion of <em>natural
+transformation</em> cannot shed light on this question! But what
+operation could be <em>more</em> natural than contraction? If the concept of
+<em>natural transformation</em> cannot speak about whether <em>contraction</em> is
+natural then there must be a vast range of natural constructions that
+it cannot speak about. So, there are some candidates for naturality
+which the concept of <em>natural transformation</em> gives no answer to.</p>
+<p>By contrast, there is a sense in which appealing to <em>natural
+transformations</em> to define naturalness is <em>insufficiently</em>
+restrictive: there <em>is</em> a functor which on objects takes a space to
+its dual space and is <em>naturally isomorphic</em> to the identity! That
+functor is the one described above in <a href="#the-question">my original MathOverflow
+question above</a>. Yet the components of the <em>natural
+transformation</em> in question are not natural. They are utterly
+arbitrary! We all feel it in our bones that there is nothing
+“natural” about that transformation yet it <em>is</em> a <em>natural
+transformation</em>. So, there are some candidates for naturality which
+category theory gives a false positive answer to.</p>
+<h2 id="a-elementary-attempt-at-an-answer">A elementary attempt at an answer</h2>
+<p>The former difficulty, the one in which the notion of <em>natural
+transformation</em> has insufficient expressivity, is the first hurdle
+that we encounter when asking whether “a vector space is <em>naturally
+isomorphic</em> to its dual”. To reiterate, the usual dual vector space
+functor is contravariant, so it doesn’t even make sense to ask whether
+it is <em>naturally isomorphic</em> to the identity functor. On the other
+hand, this difficulty can be finessed.</p>
+<p><a name="axioms"></a>Here is a elementary route to the answer. Let us
+take as axiomatic that the following operations are natural and that
+the composition of natural maps is natural<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>.</p>
+<ul>
+<li>contraction: <span class="math inline">\(v \otimes \phi \mapsto \phi(v)\)</span></li>
+<li>applying a natural map <span class="math inline">\(g\)</span> to one component of a tensor product: <span class="math inline">\(v
+\otimes w \mapsto v \otimes g(w)\)</span></li>
+</ul>
+<p>Next let <span class="math inline">\(g\)</span> be an arbitrary natural map <span class="math inline">\(V \to V^*\)</span>. Our goal is to
+determine what <span class="math inline">\(g\)</span> could possibly be. We start by noticing that given
+an element of <span class="math inline">\(V \otimes V\)</span> we can apply <span class="math inline">\(g\)</span> to the right component to
+obtain an element of <span class="math inline">\(V \otimes V^*\)</span>. Subsequently we can contract to
+obtain an element of <span class="math inline">\(\mathbb{R}\)</span>. If our hypothesis holds then we
+have produced a natural linear map <span class="math inline">\(b : V \otimes V \to \mathbb{R}\)</span> or
+in other words, a natural bilinear form on <span class="math inline">\(V\)</span>. Our intuition is even
+stronger about this that it was about dual spaces: vector spaces do
+not come with a natural non-zero bilinear form!</p>
+<p>This simple change of perspective brings the question into a covariant
+form: both <span class="math inline">\(V \otimes V\)</span> and <span class="math inline">\(\mathbb{R}\)</span> are functors<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a> covariant
+in <span class="math inline">\(V\)</span>. Therefore we can ask whether <span class="math inline">\(b\)</span> is a natural transformation
+<span class="math inline">\(V \otimes V \to \mathbb{R}\)</span>. If so its naturality square must
+commute, that is <span class="math inline">\(b_{V'}(f(v) \otimes f(v')) = b_{V}(v \otimes v')\)</span>.
+We deduce that <span class="math inline">\(b\)</span> is zero by simply choosing <span class="math inline">\(f = 0\)</span>, hence <span class="math inline">\(g : V
+\to V^{*}\)</span> is zero.</p>
+<p>If we accept (more on this later) that category theory never gives
+false negative answers to questions of naturalness then we have our
+answer: there is no non-zero natural bilinear form and therefore no
+non-zero natural map <span class="math inline">\(V \to V^*\)</span>.</p>
+<p>Hidden in this approach is the answer to why my earlier attempt to
+construct of a natural map <span class="math inline">\(V \to V^*\)</span> should be ruled out.
+Specifically, it shows why my definition of <span class="math inline">\(*\)</span> is not “the real” dual
+space functor: it does not respect the structure of <span class="math inline">\(V^*\)</span> as a
+function space because under it contraction <span class="math inline">\(V \otimes V^* \to
+\mathbb{R}\)</span> is not natural. The concept of <em>natural transformation</em>
+cannot directly show the non-naturalness of my construction because it
+cannot be applied to contraction. It was only by taking contraction
+as axiomatically natural that we were able to change our perspective
+to one that the concept of <em>natural transformation</em> could talk about.</p>
+<p>That is, we can answer the following questions</p>
+<ul>
+<li><p><em>“Why are the standard double dual functor <span class="math inline">\(**\)</span> that we know and love,
+along with its counterpart, the contravariant dual functor <span class="math inline">\(*\)</span>, ‘the
+real’ double dual and dual functors respectively?”</em></p>
+<p>Because they respect the structures of <span class="math inline">\(V^{**}\)</span> and <span class="math inline">\(V^*\)</span> as
+function spaces, i.e. their naturality is consistent with
+contraction <span class="math inline">\(V \otimes V^{*} \to \mathbb{R}\)</span> being natural. This is
+a concrete mathematical fact that can be verified without any
+informal appeal to the intuitive lack of arbitrariness in their
+definitions.</p></li>
+<li><p><em>“Why is appealing to natural transformations to define naturalness
+insufficiently restrictive?”</em></p>
+<p>Because there are other conditions that must be placed on the
+functors in question for naturalness to be meaningful. Such a
+condition is respect for function space structure.</p></li>
+<li><p><em>“Why is my proposed definition of a contravariant dual space functor
+not a candidate for ‘the real’ such functor?”</em></p>
+<p>Because it does not respect the structure of <span class="math inline">\(V^{*}\)</span> as a function
+space, i.e. its naturality is not consistent with contraction <span class="math inline">\(V
+\otimes V^{*} \to \mathbb{R}\)</span> being natural. Again, this property
+can be formally verified. It is not an informal condition that we
+have to use our intuition about.</p></li>
+<li><p><em>“What is fishy about the standard justification for the claim that ‘a
+vector space is naturally isomorphic to its double dual’?”</em></p>
+<p>Because it doesn’t make explicit the vital additional property that
+the action of <span class="math inline">\(**\)</span> on morphisms respects the structure of <span class="math inline">\(V^{**}\)</span>
+as a function space.</p></li>
+<li><p><em>“Why does my construction not show that ‘a vector space is naturally
+isomorphic to its dual’?”</em></p>
+<p>Because my construction doesn’t satisfy the implicit condition of
+respecting the structure of the dual as a function space.</p></li>
+</ul>
+<h3 id="naturality-of-contraction">Naturality of contraction</h3>
+<p>We took as axiomatic that the following operations are natural. Can
+category theory provide us with justification for that assumption?</p>
+<ul>
+<li>contraction: <span class="math inline">\(v \otimes \phi \mapsto \phi(v)\)</span></li>
+<li>applying a natural map <span class="math inline">\(g\)</span> to one component of a tensor product: <span class="math inline">\(v
+\otimes w \mapsto v \otimes g(w)\)</span></li>
+</ul>
+<p>Let’s look at contraction. The category of vector spaces is <em>closed
+monoidal</em>, that is, its tensor operation <span class="math inline">\(\otimes\)</span> and its linear map
+former <span class="math inline">\(\multimap\)</span> satisfy</p>
+<p>\[
+\textrm{Hom}(A, B \multimap C) \cong \textrm{Hom}(A \otimes B, C)
+\]</p>
+<p>where this bijection (which arises from a particular adjunction) is
+natural in <span class="math inline">\(A\)</span> and <span class="math inline">\(C\)</span><a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a>. Let’s look at what happens if we choose
+<span class="math inline">\(A = B \multimap \mathbb{R}\)</span>, and <span class="math inline">\(C = \mathbb{R}\)</span>. The bijection
+becomes</p>
+<p>\[
+\textrm{Hom}(B \multimap \mathbb{R}, B \multimap \mathbb{R}) \cong
+\textrm{Hom}((B \multimap \mathbb{R}) \otimes B, \mathbb{R})
+\]</p>
+<p>or, since <span class="math inline">\(B \multimap \mathbb{R}\)</span> is typically written <span class="math inline">\(B^*\)</span>,</p>
+<p>\[
+\textrm{Hom}(B^{*}, B^{*}) \cong
+\textrm{Hom}(B^{*} \otimes B, \mathbb{R})
+\]</p>
+<p>Now, applying a natural bijection to a natural element ought to result
+in another natural element, so if we hypothesise that <span class="math inline">\(\mathrm{id} \in
+\mathrm{Hom}(B^*, B^*)\)</span> is natural, then we conclude that its image in
+<span class="math inline">\(\mathrm{Hom}(B^{*} \otimes B, \mathbb{R})\)</span> is natural. That image is
+contraction, thus contraction is natural! We can replace our axiom
+about naturality of contraction with a simpler axioms about the
+naturality of <span class="math inline">\(\mathrm{id}\)</span> and the naturality of bijections arising
+from adjunctions.</p>
+<p>Presumably a similar line of reasoning can conclude that
+<span class="math inline">\(v \otimes w \mapsto v \otimes g(w)\)</span> is natural, based on the
+naturality properties of monoidal categories.</p>
+<h2 id="remaining-questions">Remaining questions</h2>
+<ul>
+<li><p>We have not yet demonstrated a complete theory of
+naturalness. Although we can we do better than take <a href="#axioms">contraction and
+other operations as axiomatically natural</a> we still haven’t
+provided a complete axiomatisation of naturality. Is there a setting
+in which we can directly state what it means for those operations to
+be natural, rather than having to shift them into a covariant form
+in which we can apply the notion of <em>natural transformation</em>?</p></li>
+<li><p>Can we explain why category theory never gives false negative
+answers to questions of naturalness in the contexts that it can
+answer, despite not being able to answer in all contexts and despite
+giving false positives in some contexts in which it can answer?</p></li>
+</ul>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1"><p>for example in <a href="https://blog.jpolak.org/?p=1100">Jason Polak’s
+writing</a><a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>If they were not natural then we would be surprised if
+<em>anything</em> was!<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>As a functor <span class="math inline">\(\mathbb{R}\)</span> is the zero-fold tensor product of
+<span class="math inline">\(V\)</span>. It takes all morphisms <span class="math inline">\(f : V \to V'\)</span> to the identity function
+<span class="math inline">\(I : \mathbb{R} \to \mathbb{R}\)</span>.<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p>It would probably be required to be natural in <span class="math inline">\(B\)</span> too, if it
+could be!<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>make-invalid-laziness-unrepresentable</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>make-invalid-laziness-unrepresentable</h3>
+  <h1 id="make-invalid-laziness-unrepresentable">Make invalid laziness unrepresentable</h1>
+<p><em>Making invalid laziness unrepresentable, even in nested data
+structures.</em></p>
+<h2 id="the-problem">The problem</h2>
+<h3 id="lazy-and-strict-data">Lazy and strict data</h3>
+<p>One circumstance in which <a href="http://blog.ezyang.com/2011/05/space-leak-zoo/comment-page-1/">thunk
+leaks</a>
+occur in Haskell programs is when a lazy field of a data type remains
+unevaluated for longer than expected. By way of example consider the
+following data type:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Foo</span> <span class="ot">=</span> <span class="dt">Foo</span> <span class="dt">Int</span> <span class="dt">Bool</span></span></code></pre></div>
+<p>During execution of a program what possible states can a value of
+type <code>Foo</code> be in? There are broadly five:</p>
+<ol type="1">
+<li><code>&lt;thunk&gt;</code></li>
+<li><code>Foo &lt;evaluated Int&gt; &lt;evaluated Bool&gt;</code></li>
+<li><code>Foo &lt;evaluated Int&gt; &lt;thunk&gt;</code></li>
+<li><code>Foo &lt;thunk&gt; &lt;evaluated Bool&gt;</code></li>
+<li><code>Foo &lt;thunk&gt; &lt;thunk&gt;</code></li>
+</ol>
+<p>The <code>&lt;thunk&gt;</code>s can be arbitrarily large run time data
+structures! Their unexpected occurrence can cause thunk leaks.
+What can we do about that? When programming in a strongly typed
+language we aim to “make invalid states unrepresentable”<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> so when
+we define a data type like <code>Foo</code> we should consider which are its
+valid states. Haskell is a lazy language so we cannot forbid
+state 1<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>, but are states like 3, 4 and 5 valid? Perhaps. We should
+carefully consider our use case; but if not (and it’s more likely
+not than so) then we should forbid those states statically. How
+can we do so? We can add strictness annotations thus:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">FooStrict</span> <span class="ot">=</span> <span class="dt">FooStrict</span> <span class="op">!</span><span class="dt">Int</span> <span class="op">!</span><span class="dt">Bool</span></span></code></pre></div>
+<p>(or by enabling <code>StrictData</code> which brutally applies the same
+transformation to <em>every</em> data type definition, or <code>Strict</code> which
+is even more brutal). <code>FooStrict</code> has only two possible states:</p>
+<ol type="1">
+<li><code>&lt;thunk&gt;</code></li>
+<li><code>Foo &lt;evaluated Int&gt; &lt;evaluated Bool&gt;</code></li>
+</ol>
+<p>We have “made invalid laziness unrepresentable”. Much better!</p>
+<h3 id="nested-strict-data">Nested strict data</h3>
+<p>But the above technique is not particularly general. Consider</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Bar</span> <span class="ot">=</span> <span class="dt">Bar</span> <span class="op">!</span>(<span class="dt">Int</span>, <span class="dt">Bool</span>) <span class="op">!</span>(<span class="dt">Maybe</span> <span class="dt">Double</span>)</span></code></pre></div>
+<p>Despite the strictness annotations this type has many
+possible states:</p>
+<ol type="1">
+<li><code>&lt;thunk&gt;</code></li>
+<li><code>Bar (&lt;thunk&gt;, &lt;thunk&gt;) Nothing</code></li>
+<li><code>Bar (&lt;evaulated Int&gt;, &lt;thunk&gt;) Nothing</code></li>
+<li><code>Bar (&lt;thunk&gt;, &lt;evaluated Bool&gt;) Nothing</code></li>
+<li><code>Bar (&lt;evaluated Int&gt;, &lt;evaluated Bool&gt;) Nothing</code></li>
+<li><code>Bar (&lt;thunk&gt;, &lt;thunk&gt;) (Just &lt;thunk&gt;)</code></li>
+<li><code>Bar (&lt;evaluated Int&gt;, &lt;thunk&gt;) (Just &lt;thunk&gt;)</code></li>
+<li><code>Bar (&lt;thunk&gt;, &lt;evaluated Bool&gt;) (Just &lt;thunk&gt;)</code></li>
+<li><code>Bar (&lt;evaluated Int&gt;, &lt;evaluated Bool&gt;) (Just &lt;thunk&gt;)</code></li>
+<li><code>Bar (&lt;thunk&gt;, &lt;thunk&gt;) (Just &lt;evaluated Double&gt;)</code></li>
+<li><code>Bar (&lt;evaluated Int&gt;, &lt;thunk&gt;) (Just &lt;evaluated Double&gt;)</code></li>
+<li><code>Bar (&lt;thunk&gt;, &lt;evaluated Bool&gt;) (Just &lt;evaluated Double&gt;)</code></li>
+<li><code>Bar (&lt;evaluated Int&gt;, &lt;evaluated Bool&gt;) (Just &lt;evaluated Double&gt;)</code></li>
+</ol>
+<p>Plenty of thunks for leaks to hide in! Perhaps for some use
+cases all the above states are valid but in most cases it is
+overwhelmingly likely that only the following states are valid:</p>
+<ol type="1">
+<li><code>&lt;thunk&gt;</code> (because we can’t do anything about it anyway)</li>
+<li><code>Bar (&lt;evaluated Int&gt;, &lt;evaluated Bool&gt;) Nothing</code></li>
+<li><code>Bar (&lt;evaluated Int&gt;, &lt;evaluated Bool&gt;) (Just &lt;evaluated Double&gt;)</code></li>
+</ol>
+<p>No clever application of strictness annotations can restrict us to
+this set of states! The problem is that there’s no way of “applying
+strictness inside” the nested data types. How can we make invalid
+laziness unrepresentable in nested data types?</p>
+<h2 id="the-solution">The solution</h2>
+<p>Since we cannot “apply strictness inside” the nested data type we need
+to use separate strict types for those fields of <code>Bar</code>. The usual
+approach is to write specific strict data definitions, for example</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">StrictPair</span> a b <span class="ot">=</span> <span class="dt">StrictPair</span> <span class="op">!</span>a <span class="op">!</span>b</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">StrictMaybe</span> a <span class="ot">=</span> <span class="dt">StrictNothing</span> <span class="op">|</span> <span class="dt">StrictJust</span> <span class="op">!</span>a</span></code></pre></div>
+<p>but I’m going to show you a more lightweight approach. The library
+<a href="https://hackage.haskell.org/package/strict-wrapper-0.0.0.0/docs/Data-Strict-Wrapper.html"><code>strict-wrapper</code></a>
+allows us to rewrite <code>Bar</code> as</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">BarStrict</span> <span class="ot">=</span> <span class="dt">BarStrict</span> <span class="op">!</span>(<span class="dt">Strict</span> (<span class="dt">Int</span>, <span class="dt">Bool</span>))</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>                           <span class="op">!</span>(<span class="dt">Strict</span> (<span class="dt">Maybe</span> <span class="dt">Double</span>))</span></code></pre></div>
+<p>Having done so only the valid states are representable:</p>
+<ol type="1">
+<li><code>&lt;thunk&gt;</code></li>
+<li><pre><code>BarStrict (Strict (&lt;evaluated Int&gt;, &lt;evaluated Bool&gt;))
+          (Strict Nothing)</code></pre></li>
+<li><pre><code>BarStrict (Strict (&lt;evaluated Int&gt;, &lt;evaluated Bool&gt;))
+          (Strict (Just &lt;evaluated Double&gt;))</code></pre></li>
+</ol>
+<p>Deeper nesting works too, for example:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Baz</span> <span class="ot">=</span> <span class="dt">Baz</span> <span class="op">!</span>(<span class="dt">Strict</span> (<span class="dt">Int</span>, <span class="dt">Strict</span> (<span class="dt">Either</span> <span class="dt">Bool</span> <span class="dt">Int</span>)))</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>               <span class="op">!</span>(<span class="dt">Strict</span> (<span class="dt">Maybe</span> <span class="dt">Double</span>))</span></code></pre></div>
+<p><code>Strict</code> also works well as a wrapper for types whose values will
+be passed as strict function arguments. For example, the
+following function has a space leak:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>example_leak <span class="ot">=</span> foldl' f (<span class="dv">0</span>, <span class="dv">0</span>) [<span class="dv">1</span><span class="op">..</span><span class="dv">1000</span>]</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">where</span><span class="ot"> f ::</span> (<span class="dt">Int</span>, <span class="dt">Int</span>) <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> (<span class="dt">Int</span>, <span class="dt">Int</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>          f (n, s) i <span class="ot">=</span> (n <span class="op">+</span> <span class="dv">1</span>, s <span class="op">+</span> i)</span></code></pre></div>
+<p>Manually adding strictness avoids the space leak:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>example_manual <span class="ot">=</span> foldl' f (<span class="dv">0</span>, <span class="dv">0</span>) [<span class="dv">1</span><span class="op">..</span><span class="dv">1000</span>]</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">where</span><span class="ot"> f ::</span> (<span class="dt">Int</span>, <span class="dt">Int</span>) <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> (<span class="dt">Int</span>, <span class="dt">Int</span>)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>          f (<span class="op">!</span>n, <span class="op">!</span>s) i <span class="ot">=</span> (n <span class="op">+</span> <span class="dv">1</span>, s <span class="op">+</span> i)</span></code></pre></div>
+<p>but using <code>Strict</code> avoids the space leak in a way that is both
+syntactically convenient <em>and</em> reflected in the type of the
+accumulator function <code>f</code>, that is to say, invalid laziness in the
+accumulator argument has been made unrepresentable!</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>example_Strict <span class="ot">=</span> Data.List.foldl' f (<span class="dt">Strict</span> (<span class="dv">0</span>, <span class="dv">0</span>)) [<span class="dv">1</span><span class="op">..</span><span class="dv">1000</span>]</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">where</span><span class="ot"> f ::</span> <span class="dt">Strict</span> (<span class="dt">Int</span>, <span class="dt">Int</span>) <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Strict</span> (<span class="dt">Int</span>, <span class="dt">Int</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>          f (<span class="dt">Strict</span> (n, s)) i <span class="ot">=</span> <span class="dt">Strict</span> (n <span class="op">+</span> <span class="dv">1</span>, s <span class="op">+</span> i)</span></code></pre></div>
+<p>(Unfortunately we still have to remember to use <code>foldl'</code> rather than
+<code>foldl</code>. Nothing in the type system can help us there.)</p>
+<h2 id="the-api">The API</h2>
+<p><a href="https://hackage.haskell.org/package/strict-wrapper-0.0.0.0/docs/Data-Strict-Wrapper.html"><code>strict-wrapper</code></a>
+is implemented using a data family (<code>Strict</code>) which maps basic
+types to their strict versions.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="kw">instance</span> <span class="dt">Strict</span> (a, b)    <span class="ot">=</span> <span class="dt">StrictPair</span> <span class="op">!</span>a <span class="op">!</span>b</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="kw">instance</span> <span class="dt">Strict</span> (<span class="dt">Maybe</span> a) <span class="ot">=</span> <span class="dt">StrictNothing</span> <span class="op">|</span> <span class="dt">StrictJust</span> <span class="op">!</span>a</span></code></pre></div>
+<p>To use
+<a href="https://hackage.haskell.org/package/strict-wrapper-0.0.0.0/docs/Data-Strict-Wrapper.html"><code>strict-wrapper</code></a>
+all that you need is the data family <code>Strict</code> and the bidirectional
+pattern synonym, also called <code>Strict</code>. For example, instead of using
+<code>StrictPair a b</code> as defined above, use <code>Strict (a, b)</code>. To create a
+<code>Strict (a, b)</code> wrap an <code>(a, b)</code> in the <code>Strict</code> constructor; to
+extract an <code>(a, b)</code>, pattern match with <code>Strict</code>.</p>
+<h2 id="the-alternatives">The alternatives</h2>
+<p>There are various alternatives to
+<a href="https://hackage.haskell.org/package/strict-wrapper-0.0.0.0/docs/Data-Strict-Wrapper.html"><code>strict-wrapper</code></a>
+worth considering although in most cases they are too heavyweight or
+don’t fulfil the same role.</p>
+<h3 id="seqbang-patterns"><code>seq</code>/bang patterns</h3>
+<p>It is always possible to use <code>seq</code> (or equivalently bang patterns) to
+ensure that invalid thunk states don’t arise. After all, strictness
+annotations and strict data types are implemented merely by automatic
+insertion of <code>seq</code>! However, in pratice it is extremely difficult to
+maintain the level of discipline required to make sure that the <code>seq</code>
+calls or bang patterns are inserted in the correct places (and not in
+the incorrect places). The benefit of programming in a strongly typed
+functional language is that we can make invalid states
+unrepresentable. That principle applies as much to invalid data type
+laziness as to other invalid states.</p>
+<h3 id="strict">strict</h3>
+<p><a href="https://hackage.haskell.org/package/strict"><code>strict</code></a> is a library
+that provides a grab-bag of features related to strictness: strict
+versions of basic types, strict I/O, and a class to map between strict
+and lazy types (including <code>ByteString</code> and <code>Text</code> types and monad
+transformer types).</p>
+<p>By contrast, <code>strict-wrapper</code> is a much smaller and more coherent
+subset of the features of <code>strict</code>: it only provides strict versions
+of basic types and a class to map between them. In return for being
+more restrictive the mapping can be made almost zero-cost (see
+“<a href="https://hackage.haskell.org/package/strict-wrapper-0.0.0.0/docs/Data-Strict-Wrapper.html#g:6">Efficiency
+considerations</a>”).
+Furthermore the <code>Strict</code> data family avoids the need for a whole
+universe of new strict type names and the <code>Strict</code> pattern/constructor
+is more ergonomic than <code>toStrict</code>/<code>toLazy</code> mapping functions.</p>
+<h3 id="deepseq">deepseq</h3>
+<p><a href="https://hackage.haskell.org/package/deepseq-1.4.5.0/docs/Control-DeepSeq.html%20deepseq"><code>deepseq</code></a> is an extremely expensive and blunt hammer. It has to walk
+your entire data structure evaluating any thunks it encounters. Were
+those thunks actually part of a valid state of your program? In many
+(perhaps most) cases they were not! In those cases would it not be
+better to design those thunks out of your data structures and avoid
+deepseq entirely?</p>
+<h3 id="nothunks">nothunks</h3>
+<p><a href="https://hackage.haskell.org/package/nothunks-0.1.3/docs/NoThunks-Class.html%20nothunks">nothunks</a> is a debugging tool that allows inspecting a value at run
+time to see if it contains any thunks. That is, it can check at run
+time whether a value is invalid. But if you can make the invalid
+laziness <em>unrepresentable</em> then why not do so?</p>
+<h2 id="commentary-and-conclusion">Commentary and conclusion</h2>
+<p>Thunk leaks are a major cause of unpredictable memory usage in Haskell
+programs; a common cause of thunk leaks is lazy fields in data
+structures. There are some cases where lazy fields are required, but
+in the cases that they are not required consider “making invalid
+laziness unrepresentable” using strictness annotations and a strict
+data types library like
+<a href="https://hackage.haskell.org/package/strict"><code>strict</code></a> or
+<a href="https://hackage.haskell.org/package/strict-wrapper-0.0.0.0/docs/Data-Strict-Wrapper.html"><code>strict-wrapper</code></a>.
+This practice might eliminate a substantial proportion of your thunk
+leaks!</p>
+<p>Although <code>strict-wrapper</code> provides a convenient strict version of
+“small” types like tuples, eithers and maybes, it is not clear what
+can be done for “large” data structures like lists and maps.
+Converting the lazy form of a large data structure into the strict
+form requires walking the whole structure, so one cannot do better
+than a <code>deepseq</code>. If one wants a spine strict alternative to a list
+perhaps it is best just to directly use a
+<a href="https://hackage.haskell.org/package/containers-0.6.3.1/docs/Data-Sequence.html"><code>Seq</code></a>,
+<a href="https://hackage.haskell.org/package/vector-0.12.3.1/docs/Data-Vector.html"><code>Vector</code></a>
+or
+<a href="https://hackage.haskell.org/package/array-0.5.4.0/docs/Data-Array.html"><code>Array</code></a>,
+and if one wants a spine and value strict alternative then perhaps
+<a href="https://hackage.haskell.org/package/vector-0.12.3.1/docs/Data-Vector-Unboxed.html"><code>Vector.Unboxed</code></a>
+or
+<a href="https://hackage.haskell.org/package/array-0.5.4.0/docs/Data-Array-Unboxed.html"><code>UArray</code></a>
+are the right choices.</p>
+<h1 id="see-also">See also</h1>
+<ul>
+<li><p><a href="../nested-strict-data/">Nested strict data in Haskell</a></p></li>
+<li><p><a href="../data-map-strict-map-not-strict-map/">Haskell’s <code>Data.Map.Strict.Map</code> is not a strict
+map</a></p></li>
+</ul>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1"><p>I believe that Yaron Minsky coined the phrase “make illegal
+states unrepresentable”, in <a href="https://wiki.haskell.org/wikiupload/0/03/TMR-Issue7.pdf">The Monad.Reader, Issue 7 (April 30,
+2007)</a>.
+I mildly prefer talking about “valid” states than “legal” ones.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>barring unlifted data types, which are out of scope for this
+discussion and this library.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

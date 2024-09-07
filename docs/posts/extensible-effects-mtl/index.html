@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>extensible-effects-mtl</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>extensible-effects-mtl</h3>
+  <h1 id="further-examples-for-extensible-effects">Further examples for extensible-effects</h1>
+<p>A continuation of <a href="../extensible-effects-interleaving/">a previous page on
+extensible-effects</a>.</p>
+<h2 id="extensible-effects">extensible-effects</h2>
+<p>Oleg suggested to me the following example which shows how easily one
+can abstract the client in the Extensible Effects framework:</p>
+<pre><code>c5 = runTrace $ runReader (loop =&lt;&lt; runC (th client)) (10::Int)
+ where loop (Y x k) = trace (show (x::Int)) &gt;&gt; local (+(1::Int)) (k ()) &gt;&gt;= loop
+       loop Done    = trace &quot;Done&quot;
+
+       -- cl, client, ay are monomorphic bindings
+       client = ay &gt;&gt; ay
+       ay     = ask &gt;&gt;= \x -&gt; yield (x::Int)
+
+       -- There is no polymorphic recursion here
+       th cl = do
+         cl
+         v &lt;- ask
+         (if v &gt; (20::Int) then id else local (+(5::Int))) cl
+         if v &gt; (20::Int) then return () else local (+(10::Int)) (th cl)
+{-
+The expected result is:
+10
+11
+16
+16
+21
+21
+21
+21
+Done
+-}</code></pre>
+<h2 id="mtl">mtl</h2>
+<p>The same result can be achieved with the MTL, but the <code>CoT</code> type needs
+a <code>MonadFunctor</code> instance so that we can use <code>hoist</code>. I don’t know if
+<code>CoT</code> as implemented via <code>ContT</code> can be given such an instance. As
+such I implemened my own version like this</p>
+<pre><code>data Step y m a = Done a | Yield y (CoT y m a)
+
+data CoT y m a = CoT (m (Step y m a))</code></pre>
+<p>and then we can reimplement <code>c5</code> straightforwardly</p>
+<pre><code>c5 :: IO ()
+c5 = runReaderT (loop =&lt;&lt; runC (th client)) (10::Int)
+ where loop (Yield x k) = (liftIO . print) (show (x::Int)) &gt;&gt; local (+(1::Int)) (runC k) &gt;&gt;= loop
+       loop (Done _)    = (liftIO . print) &quot;Done&quot;
+
+       -- Type signatures are not required, but I will
+       -- say what they are anyway.
+       
+--     client :: (MonadCo r m, MonadReader r m) =&gt; m ()
+       client = ay &gt;&gt; ay
+--     ay :: (MonadCo r m, MonadReader r m) =&gt; m ()
+       ay     = ask &gt;&gt;= yieldG
+
+--     th :: (Monad m, MFunctor t, Monad (t (ReaderT Int m)),
+--            MonadReader Int (t (ReaderT Int m)))
+--           =&gt; t (ReaderT Int m) () -&gt; t (ReaderT Int m) ()
+       th cl = do
+         cl
+         v &lt;- ask
+         (if v &gt; (20::Int) then id else hoist (localLocal' (+(5::Int)))) cl
+         if v &gt; (20::Int) then return () else hoist (localLocal' (+(10::Int))) (th cl)</code></pre>
+<p>The reimplementation is remarkably similar to the original with just
+some <code>hoist</code>s added. Running it gives exactly the result desired</p>
+<pre><code>GHCi&gt; c5
+&quot;10&quot;
+&quot;11&quot;
+&quot;16&quot;
+&quot;16&quot;
+&quot;21&quot;
+&quot;21&quot;
+&quot;21&quot;
+&quot;21&quot;
+&quot;Done&quot;</code></pre>
+<p>Note: Later Oleg pointed out to me that the definition of <code>th</code> above
+only works on transformer stacks two deep, where the second is
+<code>ReaderT</code>. It seems to me that any more deeply nested stack can be
+converted to one where the ReaderT occurs at the second layer, using,
+for example</p>
+<pre><code>ComposeTrans t1 t2 m = ComposeTrans (t1 (t2 m))</code></pre>
+<p>and if we want the ReaderT to occur at the first layer, we can just
+wrap it in IdentityT instead.</p>
+<p>However, this introduces a lot more awkwardness which Extensible
+Effects doesn’t have, the latter being designed exactly to avoid this
+kind of thing. So perhaps this is a good example to demonstrate
+exactly what problem it is that Extensible Effects solves.</p>
+<h2 id="further-questions">Further questions</h2>
+<p>The concept of <code>MFunctor</code> and its method <code>hoist</code> seem to play a
+crucial role here. In the case of a free monad I would guess that the
+<code>MFunctor</code> instance comes for free, i.e. free monads always support
+<code>hoist</code>. This seems to be a crucial missing element from the MTL to
+allow effects to work with each other in a generic manner. I need to
+think about this more …</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

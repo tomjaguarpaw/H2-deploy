@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-use-luks</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-use-luks</h3>
+  <h1 id="how-i-use-cryptsetup-and-luks">How I use cryptsetup and LUKS</h1>
+<ul>
+<li><p>LUKS device configuration</p>
+<pre><code>$ DEVICE=/dev/sdc
+$ MAPPING_NAME=sdc
+$ MOUNT_POINT=/mnt/my_mount_point</code></pre></li>
+<li><p>Formatting a LUKS device</p>
+<pre><code>$ sudo cryptsetup luksFormat --type luks2 $DEVICE
+...
+$ sudo cryptsetup open $DEVICE $MAPPING_NAME
+Enter passphrase for /dev/sdc:
+$ sudo mkfs.ext4 /dev/mapper/$MAPPING_NAME
+$ sudo cryptsetup close $MAPPING_NAME</code></pre></li>
+<li><p>Mounting a LUKS device</p>
+<pre><code>$ sudo cryptsetup open $DEVICE $MAPPING_NAME
+Enter passphrase for /dev/sdc:
+$ sudo mount /dev/mapper/$MAPPING_NAME $MOUNT_POINT</code></pre></li>
+<li><p>Unmounting an LUKS device</p>
+<pre><code>$ sudo umount $MOUNT_POINT
+$ sudo cryptsetup close $MAPPING_NAME</code></pre></li>
+<li><p>Making a LUKS header backup</p>
+<pre><code>$ HEADER_BACKUP_FILE=header-backup-file
+$ sudo cryptsetup luksHeaderBackup --header-backup-file $HEADER_BACKUP_FILE $DEVICE</code></pre></li>
+<li><p>Opening a LUKS device from a header backup</p>
+<pre><code>sudo cryptsetup --header $HEADER_BACKUP_FILE luksOpen $DEVICE $MAPPING_NAME</code></pre></li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://security.stackexchange.com/questions/140948/mapping-of-encrypted-to-decrypted-blocks-in-lucks" class="uri">https://security.stackexchange.com/questions/140948/mapping-of-encrypted-to-decrypted-blocks-in-lucks</a></li>
+<li><a href="https://gitlab.com/cryptsetup/cryptsetup/-/wikis/FrequentlyAskedQuestions#6-backup-and-data-recovery" class="uri">https://gitlab.com/cryptsetup/cryptsetup/-/wikis/FrequentlyAskedQuestions#6-backup-and-data-recovery</a></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

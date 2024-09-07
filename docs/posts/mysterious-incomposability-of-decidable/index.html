@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>mysterious-incomposability-of-decidable</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>mysterious-incomposability-of-decidable</h3>
+  <h1 id="the-mysterious-incomposability-of-decidable">The Mysterious Incomposability of Decidable</h1>
+<p><code>Applicative</code>, <code>Alternative</code> and <code>Divisible</code> are Haskell classes that
+each have nice composition properties. There is a fourth class,
+<code>Decidable</code>, that fills in the remaining corner of a square of
+properties but I cannot find any nice composition property for it.</p>
+<p>By way of introduction, Haskell has a <code>Functor</code> class that can be
+<code>fmap</code>ped covariantly and a <code>Contravariant</code> class that can be
+<code>contramap</code>ped contravariantly. Subclasses of these allow pairs of
+the same type to be combined. In brief</p>
+<ul>
+<li><code>Applicative</code>: covariant, converts products to products</li>
+<li><code>Alternative</code>: covariant, <a href="../alternatives-convert-products-to-sums/">converts products to
+sums</a></li>
+<li><code>Divisible</code>: contravariant, converts products to products</li>
+<li><code>Decidable</code>: contravariant, converts products to sums</li>
+</ul>
+<p>The following code demonstrates those properties:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Control.Applicative</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.Functor.Contravariant</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.Functor.Contravariant.Divisible</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ot">applicativeProduct ::</span> <span class="dt">Applicative</span> f</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>                   <span class="ot">=&gt;</span> (f a, f b)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>                   <span class="ot">-&gt;</span> f (a, b)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>applicativeProduct (fa, fb) <span class="ot">=</span> (,) <span class="op">&lt;$&gt;</span> fa <span class="op">&lt;*&gt;</span> fb</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="ot">alternativeSum ::</span> <span class="dt">Alternative</span> f</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>               <span class="ot">=&gt;</span> (f a, f b)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>               <span class="ot">-&gt;</span> f (<span class="dt">Either</span> a b)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>alternativeSum (fa, fb) <span class="ot">=</span> <span class="fu">fmap</span> <span class="dt">Left</span> fa <span class="op">&lt;|&gt;</span> <span class="fu">fmap</span> <span class="dt">Right</span> fb</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="ot">divisibleProduct ::</span> <span class="dt">Divisible</span> f</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>                 <span class="ot">=&gt;</span> (f a, f b)</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>                 <span class="ot">-&gt;</span> f (a, b)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>divisibleProduct (fa, fb) <span class="ot">=</span> divide <span class="fu">id</span> fa fb</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="ot">decidableProduct ::</span> <span class="dt">Decidable</span> f</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>                 <span class="ot">=&gt;</span> (f a, f b)</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>                 <span class="ot">-&gt;</span> f (<span class="dt">Either</span> a b)</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>decidableProduct (fa, fb) <span class="ot">=</span> chosen fa fb</span></code></pre></div>
+<p><code>Applicative</code>s, <code>Alternative</code>s and <code>Divisible</code>s compose well. The
+first with <code>&lt;$&gt;</code> and <code>&lt;*&gt;</code> and the second and third with
+<code>fmap</code>/<code>contramap</code> and a monoidal operation (<code>&lt;|&gt;</code> and what I define
+as <code>&lt;+&gt;</code> respectively).</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">applicativeCompose ::</span> [[<span class="dt">String</span>]]</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>applicativeCompose <span class="ot">=</span> f <span class="op">&lt;$&gt;</span> [<span class="dv">1</span>, <span class="dv">2</span>]</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>                       <span class="op">&lt;*&gt;</span> [<span class="dt">True</span>, <span class="dt">False</span>]</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>                       <span class="op">&lt;*&gt;</span> [<span class="st">&quot;hello&quot;</span>, <span class="st">&quot;world&quot;</span>]</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">where</span> f <span class="ot">=</span> (\a b c <span class="ot">-&gt;</span> <span class="fu">replicate</span> a (<span class="kw">if</span> b <span class="kw">then</span> c <span class="kw">else</span> <span class="st">&quot;False&quot;</span>))</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="ot">alternativeCompose ::</span> [<span class="dt">String</span>]</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>alternativeCompose <span class="ot">=</span> <span class="fu">fmap</span> <span class="fu">show</span> [<span class="dv">1</span>, <span class="dv">2</span>]</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>                     <span class="op">&lt;|&gt;</span> <span class="fu">fmap</span> <span class="fu">reverse</span> [<span class="st">&quot;hello&quot;</span>, <span class="st">&quot;world&quot;</span>]</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="ot">divisibleCompose ::</span> <span class="dt">Predicate</span> (<span class="dt">String</span>, <span class="dt">Int</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>divisibleCompose <span class="ot">=</span> contramap ((<span class="op">==</span> <span class="dv">5</span>) <span class="op">.</span> <span class="fu">length</span> <span class="op">.</span> <span class="fu">fst</span>) predicate</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>                   <span class="op">&lt;+&gt;</span> contramap ((<span class="op">&lt;</span> <span class="dv">6</span>) <span class="op">.</span> <span class="fu">snd</span>) predicate</span></code></pre></div>
+<p>However, I cannot work out any nice way to compose <code>Decidable</code>s and I
+find this very mysterious. For example, suppose I have</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">F</span> <span class="dt">Decidable</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="ot">a ::</span> <span class="dt">F</span> <span class="dt">A</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ot">b ::</span> <span class="dt">F</span> <span class="dt">B</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="ot">c ::</span> <span class="dt">F</span> <span class="dt">C</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Foo</span> <span class="ot">=</span> <span class="dt">Bar</span> <span class="dt">A</span> <span class="op">|</span> <span class="dt">Baz</span> <span class="dt">B</span> <span class="op">|</span> <span class="dt">Quux</span> <span class="dt">C</span></span></code></pre></div>
+<p>How do I compose <code>a</code>, <code>b</code> and <code>c</code> into an <code>F Foo</code>? The simplest thing
+I have discovered is</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">compose ::</span> <span class="dt">F</span> <span class="dt">Foo</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>compose <span class="ot">=</span> f <span class="op">-$-</span> (fC <span class="op">-*-</span> fB <span class="op">-*-</span> fA)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span> f <span class="ot">=</span> \<span class="kw">case</span> <span class="dt">Bar</span> a  <span class="ot">-&gt;</span> <span class="dt">Right</span> a</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>                  <span class="dt">Baz</span> b  <span class="ot">-&gt;</span> <span class="dt">Left</span> (<span class="dt">Right</span> b)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>                  <span class="dt">Quux</span> c <span class="ot">-&gt;</span> <span class="dt">Left</span> (<span class="dt">Left</span> c)</span></code></pre></div>
+<p>with the <code>Decidable</code> operations <code>-$-</code> and <code>-*-</code> given by</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ot">(-$-) ::</span> <span class="dt">Contravariant</span> f <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f b <span class="ot">-&gt;</span> f a</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>(<span class="op">-$-</span>) <span class="ot">=</span> contramap</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="ot">(-*-) ::</span> <span class="dt">Decidable</span> f <span class="ot">=&gt;</span> f a <span class="ot">-&gt;</span> f b <span class="ot">-&gt;</span> f (<span class="dt">Either</span> a b)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>(<span class="op">-*-</span>) <span class="ot">=</span> chosen</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="kw">infixl</span> <span class="op">-*-</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="kw">infixr</span> <span class="op">-$-</span></span></code></pre></div>
+<p>The explicit unpacking into an <code>Either</code> is rather unsatisfactory.
+I’ve tried all sorts of techniques, including CPS, but nothing seems
+to make <code>Decidable</code>s nicely composable. Do you have any ideas? If
+so, <a href="http://web.jaguarpaw.co.uk/~tom/contact/">contact me</a>!</p>
+<h2 id="appendix">Appendix</h2>
+<p>Some extra code used in the examples:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ot">predicate ::</span> <span class="dt">Predicate</span> <span class="dt">Bool</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>predicate <span class="ot">=</span> <span class="dt">Predicate</span> <span class="fu">id</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="ot">(&lt;+&gt;) ::</span> <span class="dt">Divisible</span> f <span class="ot">=&gt;</span> f a <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f a</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>(<span class="op">&lt;+&gt;</span>) <span class="ot">=</span> divide (\x <span class="ot">-&gt;</span> (x, x))</span></code></pre></div>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

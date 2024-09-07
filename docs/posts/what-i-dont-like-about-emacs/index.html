@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>what-i-dont-like-about-emacs</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>what-i-dont-like-about-emacs</h3>
+  <h1 id="what-i-dont-like-about-emacs">What I don’t like about Emacs</h1>
+<p>I wanted to add to a hook so that <code>whitespace-mode</code> is enabled
+whenever I edit makefiles. <code>M-x describe-mode</code> says that</p>
+<blockquote>
+<p>In addition to any hooks its parent mode might have run, this mode
+runs the hook ‘makefile-gmake-mode-hook’, as the final or penultimate
+step during initialization.</p>
+</blockquote>
+<p>I added the following line to <code>.emacs</code></p>
+<pre><code>(add-hook 'makefile-gmake-mode 'whitespace-mode)</code></pre>
+<p>and ran <code>M-x eval-region</code> on the new line. But <code>whitespace-mode</code> did
+not become enabled when editing makefiles! This puzzled me for
+several frustrating minutes before I realised that I had used the
+wrong hook name. I should have written</p>
+<pre><code>(add-hook 'makefile-gmake-mode-hook 'whitespace-mode)</code></pre>
+<p>What I really want in this situation is a <em>type</em> error. Of course,
+I’m never going to get one when writing Emacs lisp. I would settle
+for a run time error, but neither was one of those forthcoming. Why
+on earth not?!</p>
+<p>A <a href="https://stackoverflow.com/questions/21104788/why-does-add-hook-allow-hook-to-be-void">StackOverflow question and
+answer</a>
+hint at the underlying rationale. Emacs supports setting hook
+variables for packages that have not been loaded yet. It must be
+possible to add hooks to arbitrary symbols, even incorrectly spelled
+ones! To me this seems to be a consequence of Emacs’s 1970s roots; we
+hadn’t yet learned that programming via big blobs of global mutable
+state should be avoided.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

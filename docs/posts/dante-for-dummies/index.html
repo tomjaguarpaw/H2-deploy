@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>dante-for-dummies</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>dante-for-dummies</h3>
+  <h1 id="dante-for-dummies">Dante for dummies</h1>
+<h2 id="this-article-is-outdated">This article is outdated!</h2>
+<p>The article is old, from before I knew how to manage Emacs packages
+properly (the secret: use
+<a href="https://github.com/raxod502/straight.el/">straight.el</a>). My new
+article “<a href="../how-i-use-dante/">How I use dante</a>” is much better and I
+suggest you read it instead of this one.</p>
+<h2 id="the-old-article">The old article</h2>
+<p>I wanted to get started with <a href="https://github.com/jyp/dante">Dante: Emacs mode for Interactive
+Haskell</a> but found it difficult for
+various reasons. Here’s how I managed it.</p>
+<ol type="1">
+<li><p>Get Dante</p>
+<p>I just downloaded <code>dante.el</code> so I can run it with <code>M-x  eval-buffer</code>.</p></li>
+<li><p>Use Emacs 25</p>
+<p>It doesn’t seem to work with Emacs 24</p></li>
+<li><p>Get dependent packages</p>
+<ul>
+<li><p>It requires <code>lcr</code>. It also requires <code>attrap</code> if you want autofix.</p>
+<pre><code>I don't know how to use Emacs properly so I just went to
+[MELPA](https://melpa.org/) and downloaded the files.  You
+can load them with `M-x eval-buffer`.</code></pre></li>
+<li><p>It also required some other stuff like <code>dash</code> which I managed to
+install with <code>apt</code>.</p>
+<p>I don’t want to use MELPA if I don’t have to.</p></li>
+</ul></li>
+<li><p>Turn on Dante and flycheck minor modes</p>
+<p>You should probably use mode hooks to turn these on but I just used</p>
+<ul>
+<li><p><code>M-x dante-mode</code></p></li>
+<li><p><code>M-x flycheck-mode</code></p></li>
+</ul></li>
+<li><p>If it complains about missing <code>stack</code></p>
+<p>Dante tries to work out what sort of project you are working in so
+it know how to launch GHCi. The way it works this out is through
+<code>dante-repl-command-line-methods-alist</code>. It checks for
+<code>stack.yaml</code> before <code>.cabal</code>. I have both but I want to use cabal
+so I had to delete the stack entry. I used <code>M-x customize-group</code>
+to do this, in the “Dante Repl Command Line Methods Alist”
+setting.</p></li>
+</ol>
+<p>Then it seems that Dante just works.</p>
+<ul>
+<li>‘M-g n’ and ‘M-g p’ go to the next and previous errors respectively.</li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

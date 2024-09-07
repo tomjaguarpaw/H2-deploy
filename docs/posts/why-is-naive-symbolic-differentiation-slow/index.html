@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>why-is-naive-symbolic-differentiation-slow</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>why-is-naive-symbolic-differentiation-slow</h3>
+  <h1 id="why-is-naive-symbolic-differentiation-slow">Why is naive symbolic differentiation slow?</h1>
+<p>In <a href="../symbolic-expressions-can-be-automatically-differentiated">another article about demystifying Automatic
+Differentiation</a>
+(AD) I explained how to use the key idea of AD to calculate
+derivatives in time linear in the size of a symbolic expression, after
+mentioning that the naive approach is quadratic. But why is the naive
+approach quadratic? In this article I’ll explain.</p>
+<p>Recall the <code>diffEval</code> function which implements the key idea of AD.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">diffEval ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">E</span> <span class="ot">-&gt;</span> (<span class="dt">Double</span>, <span class="dt">Double</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>diffEval x <span class="ot">=</span> ev <span class="kw">where</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  ev <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">X</span>            <span class="ot">-&gt;</span> (x, <span class="dv">1</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">One</span>          <span class="ot">-&gt;</span> (<span class="dv">1</span>, <span class="dv">0</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Zero</span>         <span class="ot">-&gt;</span> (<span class="dv">0</span>, <span class="dv">0</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Negate</span> e     <span class="ot">-&gt;</span> <span class="kw">let</span> (ex, ed) <span class="ot">=</span> ev e</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">in</span> (<span class="op">-</span>ex, <span class="op">-</span>ed)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Sum</span> e e'     <span class="ot">-&gt;</span> <span class="kw">let</span> (ex, ed)   <span class="ot">=</span> ev e</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>                        (ex', ed') <span class="ot">=</span> ev e'</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">in</span> (ex <span class="op">+</span> ex', ed <span class="op">+</span> ed')</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Product</span> e e' <span class="ot">-&gt;</span> <span class="kw">let</span> (ex, ed)   <span class="ot">=</span> ev e</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>                        (ex', ed') <span class="ot">=</span> ev e'</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">in</span> (ex <span class="op">*</span> ex', ex <span class="op">*</span> ed' <span class="op">+</span> ed <span class="op">*</span> ex')</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Exp</span> e        <span class="ot">-&gt;</span> <span class="kw">let</span> (ex, ed) <span class="ot">=</span> ev e</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">in</span> (<span class="fu">exp</span> ex, <span class="fu">exp</span> ex <span class="op">*</span> ed)</span></code></pre></div>
+<p>If you look at how each expression node is handled you’ll notice that
+there is one recursive call per child node, leading to linear run
+time. An alternative implementation could have been this:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">diffEvalSlow ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">E</span> <span class="ot">-&gt;</span> (<span class="dt">Double</span>, <span class="dt">Double</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>diffEvalSlow x <span class="ot">=</span> ev <span class="kw">where</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  ev <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">X</span>            <span class="ot">-&gt;</span> (x, <span class="dv">1</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">One</span>          <span class="ot">-&gt;</span> (<span class="dv">1</span>, <span class="dv">0</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Zero</span>         <span class="ot">-&gt;</span> (<span class="dv">0</span>, <span class="dv">0</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Negate</span> e     <span class="ot">-&gt;</span> <span class="kw">let</span> ex <span class="ot">=</span> <span class="fu">fst</span> (ev e)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>                        ed <span class="ot">=</span> <span class="fu">snd</span> (ev e)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">in</span> (<span class="op">-</span>ex, <span class="op">-</span>ed)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Sum</span> e e'     <span class="ot">-&gt;</span> <span class="kw">let</span> ex   <span class="ot">=</span> <span class="fu">fst</span> (ev e)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>                        ed   <span class="ot">=</span> <span class="fu">snd</span> (ev e)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>                        ex'  <span class="ot">=</span> <span class="fu">fst</span> (ev e')</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>                        ed'  <span class="ot">=</span> <span class="fu">snd</span> (ev e')</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">in</span> (ex <span class="op">+</span> ex', ed <span class="op">+</span> ed')</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Product</span> e e' <span class="ot">-&gt;</span> <span class="kw">let</span> ex   <span class="ot">=</span> <span class="fu">fst</span> (ev e)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>                        ed   <span class="ot">=</span> <span class="fu">snd</span> (ev e)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>                        ex'  <span class="ot">=</span> <span class="fu">fst</span> (ev e')</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>                        ed'  <span class="ot">=</span> <span class="fu">snd</span> (ev e')</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">in</span> (ex <span class="op">*</span> ex', ex <span class="op">*</span> ed' <span class="op">+</span> ed <span class="op">*</span> ex')</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Exp</span> e        <span class="ot">-&gt;</span> <span class="kw">let</span> ex <span class="ot">=</span> <span class="fu">fst</span> (ev e)</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>                        ed <span class="ot">=</span> <span class="fu">snd</span> (ev e)</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>                    <span class="kw">in</span> (<span class="fu">exp</span> ex, <span class="fu">exp</span> ex <span class="op">*</span> ed)</span></code></pre></div>
+<p><code>diffEvalSlow</code> has <em>two</em> recursive calls per child node, leading to
+quadratic run time.</p>
+<pre><code>&gt; mapM_ (print . snd . flip diffEval bigExpression)
+        [0.00009, 1, 1.00001]
+3.2478565715995278e-6
+1.0
+1.0100754777229357
+-- ^^ Trust me, it was fast
+
+&gt; mapM_ (print . snd . flip diffEvalSlow bigExpression)
+        [0.00009, 1, 1.00001]
+3.2478565715995278e-6
+1.0
+1.0100754777229357
+-- ^^ Trust me, it was slow</code></pre>
+<p>There is a similar reason for the slowness of the naive approach to
+calculating the derivative of symbolic expressions. The naive
+approach is to first <code>diff</code> the expression, and then <code>eval</code> it.
+<code>diff</code> and <code>eval</code> are as follows:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">eval ::</span> <span class="dt">Double</span> <span class="ot">-&gt;</span> <span class="dt">E</span> <span class="ot">-&gt;</span> <span class="dt">Double</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>eval x <span class="ot">=</span> ev <span class="kw">where</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  ev <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">X</span>            <span class="ot">-&gt;</span> x</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">One</span>          <span class="ot">-&gt;</span> <span class="dv">1</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Zero</span>         <span class="ot">-&gt;</span> <span class="dv">0</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Negate</span> e     <span class="ot">-&gt;</span> <span class="op">-</span>ev e</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Sum</span> e e'     <span class="ot">-&gt;</span> ev e <span class="op">+</span> ev e'</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Product</span> e e' <span class="ot">-&gt;</span> ev e <span class="op">*</span> ev e'</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Exp</span> e        <span class="ot">-&gt;</span> <span class="fu">exp</span> (ev e)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="ot">diff ::</span> <span class="dt">E</span> <span class="ot">-&gt;</span> <span class="dt">E</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>diff <span class="ot">=</span> \<span class="kw">case</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">X</span>            <span class="ot">-&gt;</span> <span class="dt">One</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">One</span>          <span class="ot">-&gt;</span> <span class="dt">Zero</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Zero</span>         <span class="ot">-&gt;</span> <span class="dt">Zero</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Negate</span> e     <span class="ot">-&gt;</span> <span class="dt">Negate</span> (diff e)</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Sum</span> e e'     <span class="ot">-&gt;</span> <span class="dt">Sum</span> (diff e) (diff e')</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Product</span> e e' <span class="ot">-&gt;</span> <span class="dt">Product</span> e (diff e') <span class="ot">`Sum`</span> <span class="dt">Product</span> (diff e) e'</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Exp</span> e        <span class="ot">-&gt;</span> <span class="dt">Exp</span> e <span class="ot">`Product`</span> diff e</span></code></pre></div>
+<p>You can see that, like <code>diffEval</code>, both of these functions have only
+one recursive call per child node, leading to linear run time in the
+size of their input. So what’s going on? Why is composing them
+quadratic?</p>
+<p>Have a look at the <code>Product</code> case</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Product</span> e e' <span class="ot">-&gt;</span> <span class="dt">Product</span> e (diff e') <span class="ot">`Sum`</span> <span class="dt">Product</span> (diff e) e'</span></code></pre></div>
+<p>There are only two recursive calls to <code>diff</code>, but it <em>doubles</em> the
+number of child nodes from two to four. The key observation is</p>
+<blockquote>
+<p>The size of the output of <code>diff</code> can be quadratic in the size of the
+input!</p>
+</blockquote>
+<p><code>eval</code> then runs over this quadratic sized output, so the run time of
+<code>eval</code> composed with <code>diff</code> can be quadratic in the size of the
+original input.</p>
+<p>The <code>Exp</code> case doubles the number of nodes too, as would potential
+cases for <code>Sin</code>, <code>Cos</code> or any other function where the derivative is
+given by the chain rule.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>The key idea of AD is to evaluate <code>e</code> and its derivative in <em>one</em>
+recursive call, leading to linear run time, rather than <em>doubling</em> the
+amount of work which needs to be done at each level, which leads to
+quadratic run time.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

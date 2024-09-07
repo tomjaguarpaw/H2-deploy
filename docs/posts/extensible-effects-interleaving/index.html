@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>extensible-effects-interleaving</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>extensible-effects-interleaving</h3>
+  <h1 id="extensible-effects-monad-transformers-and-interleaving-effects">extensible-effects, monad transformers and interleaving effects</h1>
+<h2 id="introduction">Introduction</h2>
+<p>In their paper <a href="http://okmij.org/ftp/Haskell/extensible/index.html">“Extensible
+Effects”</a>,
+Kiselyov, Sabry and Swords (KSS) introduce an effect system for
+Haskell that is an alternative to the classical monad transformers
+approach. There is <a href="http://hackage.haskell.org/package/extensible-effects">a Haskell library of the same
+name</a>
+implementing the ideas of the paper. <a href="https://www.fpcomplete.com/user/dolio/monad-transformers-and-static-effect-scoping">Dan Doel noted in a recent
+article</a>
+that this is one of many papers which investigate effects and their
+associated handlers, in large part aiming to move from what is seen to
+be the “static” approach of monad transformers, to the supposedly more
+“dynamic” approach of algebraic effects.</p>
+<p>Dan’s article is a defence of the classical monad transformers
+approach, and he argues convincingly “that the staticness [of monad
+transformers] can actually be a useful property, that certain ways of
+harnessing it can make the confusing constructions less so, and
+… that algebraic effects perhaps aren’t so different from what we
+are already using”.</p>
+<p>KSS give two examples where they claim their approach is superior to
+monad transformers. The first is that it is awkward to combine
+exceptions with non-determinism. However, Dan implements a simple
+alternative to <code>catchError</code> and ensures that the exception handler
+removes from the set of effects. In this way he efficiently disposes
+with the supposed awkwardess. The second objection of KSS is that a
+certain interleaving of a read effect with coroutines is <em>impossible</em>
+to achieve with monad transformers. In this article I will
+demonstrate that contrary to KSS’s assertion, this interleaving <em>is</em>
+possible with monad transformers, and moreover straightforward.</p>
+<h2 id="non-determinism-and-exceptions">Non-determinism and exceptions</h2>
+<p><code>catchError</code> from the <a href="http://hackage.haskell.org/package/mtl">mtl</a>
+runs a monad transformer stack that contains an “exception raising”
+layer and handles any exceptions with a handler that can potentially
+rethrow them. The definition has the following signature</p>
+<pre><code>catchError :: MonadError e m =&gt; m a -&gt; (e -&gt; m a) -&gt; m a</code></pre>
+<p>The monad <code>m</code> is the same in the argument and return value, thus any
+exceptions that are rethrown are rethrown at exactly the same level of
+the stack. As KSS note, this <em>does</em> result in a particular
+inflexibility when mixing effects.</p>
+<p>However, Dan realised that handlers should <em>remove</em> from the set of
+effects. That is, the monad of the return value should be “smaller”
+than the monad of the argument. <a href="https://www.fpcomplete.com/user/dolio/monad-transformers-and-static-effect-scoping#throw-catch-confusion">He defines
+<code>localCatch</code></a>
+with the signature</p>
+<pre><code>localCatch :: Monad m =&gt; ErrorT e m a -&gt; (e -&gt; m a) -&gt; m a</code></pre>
+<p>which handles exceptions at the outermost level and gives the user the
+chance to rethrow them at a lower level. Using this formulation
+yields the results that KSS are seeking with no further difficulties.</p>
+<h2 id="read-effects-and-coroutines">Read effects and coroutines</h2>
+<p>KSS provide the following type <code>CoT</code> which is a co-routine transformer</p>
+<pre><code>type CoT a m = ContT (Y m a) m
+data Y m a = Done | Y a (() -&gt; m (Y m a))</code></pre>
+<p>and define a function which mixes read effects with coroutines. The
+idea is to use <code>local</code> to modify the local state of a read operation.
+<code>local</code> has the signature</p>
+<pre><code>MonadReader r m =&gt; (r -&gt; r) -&gt; m a -&gt; m a</code></pre>
+<p>and the function is</p>
+<pre><code>th3 :: MonadReader Int m =&gt; CoT Int m ()
+th3 = ay &gt;&gt; ay &gt;&gt; local (+10) (ay &gt;&gt; ay)
+    where ay = ask &gt;&gt;= yield</code></pre>
+<p>They demonstrate that this has unexpected behaviour. They also
+consider the opposite order of effects</p>
+<pre><code>th4 :: Monad m =&gt; ReaderT Int (CoT Int m) ()
+th4 = ay &gt;&gt; ay &gt;&gt; local (+10) (ay &gt;&gt; ay)
+    where ay = ask &gt;&gt;= lift . yield</code></pre>
+<p>but this does not work either. However, what I learned from Dan’s
+article is that handlers should <em>remove</em> from the set of effects, so
+instead of <code>local</code> we can try implementing <code>localLocal</code> (awkwardly
+named to be consistent with Dan’s terminology!) which removes the read
+effect.</p>
+<pre><code>localLocal :: MonadReader a m =&gt; (a -&gt; r) -&gt; ReaderT r m b -&gt; m b
+localLocal f m = ask &gt;&gt;= runReaderT m . f</code></pre>
+<p>Using <code>localLocal</code> highlights the problem. The <code>ay</code> outside the
+<code>localLocal</code> needs to have a different type than the <code>ay</code> <em>inside</em> the
+<code>localLocal</code>.</p>
+<pre><code>th3_explicit :: Monad m =&gt; CoT Int (ReaderT Int m) ()
+th3_explicit = ay1 &gt;&gt; ay1 &gt;&gt; localLocal (+10) (ay2 &gt;&gt; ay2)
+    where ay1 :: Monad m =&gt; CoT Int (ReaderT Int m) ()
+          ay1 = lift ask &gt;&gt;= yield
+          ay2 :: Monad m =&gt; ReaderT Int (CoT Int m) ()
+          ay2 = ask &gt;&gt;= lift . yield</code></pre>
+<p>This implementation gives exactly the results that KSS are looking
+for. Furthermore it’s not hard to remove the duplication by defining
+a monad transformer class <code>MonadCo</code> which abstracts over continuation
+monads and provides a <code>yieldG</code> operation (a transformer-polymorphic
+version of <code>yield</code>). This leads to a neat and general implementation</p>
+<pre><code>th3_MTL :: (MonadCo Int m, MonadReader Int m) =&gt; m ()
+th3_MTL = ay &gt;&gt; ay &gt;&gt; localLocal (+10) (ay &gt;&gt; ay)
+    where ay :: (MonadCo r m, MonadReader r m) =&gt; m ()
+          ay = ask &gt;&gt;= yieldG</code></pre>
+<h2 id="conclusion">Conclusion</h2>
+<p>With the right primitives, combining complicated effects using monad
+transformers can be straightforward. What I’ve presened here is not
+evidence that monad transformers are the <em>best</em> way to go, but it does
+show that more thought is needed before we declare them obsolete!</p>
+<p>There are <a href="../extensible-effects-mtl/">some further comparisons between extensible-effects and
+mtl</a>.</p>
+<hr />
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

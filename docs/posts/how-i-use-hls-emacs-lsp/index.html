@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>how-i-use-hls-emacs-lsp</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>how-i-use-hls-emacs-lsp</h3>
+  <h1 id="how-i-use-hls-and-emacs-lsp-mode">How I use HLS and Emacs LSP mode</h1>
+<ul>
+<li>Seems faster than dante on small codebases, though slower on big
+ones.</li>
+</ul>
+<h2 id="how-to-use">How to use</h2>
+<ul>
+<li><p>Turn on HLS/LSP in a buffer: <code>M-x lsp</code></p></li>
+<li><p>Turn off HLS/LSP in a buffer (and in all buffers using the same
+server): <code>s-l w q</code></p></li>
+<li><p>Restart HLS/LSP in a buffer: <code>s-l w r</code> (although I’m not sure this
+really works. Turn off and then turn on seems to be better.)</p></li>
+</ul>
+<p>(<code>s-</code> is the “super” key and can be simulated with <code>C-x @ s</code>)</p>
+<h2 id="whats-great">What’s great</h2>
+<p>Use an identifier that’s not imported. HLS offers to import it for
+you. I don’t think it can offer to import things that are not in any
+visible package, which has pros and cons.</p>
+<h2 id="papercuts">Papercuts</h2>
+<ul>
+<li><p>I don’t know how to find all buffers in which LSP is running (in
+order to turn them off). The buffer called <code>*lsp-log*</code> gives some
+clues).</p></li>
+<li><p>Have to write out a <code>hie.yaml</code> cradle all the time with <code>cradle:\n   cabal:</code>, because cradle autodetection in broken.</p></li>
+<li><p>Wingman doesn’t give choices: <code>foo n1 n2 = _</code> doesn’t give choice of
+<code>n1</code> or <code>n2</code>. Just fills with <code>n1</code>.</p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>
