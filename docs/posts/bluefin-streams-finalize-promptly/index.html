@@ -48,10 +48,12 @@
   <h3>bluefin-streams-finalize-promptly</h3>
   <h1 id="bluefin-streams-finalize-promptly">Bluefin streams finalize promptly</h1>
 <p>– pipes and conduit streams don’t</p>
-<p>The pipes and conduit streaming abstractions have a problem: despite
-having special-purpose bracketing operations they don’t finalize
-promptly in the presence of exceptions. Bluefin, by contrast, has two
-benefits: it can bracket its streams with <em>general-purpose</em>
+<p>The <a href="https://hackage.haskell.org/package/pipes">pipes</a> and
+<a href="https://hackage.haskell.org/package/conduit">conduit</a> streaming
+abstractions have a problem: despite having special-purpose bracketing
+operations they don’t finalize promptly in the presence of exceptions.
+<a href="https://hackage.haskell.org/package/bluefin">Bluefin</a>, by contrast,
+has two benefits: it can bracket its streams with <em>general-purpose</em>
 operations, and those brackets finalize promptly.</p>
 <p>What does “finalize promptly” mean? And why is that a problem to not
 finalize promptly? Read on to find out.</p>
