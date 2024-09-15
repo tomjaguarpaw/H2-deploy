@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>bluefin-streams-finalize-promptly</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>bluefin-streams-finalize-promptly</h3>
+  <h1 id="bluefin-streams-finalize-promptly">Bluefin streams finalize promptly</h1>
+<p>– pipes and conduit streams don’t</p>
+<p>The pipes and conduit streaming abstractions have a problem: despite
+having special-purpose bracketing operations they don’t finalize
+promptly in the presence of exceptions. Bluefin, by contrast, has two
+benefits: it can bracket its streams with <em>general-purpose</em>
+operations, and those brackets finalize promptly.</p>
+<p>What does “finalize promptly” mean? And why is that a problem to not
+finalize promptly? Read on to find out.</p>
+<h2 id="prompt-finalization">Prompt finalization</h2>
+<p>When we have acquired, and have been using, a scarce resource (for
+example a file handle) we need to “finalize it promptly”, that is,
+“release” or “clean it up” as soon as possible after we no longer need
+it, so that it can be reused. If a program component is guaranteed to
+promptly finalize the resources it holds it is sometimes called
+“resource safe”.</p>
+<p>One element of the Haskell ecosystem that provides a form of prompt
+finalization is
+<a href="https://www.stackage.org/haddock/lts-22.18/base-4.18.2.0/Control-Exception.html#v:bracket"><code>Control.Exception.bracket</code></a>.
+The type and intended usage of <code>bracket</code> are:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">bracket ::</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- | acquire the resource</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">IO</span> a  <span class="ot">-&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- | release the resource</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  (a <span class="ot">-&gt;</span> <span class="dt">IO</span> b) <span class="ot">-&gt;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- | use the resource (&quot;the body&quot;)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  (a <span class="ot">-&gt;</span> <span class="dt">IO</span> c) <span class="ot">-&gt;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- | returns the result of the body</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">IO</span> c</span></code></pre></div>
+<p>When the <code>bracket</code> call executes the resource is firstly acquired and
+then secondly used (the part of the program that uses the resource is
+often called “the body”) . Thirdly, the resource is released once the
+body finishes, regardless of whether the body finished normally or by
+throwing an uncaught exception. Below, <code>bracketExample</code> brackets the
+usage of a file handle. It opens a file, throws an exception if the
+file is too big, and then subsequently closes the file. (When it
+opens and closes the file it also prints a message to tell us that it
+is doing so.)</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">bracketExample ::</span> <span class="dt">Integer</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>bracketExample n <span class="ot">=</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  bracket</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Acquire the file handle</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    (<span class="kw">do</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="fu">putStrLn</span> <span class="st">&quot;Opening file&quot;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        openFile <span class="st">&quot;/usr/share/dict/words&quot;</span> <span class="dt">ReadMode</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Release the file handle</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    (\handle <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="fu">putStrLn</span> <span class="st">&quot;Closing file&quot;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        hClose handle)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Use the file handle</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    (\handle <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        size <span class="ot">&lt;-</span> hFileSize handle</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        when (size <span class="op">&gt;=</span> n) (<span class="fu">error</span> <span class="st">&quot;Too big&quot;</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="fu">putStrLn</span> <span class="st">&quot;Not too big&quot;</span>)</span></code></pre></div>
+<p>If the body terminates normally, i.e. without an exception, then the
+file is closed, as desired.</p>
+<pre><code>ghci&gt; bracketExample (1000 * 1000)
+Opening file
+Not too big
+Closing file</code></pre>
+<p>If the body terminates with an exception then the file is also closed,
+as desired (and the exception is rethrown from <code>bracket</code>).</p>
+<pre><code>ghci&gt; bracketExample 1000
+Opening file
+Closing file
+*** Exception: Too big</code></pre>
+<h2 id="bracketing-when-streaming">Bracketing when streaming</h2>
+<p>Bracketing of resources is a very useful, general concept. Streaming
+abstractions like those provided by pipes, conduit and Bluefin need to
+support prompt finalization, through some form of bracketing, because
+we want to be able to implement streaming computations that hold
+resources. For example, we might want to implement a producer that
+yields all lines from a file. To be resource safe, that producer must
+closes the handle to the file when it terminates, either normally or
+through an exception.</p>
+<p><code>Control.Exception.bracket</code> works in <code>IO</code>, not in the monad
+transformers provided by pipes and conduit, nor in the <code>Eff</code> monad
+provided by Bluefin, so we can’t use that bracketing function
+directly. Instead, the
+<a href="https://hackage.haskell.org/package/pipes-safe"><code>pipes-safe</code></a> and
+<a href="https://hackage.haskell.org/package/resourcet"><code>resourcet</code></a> libraries
+provide the
+<a href="https://hackage.haskell.org/package/pipes-safe-2.3.5/docs/Pipes-Safe.html#g:1"><code>SafeT</code></a>
+and
+<a href="https://hackage.haskell.org/package/resourcet-1.3.0/docs/Control-Monad-Trans-Resource.html#t:ResourceT"><code>ResourceT</code></a>
+monad transformers that offer a form of prompt finalization that work
+with the pipes and conduit ecosystems, and beyond. Bluefin has its
+own general-purpose bracketing operation, also called <code>bracket</code>.</p>
+<p>Let’s write a program so we can inspect the behaviour of pipes’s,
+conduit’s and Bluefin’s approaches to prompt finalization. The
+program will consist of a producer and a consumer. The producer will
+produce the numbers “1”, “2”, “3” and the consumer will print whatever
+it receives. Then we’re going to connect the producer to the consumer
+and run them, twice. We expect to see the numbers “1”, “2”, “3”
+printed to our terminal, twice.</p>
+<p>Furthermore, the producer will be bracketed. For simplicity we’re not
+going to bracket an actual resource, but we will print a message when
+the resource is (or rather would be) acquired and released. So, in
+addition to “1”, “2”, “3”, twice, we expect to see messages telling us
+when the “resource” was acquired and released (twice each).</p>
+<h3 id="pipes-implementation">Pipes implementation</h3>
+<p>Pipes is designed to work with <code>SafeT</code>, and provides a special-purpose
+<code>bracket</code> operation for bracketing. The implementation is as follows.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ot">pipes1 ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>pipes1 <span class="ot">=</span> runSafeT <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  runEffect <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    produce <span class="op">&gt;-&gt;</span> consume</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    produce <span class="op">&gt;-&gt;</span> consume</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="ot">    produce ::</span> <span class="dt">Producer</span> <span class="dt">Int</span> (<span class="dt">SafeT</span> <span class="dt">IO</span>) ()</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    produce <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>      <span class="co">-- Special-purpose pipes bracket</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>      P.bracket</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        (liftIO (<span class="fu">putStrLn</span> <span class="st">&quot;Acquiring resource&quot;</span>))</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        (\_ <span class="ot">-&gt;</span> liftIO (<span class="fu">putStrLn</span> <span class="st">&quot;Releasing resource&quot;</span>))</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        ( \_ <span class="ot">-&gt;</span> for_ [<span class="dv">1</span> <span class="op">..</span> <span class="dv">3</span>] <span class="op">$</span> \i <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>            P.yield i</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="ot">    consume ::</span> (<span class="dt">MonadIO</span> m) <span class="ot">=&gt;</span> <span class="dt">Consumer</span> <span class="dt">Int</span> m ()</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    consume <span class="ot">=</span> forever <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>      r <span class="ot">&lt;-</span> P.await</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>      liftIO (<span class="fu">print</span> r)</span></code></pre></div>
+<p>When we run <code>pipes1</code> everything works as expected. The resource is
+released (twice) as soon as it is no longer required, that is, as soon
+as the producer’s final element has been printed.</p>
+<pre><code>Acquiring resource
+1
+2
+3
+Releasing resource
+Acquiring resource
+1
+2
+3
+Releasing resource</code></pre>
+<h3 id="conduit-implementation">Conduit implementation</h3>
+<p>The conduit implementation is similar. Conduit is designed to work
+with <code>ResourceT</code>, and provides a special-purpose <code>bracketP</code> operation
+for bracketing. The implementation is as follows.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ot">conduit1 ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>conduit1 <span class="ot">=</span> runResourceT <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  runConduit <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    produce <span class="op">.|</span> consume</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    produce <span class="op">.|</span> consume</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="ot">    produce ::</span> <span class="dt">C.ConduitT</span> i <span class="dt">Int</span> (<span class="dt">ResourceT</span> <span class="dt">IO</span>) ()</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    produce <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>      <span class="co">-- Special-purpose conduit bracket</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>      C.bracketP</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        (liftIO (<span class="fu">putStrLn</span> <span class="st">&quot;Acquiring resource&quot;</span>))</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        (\_ <span class="ot">-&gt;</span> liftIO (<span class="fu">putStrLn</span> <span class="st">&quot;Releasing resource&quot;</span>))</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        ( \_ <span class="ot">-&gt;</span> for_ [<span class="dv">1</span> <span class="op">..</span> <span class="dv">3</span>] <span class="op">$</span> \i <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>            C.yield i</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="ot">    consume ::</span> (<span class="dt">MonadIO</span> m) <span class="ot">=&gt;</span> <span class="dt">C.ConduitT</span> <span class="dt">Int</span> o m ()</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    consume <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>      C.await <span class="op">&gt;&gt;=</span> \<span class="kw">case</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>        <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="fu">pure</span> ()</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>        <span class="dt">Just</span> r <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>          liftIO (<span class="fu">print</span> r)</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>          consume</span></code></pre></div>
+<p>The output is the same as the pipes version so the bracketing works as
+intended.</p>
+<pre><code>ghci&gt; conduit1
+Acquiring resource
+1
+2
+3
+Releasing resource
+Acquiring resource
+1
+2
+3
+Releasing resource</code></pre>
+<h3 id="bluefin-implementation">Bluefin implementation</h3>
+<p>The Bluefin implementation is also similar. Bluefin doesn’t need
+<code>SafeT</code> or <code>ResourceT</code>; its general-purpose <code>bracket</code> operation works
+equally well for bracketing streaming operations as it does for any
+other Bluefin operations.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ot">bluefin1 ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>bluefin1 <span class="ot">=</span> runEff <span class="op">$</span> \io <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  connectCoroutines (consume io) (produce io)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  connectCoroutines (consume io) (produce io)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="ot">    produce ::</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>      (e1 <span class="op">:&gt;</span> es, e2 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">IOE</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>      () <span class="ot">-&gt;</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Stream</span> <span class="dt">Int</span> e2 <span class="ot">-&gt;</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Eff</span> es ()</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    produce io () y <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>     <span class="co">-- General-purpose Bluefin bracket</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>      B.bracket</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>        (effIO io (<span class="fu">putStrLn</span> <span class="st">&quot;Acquiring resource&quot;</span>))</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>        (\_ <span class="ot">-&gt;</span> effIO io (<span class="fu">putStrLn</span> <span class="st">&quot;Releasing resource&quot;</span>))</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>        ( \_ <span class="ot">-&gt;</span> for_ [<span class="dv">1</span><span class="ot"> ::</span> <span class="dt">Int</span> <span class="op">..</span> <span class="dv">3</span>] <span class="op">$</span> \i <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>            B.yield y i</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a><span class="ot">    consume ::</span></span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>      (e1 <span class="op">:&gt;</span> es, e2 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>      <span class="dt">IOE</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Coroutine</span> () <span class="dt">Int</span> e2 <span class="ot">-&gt;</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Eff</span> es ()</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>    consume io c <span class="ot">=</span> forever <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>      r <span class="ot">&lt;-</span> yieldCoroutine c ()</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>      effIO io (<span class="fu">print</span> r)</span></code></pre></div>
+<p>Like for pipes and conduit, finalization runs promptly. The resource
+is released each time the third element is printed.</p>
+<pre><code>ghci&gt; bluefin1
+Acquiring resource
+1
+2
+3
+Releasing resource
+Acquiring resource
+1
+2
+3
+Releasing resource</code></pre>
+<h2 id="exception-unsafety">Exception unsafety</h2>
+<p>So far so good, but now the story gets worse for pipes and conduit.
+One of the main roles of a bracketing operation is to provide prompt
+finalization in the presence of exceptions. Can pipes, conduit and
+Bluefin’s bracketing operations handle exceptions in streaming
+operations?</p>
+<p>To determine the answer we are going to adjust our programs so that
+the producer throws an exception before it emits “3” and we’re going
+to catch the exception outside the producer, so it doesn’t propagate
+further.</p>
+<p>Pipes and conduit do not deal well with this case. Bluefin does.</p>
+<h3 id="pipes-implementation-1">Pipes implementation</h3>
+<p>The pipes implementation is the same as before, except we throw an
+exception in the producer when <code>i &gt;= 3</code>, and catch it, at the
+top-level of the producer definition, using pipe’s special-purpose
+<code>tryP</code> operation.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">MyEx</span> <span class="ot">=</span> <span class="dt">MyEx</span> <span class="kw">deriving</span> (<span class="dt">Show</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">E.Exception</span> <span class="dt">MyEx</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="ot">pipes2 ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>pipes2 <span class="ot">=</span> runSafeT <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  runEffect <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>    produce <span class="op">&gt;-&gt;</span> consume</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    produce <span class="op">&gt;-&gt;</span> consume</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="ot">    produce ::</span> <span class="dt">Producer</span> <span class="dt">Int</span> (<span class="dt">SafeT</span> <span class="dt">IO</span>) ()</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    produce <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>      <span class="co">-- Special-purpose pipes try</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>      void <span class="op">$</span> P.tryP <span class="op">@</span>_ <span class="op">@</span><span class="dt">MyEx</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">-- Special-purpose pipes bracket</span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>        P.bracket</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>          (liftIO (<span class="fu">putStrLn</span> <span class="st">&quot;Acquiring resource&quot;</span>))</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>          (\_ <span class="ot">-&gt;</span> liftIO (<span class="fu">putStrLn</span> <span class="st">&quot;Releasing resource&quot;</span>))</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>          ( \_ <span class="ot">-&gt;</span> for_ [<span class="dv">1</span> <span class="op">..</span> <span class="dv">3</span>] <span class="op">$</span> \i <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>              when (i <span class="op">&gt;=</span> <span class="dv">3</span>) <span class="op">$</span></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>                liftIO (E.throwIO <span class="dt">MyEx</span>)</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>              P.yield i</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>          )</span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a><span class="ot">    consume ::</span> (<span class="dt">MonadIO</span> m) <span class="ot">=&gt;</span> <span class="dt">Consumer</span> <span class="dt">Int</span> m ()</span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>    consume <span class="ot">=</span> forever <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>      r <span class="ot">&lt;-</span> P.await</span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>      liftIO (<span class="fu">print</span> r)</span></code></pre></div>
+<p>When we run <code>pipes2</code> we see a problem. The resource should be
+released after each time that “2” is printed, but first resource is
+not released until the very end. Oh dear.</p>
+<pre><code>ghci&gt; pipes2
+Acquiring resource
+1
+2
+Acquiring resource
+1
+2
+Releasing resource
+Releasing resource</code></pre>
+<h3 id="conduit-implementation-1">Conduit implementation</h3>
+<p>We make the same adjustments to the conduit implementation as the
+pipes implementation, using conduit’s special-purpose <code>tryC</code>.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ot">conduit2 ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>conduit2 <span class="ot">=</span> runResourceT <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  runConduit <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    produce <span class="op">.|</span> consume</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    produce <span class="op">.|</span> consume</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="ot">    produce ::</span> <span class="dt">C.ConduitT</span> i <span class="dt">Int</span> (<span class="dt">ResourceT</span> <span class="dt">IO</span>) ()</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>    produce <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>      <span class="co">-- Special-purpose conduit try</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>      void <span class="op">$</span> C.tryC <span class="op">@</span>_ <span class="op">@</span><span class="dt">MyEx</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>        <span class="co">-- Special-purpose conduit bracket</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>        C.bracketP</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>          (liftIO (<span class="fu">putStrLn</span> <span class="st">&quot;Acquiring resource&quot;</span>))</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>          (\_ <span class="ot">-&gt;</span> liftIO (<span class="fu">putStrLn</span> <span class="st">&quot;Releasing resource&quot;</span>))</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>          ( \_ <span class="ot">-&gt;</span> for_ [<span class="dv">1</span> <span class="op">..</span> <span class="dv">3</span>] <span class="op">$</span> \i <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>              when (i <span class="op">&gt;=</span> <span class="dv">3</span>) (liftIO (E.throwIO <span class="dt">MyEx</span>))</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>              C.yield i</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>          )</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="ot">    consume ::</span> (<span class="dt">MonadIO</span> m) <span class="ot">=&gt;</span> <span class="dt">C.ConduitT</span> <span class="dt">Int</span> o m ()</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>    consume <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>      C.await <span class="op">&gt;&gt;=</span> \<span class="kw">case</span></span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>        <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="fu">pure</span> ()</span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>        <span class="dt">Just</span> r <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>          liftIO (<span class="fu">print</span> r)</span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>          consume</span></code></pre></div>
+<p>The conduit example displays the same undesirable behaviour as the
+pipes example. The first resource should be released after “2” is
+printed, but it is not released until the very end.</p>
+<pre><code>ghci&gt; conduit2
+Acquiring resource
+1
+2
+Acquiring resource
+1
+2
+Releasing resource
+Releasing resource</code></pre>
+<h3 id="bluefin-implementation-1">Bluefin implementation</h3>
+<p>How will Bluefin fair? We make the same adjustments to the Bluefin
+implementation as we made to the pipes and conduit implementations,
+using Bluefin’s general-purpose <code>try</code> to catch the exception thrown
+when <code>i &gt;= 3</code>.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="ot">bluefin2 ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>bluefin2 <span class="ot">=</span> runEff <span class="op">$</span> \io <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  connectCoroutines (consume io) (produce io)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  connectCoroutines (consume io) (produce io)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="ot">    produce ::</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>      (e1 <span class="op">:&gt;</span> es, e2 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">IOE</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>      () <span class="ot">-&gt;</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Stream</span> <span class="dt">Int</span> e2 <span class="ot">-&gt;</span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Eff</span> es ()</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>    produce io () y <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>      <span class="co">-- General-purpose Bluefin try</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>      void <span class="op">$</span> B.try <span class="op">$</span> \e <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">-- General-purpose Bluefin bracket</span></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>        B.bracket</span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>          (effIO io (<span class="fu">putStrLn</span> <span class="st">&quot;Acquiring resource&quot;</span>))</span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>          (\_ <span class="ot">-&gt;</span> effIO io (<span class="fu">putStrLn</span> <span class="st">&quot;Releasing resource&quot;</span>))</span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>          ( \_ <span class="ot">-&gt;</span> for_ [<span class="dv">1</span><span class="ot"> ::</span> <span class="dt">Int</span> <span class="op">..</span> <span class="dv">3</span>] <span class="op">$</span> \i <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>              when (i <span class="op">&gt;=</span> <span class="dv">3</span>) (B.throw e ())</span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>              B.yield y i</span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>          )</span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a><span class="ot">    consume ::</span></span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>      (e1 <span class="op">:&gt;</span> es, e2 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>      <span class="dt">IOE</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Coroutine</span> () <span class="dt">Int</span> e2 <span class="ot">-&gt;</span></span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Eff</span> es ()</span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>    consume io c <span class="ot">=</span> forever <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a>      r <span class="ot">&lt;-</span> yieldCoroutine c ()</span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>      effIO io (<span class="fu">print</span> r)</span></code></pre></div>
+<p>When we look at the Bluefin behaviour we see it behaves as desired!
+The first resource is promptly finalized when it is no longer needed
+(as it was in all three exception-free implementations).</p>
+<pre><code>ghci&gt; bluefin2
+Acquiring resource
+1
+2
+Releasing resource
+Acquiring resource
+1
+2
+Releasing resource</code></pre>
+<h2 id="bluefin-and-prompt-finalization">Bluefin and prompt finalization</h2>
+<h3 id="bluefins-benefits">Bluefin’s benefits</h3>
+<p>Bluefin has two benefits over pipes and conduits with regard to prompt
+finalization of streaming resources.</p>
+<ol type="1">
+<li><p>Bluefin’s <code>bracket</code> and <code>try</code> operations are general purpose: they
+work throughout the Bluefin ecosystem, not just for streaming. The
+pipes/conduit <code>tryP</code>/<code>tryC</code> and <code>bracket</code>/<code>bracketP</code> operations are
+special purpose and work <em>only</em> on pipes/conduits.</p></li>
+<li><p>Bluefin streams finalize promptly, whereas the finalization of
+pipes and conduit might be called “promptish”. On exception they
+only release their resources at the end of the enclosing
+<code>runSafeT</code>/<code>runResourceT</code> block.</p>
+<p>Worse, this means the use of <code>ResourceT</code> and <code>SafeT</code> must leak out
+of the definition of the bracketed resource (in our case, the
+producer), breaking encapsulation. Consequently, when using
+<code>runSafeT</code> and <code>runResourceT</code> you have to <em>remember</em> to scope them
+as tightly as possible to the enclosed resources. If you
+accidentally scope them too loosely you’re holding on to resources
+for longer than necessary. By contrast, the resource safety of the
+Bluefin bracketed resource is encapsulated. It’s not possible to
+use it in a resource-unsafe manner.</p></li>
+</ol>
+<h3 id="how">How?</h3>
+<p>How can Bluefin, which is a general-purpose effect system, provide
+prompt finalization in streaming contexts when pipes and conduit,
+which are special-purpose streaming libraries, cannot?</p>
+<p>The ultimate reason is that Bluefin’s <a href="https://hackage.haskell.org/package/bluefin-0.0.7.0/docs/Bluefin-Eff.html#t:Eff"><code>Eff</code>
+monad</a>
+is <code>IO</code> under the hood. Firstly, this means we can use the standard
+<code>bracket</code> and <code>try</code> from <code>Control.Exception</code>, wrapped to work on <code>Eff</code>
+instead of <code>IO</code>, to bracket and try all Bluefin operations. No
+special-purpose operations are needed.</p>
+<p>Secondly, <code>connectCoroutines</code>, which connects a producer and a
+consumer, works by using
+<a href="https://hackage.haskell.org/package/async-2.2.5/docs/Control-Concurrent-Async.html#v:race"><code>Async.race</code></a>
+to fork two threads which communicate in a synchronized fashion
+through
+<a href="https://www.stackage.org/haddock/lts-22.34/base-4.18.2.1/Control-Concurrent-MVar.html#t:MVar"><code>MVar</code></a>s.
+If one thread is terminated by an uncaught exception then all brackets
+active at the point the exception was thrown will already have had
+their finalizers run. Furthermore, <code>Async.race</code> ensures that the
+other thread is terminated using an asynchronous exception, causing
+the finalizers to run of all active brackets in that thread too.</p>
+<h3 id="conclusion">Conclusion</h3>
+<p>There is a common refrain in the Haskell community that “<a href="https://old.reddit.com/r/haskell/comments/w39zwr/how_are_lists_sequences_from_containers_package/">lazy data
+types are control
+structures</a>”.
+This means, for example, that data structures like lazy lists, or
+their effectful equivalents, pipes and conduit, can be seen as
+“control structures” that determine the flow of control within an
+executing program. Given the difficulties that these sorts of
+“control structures” have with prompt finalization it might worth
+shifting away from that point of view to one in which the ultimate
+control structures are those provided by <code>IO</code>-based effect systems
+like Bluefin.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><p>Michael Snoyman observed pipe’s lack of prompt finalization in <a href="https://www.yesodweb.com/blog/2013/10/core-flaw-pipes-conduit%3E">The
+core flaws of pipes and
+conduit</a>
+(section “pipes: Prompt resource finalization”), but in the presence
+of exceptions, conduit has the same problem.</p></li>
+<li><p>Michael Snoyman: <a href="https://www.yesodweb.com/blog/2013/10/pipes-resource-problems">pipes resource
+problems</a></p></li>
+<li><p>Haskell Wiki: <a href="https://wiki.haskell.org/Bracket_pattern">Bracket
+pattern</a></p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>
