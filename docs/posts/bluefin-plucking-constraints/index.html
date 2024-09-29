@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>bluefin-plucking-constraints</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>bluefin-plucking-constraints</h3>
+  <h1 id="plucking-constraints-in-bluefin">Plucking constraints in Bluefin</h1>
+<p>ONe of the promises of strongly-typed, pure functional programming is
+to “make invalid states unrepresentable”. How does this look in the
+context of effects in Haskell? Consider an operation <code>foo</code> with type
+<code>ExceptT String (State Int) ()</code>. The valid states of such an
+operation are those that can throw a <code>String</code> exception, manipulate an
+<code>Int</code> state (and eventually terminate with a <code>()</code>). So far so good.
+But the story gets even better. We can handle effects, making the set
+of valid states even smaller. For example, if we decide to handle the
+<code>String</code> exception, and if we catch one, to add its length to the
+<code>Int</code> state as follows</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">handleLength ::</span> <span class="dt">ExceptT</span> <span class="dt">String</span> (<span class="dt">State</span> <span class="dt">Int</span>) () <span class="ot">-&gt;</span> <span class="dt">State</span> <span class="dt">Int</span> ()</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>handleLength m <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  e <span class="ot">&lt;-</span> runExceptT m</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">case</span> e <span class="kw">of</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Left</span> s <span class="ot">-&gt;</span> modify (<span class="op">+</span> <span class="fu">length</span> s)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Right</span> () <span class="ot">-&gt;</span> <span class="fu">pure</span> ()</span></code></pre></div>
+<p>Then <code>handleLength foo :: State Int ()</code>.</p>
+<p>The resulting operation has type <code>State Int ()</code>. We have restricted
+the space of valid states to those operations that manipulate an <code>Int</code>
+state, despite the fact that the <em>implementation</em> uses an exception.</p>
+<p>But we don’t typically want to write concrete monad transformer
+stacks. Instead we can use MTL-style constraints, for example
+<code>(MonadError String m, MonadState Int m) =&gt; m ()</code>. Then exactly the
+same implementation as <code>handleLength</code> works for this MTL style
+function too!</p>
+<p>Suppose <code>fooMTL :: (MonadError String m, MonadState Int m) =&gt; m ()</code>.
+Then defining</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">handleLengthMTL ::</span> <span class="dt">MonadState</span> <span class="dt">Int</span> m <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> <span class="dt">String</span> m () <span class="ot">-&gt;</span> m ()</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>handleLengthMTL m <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  e <span class="ot">&lt;-</span> runExceptT m</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">case</span> e <span class="kw">of</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Left</span> s <span class="ot">-&gt;</span> modify (<span class="op">+</span> <span class="fu">length</span> s)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Right</span> () <span class="ot">-&gt;</span> <span class="fu">pure</span> ()</span></code></pre></div>
+<p>we have <code>handleLengthMTL fooMTL :: MonadState Int m =&gt; m ()</code>. How
+does this work? Well, let’s consider the two types involved, renaming
+the type variable in <code>fooMTL</code> from <code>m</code> to <code>m'</code> to avoid confusion.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">fooMTL ::</span> (<span class="dt">MonadError</span> <span class="dt">String</span> m', <span class="dt">MonadState</span> <span class="dt">Int</span> m') <span class="ot">=&gt;</span> m' ()</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ot">handleLengthMTL ::</span> <span class="dt">MonadState</span> <span class="dt">Int</span> m <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> <span class="dt">String</span> m () <span class="ot">=&gt;</span> m ()</span></code></pre></div>
+<p>Then we we form <code>handleLengthMTL fooMTL</code>, <code>m'</code> has to be <code>ExceptT String m'</code>, so we end up with</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>handleLengthMTL<span class="ot"> fooTML ::</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  ( <span class="dt">MonadError</span> <span class="dt">String</span> (<span class="dt">ExceptT</span> <span class="dt">String</span> m'),</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MonadState</span> <span class="dt">Int</span> (<span class="dt">ExceptT</span> <span class="dt">String</span> m'),</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MonadState</span> <span class="dt">Int</span> m,</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  ) <span class="ot">=&gt;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">ExceptT</span> <span class="dt">String</span> m' () <span class="ot">-&gt;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  m ' ()</span></code></pre></div>
+<p>That’s exactly what we expect, except that there are two constraints.
+Can we discharge them? Let’s see how that proceeds. Firstly, there
+is an instance</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">MonadError</span> e (<span class="dt">ExceptT</span> e m)</span></code></pre></div>
+<p>so the first constraint reduces to <code>Monad m</code>. The third constraint is
+<code>MonadState Int m</code>, and there’s nothing to be done about that. It’s
+still a constraint on the result.</p>
+<p>The second constraint is more interesting. There is an instance</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">MonadState</span> s m <span class="ot">=&gt;</span> <span class="dt">MonadState</span> s (<span class="dt">ExceptT</span> e m)</span></code></pre></div>
+<p>so the second constraint reduces to <code>MonadState s m</code>. But <code>MonadState s m</code> <a href="https://www.stackage.org/haddock/lts-22.35/mtl-2.3.1/Control-Monad-State-Class.html#t:MonadState">can only hold when <code>Monad m</code>
+holds</a>,
+so the remaining constraint is just <code>MonadState s m</code>.</p>
+<p>How did this work? It crucially depended on two elements: firstly,
+the <code>MonadError</code> instance for <code>ExceptT</code>. That part is straightforward
+and expected. Less straightforward is the second element: the
+<code>MonadState</code> instance that “passes” state behaviour through the
+<code>ExceptT</code> layer to the inner <code>m</code> which is itself an instance of
+<code>MonadState</code>.</p>
+<p>This is why MTL style has the “n squared instances problem”: for every
+effect “MyEffect” I define, I need a constraint (say <code>MonadMyEffect</code>), I need a
+transformer <code>MyEffectT</code>, an <code>MonadMyEffect</code> instance for <code>MyEffectT</code>,
+by then crucially, n more instances, for every other effect
+constraint, that delegate the effect to the inner monad. For example,
+I need</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">MonadState</span> s m <span class="ot">=&gt;</span> <span class="dt">MonadState</span> s (<span class="dt">MyEffectT</span> m)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">MonadError</span> e m <span class="ot">=&gt;</span> <span class="dt">MonadError</span> e (<span class="dt">MyEffectT</span> m)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="op">...</span></span></code></pre></div>
+<p>So far this article has mostly recapitulated what Matt Parsons wrote
+in his article “<a href="https://www.parsonsmatt.org/2020/01/03/plucking_constraints.html">Plucking
+Constraints</a>”.
+Now let’s see something different: how plucking constraints works in
+Bluefin.</p>
+<h2 id="bluefin">Bluefin</h2>
+<p>So far we have seen types</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ot">foo ::</span> <span class="dt">ExceptT</span> <span class="dt">String</span> (<span class="dt">State</span> <span class="dt">Int</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="ot">fooMTL ::</span> (<span class="dt">MonadError</span> <span class="dt">String</span> m, <span class="dt">MonadState</span> <span class="dt">Int</span> m) <span class="ot">=&gt;</span> m ()</span></code></pre></div>
+<p>The Bluefin equivalent is</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ot">fooBf ::</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  (e1 <span class="op">:&gt;</span> es, e2 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">State</span> <span class="dt">Int</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Exception</span> <span class="dt">String</span> e2 <span class="ot">-&gt;</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es ()</span></code></pre></div>
+<p>and the Bluefin equivalent of the handler is</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ot">handleLengthBf ::</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  (e1 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  (<span class="kw">forall</span> e2<span class="op">.</span> <span class="dt">Exception</span> <span class="dt">String</span> e2 <span class="ot">-&gt;</span> <span class="dt">Eff</span> (e2 <span class="op">:&amp;</span> es) r) <span class="ot">-&gt;</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">State</span> <span class="dt">Int</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es ()</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>handleLengthBf m st <span class="ot">=</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  e <span class="ot">&lt;-</span> try m</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">case</span> e <span class="kw">of</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Left</span> s <span class="ot">-&gt;</span> modify st (<span class="op">+</span> <span class="fu">length</span> s)</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Right</span> () <span class="ot">-&gt;</span> <span class="fu">pure</span> ()</span></code></pre></div>
+<p>When we use it to handle <code>fooBf</code> we get</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>\s <span class="ot">-&gt;</span> handleLengthBf (fooBf s)<span class="ot"> s ::</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  (e1 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span> <span class="dt">State</span> <span class="dt">Int</span> e1 <span class="ot">-&gt;</span> <span class="dt">Eff</span> es ()</span></code></pre></div>
+<p>Let’s see how this one works. Again, I’m going to rename a type
+variable to avoid confusion, this time <code>es</code> in <code>fooBf</code> to <code>es'</code>.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ot">fooBf ::</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  (e1 <span class="op">:&gt;</span> es', e2 <span class="op">:&gt;</span> es') <span class="ot">=&gt;</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">State</span> <span class="dt">Int</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Exception</span> <span class="dt">String</span> e2 <span class="ot">-&gt;</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es' ()</span></code></pre></div>
+<p>This means that when we form <code>handleLengthBf (fooBf s) s</code> we need to
+choose <code>e2 :&amp; es</code> for <code>es'</code>, so we get the type</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ot">handledBf ::</span> (e1 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span> <span class="dt">State</span> <span class="dt">Int</span> e1 <span class="ot">-&gt;</span> <span class="dt">Eff</span> es ()</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>handledBf <span class="ot">=</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  handleLengthbf</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    (fooBf<span class="ot"> s ::</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>      <span class="kw">forall</span> e2<span class="op">.</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>      (e1 <span class="op">:&gt;</span> (e2 <span class="op">:&amp;</span> es), e2 <span class="op">:&gt;</span> (e2 <span class="op">:&amp;</span> es)) <span class="ot">=&gt;</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Eff</span> (e2 <span class="op">:&amp;</span> es) ())</span></code></pre></div>
+<p>Se the constraints we have to deal with relate to <a href="https://hackage.haskell.org/package/bluefin-0.0.7.0/docs/Bluefin-Eff.html#t::-62-">instances for <code>:&gt;</code>
+in
+Bluefin</a>.
+They are</p>
+<pre><code>e1 :&gt; es
+e1 :&gt; (e2 :&amp; es)
+e2 :&gt; (e2 :&amp; es))</code></pre>
+<p>The first, <code>e1 :&gt; es</code> is easiest, because there’s nothing we can do
+about it. It remains in the final form. This is analogous to the
+case of <code>MonadState Int m</code> above.</p>
+<p>The second, <code>e1 :&gt; (e2 :&amp; es)</code> is dealt with by the following instance
+for <code>:&gt;</code>:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> (e <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span> e <span class="op">:&gt;</span> (x <span class="op">:&amp;</span> es)</span></code></pre></div>
+<p>It becomes <code>e1 :&gt; es</code>, identical to the constraint we already have.
+This is analogous to the case above, of</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="dt">MonadState</span> s m <span class="ot">=&gt;</span> <span class="dt">MonadState</span> s (<span class="dt">ExceptT</span> e m)</span></code></pre></div>
+<p>The third, <code>e2 :&gt; (e2 :&amp; es)</code>, is satisfied by</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> e <span class="op">:&gt;</span> (e <span class="op">:&gt;</span> es)</span></code></pre></div>
+<p>and so is absent from the final form. This is analogous to the
+constraint <code>MonadError String (ExceptT String m')</code> above.</p>
+<p>In this manner, Bluefin avoids the “n squared instances” problem. The
+only instances needed are those of <code>:&gt;</code>, and they are crafted to deal
+with all the situations that they need to.</p>
+<p>But hold on. Something funny happened here. The third constraint
+matches <em>both</em> of these instance definitions:</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> e <span class="op">:&gt;</span> (e <span class="op">:&gt;</span> es)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> (e <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span> e <span class="op">:&gt;</span> (x <span class="op">:&amp;</span> es)</span></code></pre></div>
+<p>Above we said that the third constraint was completely satisfied by
+the former, a desirable outcome. On the other hand, the latter seems
+to suggest the third constraint should be replaced by <code>e2 :&gt; es</code>. We
+don’t want that because <code>e2</code> is not even bound in the type signature
+for <code>handledBf</code>. It only occurs as a polymorphic type variable in
+<code>fooBf</code>.</p>
+<p>So what’s going on? Well, I omitted something from the instance
+declarations above. The declaration for <code>e :&gt; (e :&amp; es)</code> is actually
+<em>incoherent</em>.</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> (e <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span> e <span class="op">:&gt;</span> (x <span class="op">:&amp;</span> es)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="ot">{-# INCOHERENT #-}</span> e <span class="op">:&gt;</span> (e <span class="op">:&amp;</span> es)</span></code></pre></div>
+<p>so we can only use the former instance if we know that <code>e</code> is not the
+same as <code>x</code>. But in this case we do! Why? Because is this case <code>x</code>
+is <code>e1</code>, which cannot be the same as <code>e2</code>, because <code>e2</code> is universally
+quantified in <code>handleLengthBf</code>, so we can happily apply <code>(e :&gt; es) =&gt; e :&gt; (x :&amp; es)</code>.</p>
+<h1 id="references">References</h1>
+<ul>
+<li><a href="https://ghc.gitlab.haskell.org/ghc/doc/users_guide/exts/instances.html#instance-resolution" class="uri">https://ghc.gitlab.haskell.org/ghc/doc/users_guide/exts/instances.html#instance-resolution</a></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>
