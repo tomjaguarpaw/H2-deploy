@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>exitfailure-doesnt-exit</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>exitfailure-doesnt-exit</h3>
+  <h1 id="exitfailure-doesnt-exit"><code>exitFailure</code> doesn’t exit</h1>
+<p>– nor do <code>exitSuccess</code>, <code>exitWith</code> and <code>die</code></p>
+<p>Haskell’s <code>base</code> library contains
+<a href="https://hackage.haskell.org/package/base-4.20.0.0/docs/System-Exit.html#v:exitWith"><code>System.Exit.exitFailure</code></a>.
+From the name, it sounds as though running it ought to cause your
+Haskell program to exit (with a failure exit code). But it doesn’t,
+at least not directly. Instead it throws an exception of type
+<a href="https://hackage.haskell.org/package/base-4.20.0.0/docs/System-Exit.html#t:ExitCode"><code>ExitCode</code></a>
+(specifically, <code>ExitFailure 1</code>). Then it is the responsibility of
+some exception handler to catch that exception and cause the program
+to exit appropriately. What handler is that? It is
+<a href="https://hackage.haskell.org/package/ghc-internal-9.1001.0/docs/src/GHC.Internal.TopHandler.html#real_handler"><code>real_handler</code></a>
+in <code>GHC.Internal.TopHandler</code>. It has a special case for <code>ExitCode</code>
+exceptions:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">case</span> fromException se <span class="kw">of</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Just</span> <span class="dt">ExitSuccess</span>     <span class="ot">-&gt;</span> exit <span class="dv">0</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Just</span> (<span class="dt">ExitFailure</span> n) <span class="ot">-&gt;</span> exit n</span></code></pre></div>
+<p><code>exit</code> ultimately calls the runtime system (RTS) function
+<a href="https://gitlab.haskell.org/ghc/ghc/-/blob/25edf84977fa15b9911ecbdf614789893ad0e108/rts/RtsStartup.c#L678-687"><code>shutdownHaskellAndExit</code></a>,
+which causes the RTS to exit and thus the program to terminate.</p>
+<p>Why then, instead of exiting by throwing an exception, don’t we just
+expose that <code>exit</code> function and call it directly? <a href="https://hackage.haskell.org/package/base-4.20.0.0/docs/System-Exit.html#v:exitWith">The documentation
+for
+<code>exitWith</code></a>
+explains:</p>
+<blockquote>
+<p>As an <code>ExitCode</code> is an <code>Exception</code>, it can be caught using the
+functions of <code>Control.Exception</code>. This means that cleanup
+computations added with
+<a href="https://hackage.haskell.org/package/ghc-internal-9.1001.0/docs/GHC-Internal-Control-Exception.html#v:bracket"><code>bracket</code></a>
+(from <code>Control.Exception</code>) are also executed properly on <code>exitWith</code>.</p>
+</blockquote>
+<p>Using the exception system to trigger program exit allows resources
+that were allocated in a <code>bracket</code>, but are not managed by the RTS,
+such as files on disk, to be cleaned up before program exit. That’s
+useful. But exceptions-for-exit also has strange consequences: if the
+<code>ExitCode</code> exception is caught then the program won’t exit!</p>
+<p>If a
+<a href="https://hackage.haskell.org/package/base-4.20.0.0/docs/Control-Exception.html#v:try"><code>try</code></a>
+block catches <code>ExitCode</code>, and the body ends up calling one of the exit
+functions then the program will not exit. The correct workaround is
+to not do that: don’t catch <code>ExitCode</code> exceptions (and don’t catch
+<code>SomeException</code> either, which is the “catch all” exception).</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>try <span class="op">@</span><span class="dt">ExitCode</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    exitFailure</span></code></pre></div>
+<p>Similarly, if
+<a href="https://www.stackage.org/haddock/lts-22.38/base-4.18.2.1/Control-Concurrent.html#v:forkIO"><code>forkIO</code></a>
+spawns a child thread and the child thread ends up calling one of the
+exit functions then <code>forkIO</code> swallows the exception and the program
+will not exit. The following code misleadingly prints <code>main: ExitFailure 1</code> (as <code>forkIO</code> catches, prints, and discards the
+<code>ExitCode</code> exception) and then ends up looping forever in
+<code>threadDelay</code>s. That’s probably not what we wanted! A workaround is
+to use the <a href="https://hackage.haskell.org/package/async-2.2.5/docs/Control-Concurrent-Async.html"><code>async</code>
+package</a>
+rather than <code>forkIO</code>. <code>async</code> provides structured concurrency
+primitives that are harder to misuse. In particular, when a thread
+forked by <code>async</code> terminates with an exception then <code>async</code> rethrows
+the exception to the parent thread.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>forkIO <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    exitFailure</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>forever <span class="op">$</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  threadDelay (<span class="dv">1000</span> <span class="op">*</span> <span class="dv">1000</span>)</span></code></pre></div>
+<p>So <code>exitFailure</code> doesn’t exit, it throws an exception. The exception
+will cause the program exit if it gets to the top of the main thread.
+If it doesn’t, it won’t, so some care is needed!</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>
