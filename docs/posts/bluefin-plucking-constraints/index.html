@@ -114,11 +114,10 @@ confusion.</p>
 <code>ExceptT String m</code>. We end up with</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>handleLengthMTL<span class="ot"> operMTL ::</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  ( <span class="dt">MonadState</span> <span class="dt">Int</span> m,</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MonadState</span> <span class="dt">Int</span> (<span class="dt">ExceptT</span> <span class="dt">String</span> m'),</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MonadError</span> <span class="dt">String</span> (<span class="dt">ExceptT</span> <span class="dt">String</span> m')</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MonadState</span> <span class="dt">Int</span> (<span class="dt">ExceptT</span> <span class="dt">String</span> m),</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MonadError</span> <span class="dt">String</span> (<span class="dt">ExceptT</span> <span class="dt">String</span> m)</span>
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  ) <span class="ot">=&gt;</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">ExceptT</span> <span class="dt">String</span> m' () <span class="ot">-&gt;</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  m' ()</span></code></pre></div>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  m ()</span></code></pre></div>
 <p>That’s exactly what we anticipate, except for the constraints. We
 have three constraints where we expected one. That’s OK though: we
 can discharge the unexpected constraints to obtain just the expected
