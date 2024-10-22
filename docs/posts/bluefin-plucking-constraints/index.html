@@ -109,7 +109,7 @@ confusion.</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ot">operMTL ::</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  (<span class="dt">MonadError</span> <span class="dt">String</span> m', <span class="dt">MonadState</span> <span class="dt">Int</span> m') <span class="ot">=&gt;</span> m' ()</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="ot">handleLengthMTL ::</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">MonadState</span> <span class="dt">Int</span> m <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> <span class="dt">String</span> m () <span class="ot">=&gt;</span> m ()</span></code></pre></div>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">MonadState</span> <span class="dt">Int</span> m <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> <span class="dt">String</span> m () <span class="ot">-&gt;</span> m ()</span></code></pre></div>
 <p>Then for <code>handleLengthMTL operMTL</code> to type check we need <code>m'</code> to be
 <code>ExceptT String m</code>. We end up with</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>handleLengthMTL<span class="ot"> operMTL ::</span></span>
