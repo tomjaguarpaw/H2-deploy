@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>bluefin-is-better-than-OOP-actually</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>bluefin-is-better-than-OOP-actually</h3>
+  <h1 id="bluefin-is-better-than-oop-actually">Bluefin is better than OOP, actually</h1>
+<p>– Please forgive the snarky-sounding title: I’m paying homage</p>
+<p>Ömer Sinan Ağacan recently published “<a href="https://osa1.net/posts/2024-10-09-oop-good.html">OOP is not that bad,
+actually</a>” (from
+which this artcle derives its name) in which he describes a task that
+he says “mainstream statically-typed OOP languages do well”. He
+defines OOP as statically-typed programming with classes, inheritance,
+subtyping and virtual calls.</p>
+<p>Ultimately I interpret the article to advocate for programming against
+well-defined interfaces that can be instantiated with a variety of
+implementations. I’m strongly in support. However, I think task is
+better solved by Haskell, a statically-typed functional language, than
+by an OOP language (as Ömer defines it). In particular, I don’t value
+inheritance and subtyping for this task.</p>
+<h2 id="a-logger">A logger</h2>
+<p>Let’s look at the example that Ömer uses and see how Bluefin does
+better. Firstly we define the logger interface. In Haskell an
+interface is a type, here <code>Logger</code>. This is just like the <code>Logger</code>
+type that Ömer defined, except using the Bluefin
+<a href="https://hackage.haskell.org/package/bluefin-0.0.9.0/docs/Bluefin-Eff.html#t:Eff"><code>Eff</code></a>
+type instead of <code>IO</code>.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">Severity</span> <span class="ot">=</span> <span class="dt">Int</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">Logger</span> e <span class="ot">=</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Log a message with a severity</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">MkLogger</span> {<span class="ot">logImpl ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Severity</span> <span class="ot">-&gt;</span> <span class="dt">Eff</span> e ()}</span></code></pre></div>
+<p>Then we need a bit of ceremony to define a <code>Handle</code> instance and the
+<code>log</code> function that we define in terms of the <code>Handle</code> implementation.
+This is in principle derivable using Template Haskell or Generics but
+I haven’t implemented that yet. Mea culpa.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Handle</span> <span class="dt">Logger</span> <span class="kw">where</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  mapHandle logger <span class="ot">=</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MkLogger</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      { logImpl <span class="ot">=</span> (<span class="fu">fmap</span> <span class="op">.</span> <span class="fu">fmap</span>) useImpl (logImpl logger)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="fu">log</span><span class="ot"> ::</span> (e <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span> <span class="dt">Logger</span> e <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Severity</span> <span class="ot">-&gt;</span> <span class="dt">Eff</span> es ()</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">log</span> <span class="ot">=</span> operationFrom logImpl</span></code></pre></div>
+<p>Then immediately we can define a function which uses the <code>Logger</code>
+interface. It prints some messages to stdout (using <code>putStrLn</code>) and
+logs some messages to the <code>Logger</code> (using <code>log</code>).</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">exampleWithLogger ::</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  (e1 <span class="op">:&gt;</span> es, e2 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">IOE</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Logger</span> e2 <span class="ot">-&gt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es ()</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>exampleWithLogger io logger <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  effIO io (<span class="fu">putStrLn</span> <span class="st">&quot;Started Logger example&quot;</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">log</span> logger <span class="st">&quot;Mild Logger message&quot;</span> <span class="dv">0</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">log</span> logger <span class="st">&quot;Severe Logger message&quot;</span> <span class="dv">10</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  effIO io (<span class="fu">putStrLn</span> <span class="st">&quot;Ended Logger example&quot;</span>)</span></code></pre></div>
+<p>Having such a function is not useful until we have a way to
+instantiate the <code>Logger</code> interface. Here’s one: it send log messages
+to stdout.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">withStdoutLogger ::</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  (e1 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">IOE</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  (<span class="kw">forall</span> e<span class="op">.</span> <span class="dt">Logger</span> e <span class="ot">-&gt;</span> <span class="dt">Eff</span> (e <span class="op">:&amp;</span> es) r) <span class="ot">-&gt;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es r</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>withStdoutLogger io k <span class="ot">=</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  useImplIn</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    k</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MkLogger</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>      { logImpl <span class="ot">=</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>          \msg sev <span class="ot">-&gt;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>            effIO io (<span class="fu">putStrLn</span> (mkMsg msg sev))</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    mkMsg msg sev <span class="ot">=</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;Logger message: &quot;</span> <span class="op">++</span> <span class="fu">show</span> sev <span class="op">++</span> <span class="st">&quot;: &quot;</span> <span class="op">++</span> msg</span></code></pre></div>
+<p>I can instantiate the <code>Logger</code> interface and ue it to run the example
+like this:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ot">runExampleWithLogger ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>runExampleWithLogger <span class="ot">=</span> runEff <span class="op">$</span> \io <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- &quot;Instantiate&quot; the Logger interface</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- with a stdout logger</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  withStdoutLogger io <span class="op">$</span> \logger <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Use the Logger &quot;instance&quot;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    exampleWithLogger io logger</span></code></pre></div>
+<p>and the result is as expected:</p>
+<pre><code>Started Logger example
+Log msg: 0: Mild Logger message
+Log msg: 10: Severe Logger message
+Ended Logger example</code></pre>
+<h2 id="a-minimum-severity-logger">A minimum severity logger</h2>
+<p>Another example that Ömer uses is a logger which only logs above a
+certain severity. Bluefin can do that too! We can create a <code>Logger</code>
+that logs to an existing <code>Logger</code>, but only when the severity is above
+some minimum severity.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ot">withLogAboveSeverityLogger ::</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  (e1 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Severity</span> <span class="ot">-&gt;</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Logger</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  (<span class="kw">forall</span> e<span class="op">.</span> <span class="dt">Logger</span> e <span class="ot">-&gt;</span> <span class="dt">Eff</span> (e <span class="op">:&amp;</span> es) r) <span class="ot">-&gt;</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es r</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>withLogAboveSeverityLogger minSev logger k <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  useImplIn</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    k</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MkLogger</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>      { logImpl <span class="ot">=</span> \msg sev <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>          when (sev <span class="op">&gt;=</span> minSev) <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>            <span class="fu">log</span> logger msg sev</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>      }</span></code></pre></div>
+<p>Then we can make a stdout logger and restrict it so it only logs more
+severe messages (messages of severity 5 and above):</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ot">runExampleWithLogAboveSeverityLogger ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>runExampleWithLogAboveSeverityLogger <span class="ot">=</span> runEff <span class="op">$</span> \io <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Make the stdout logger</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  withStdoutLogger io <span class="op">$</span> \logger <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Only log messages of severity 5 and above</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    withLogAboveSeverityLogger <span class="dv">5</span> logger <span class="op">$</span> \severeLogger <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>      <span class="co">-- Run the example with the restricted logger</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>      exampleWithLogger io severeLogger</span></code></pre></div>
+<p>The output is the same except the mild log message is suppressed.</p>
+<pre><code>Started Logger example
+Log msg: 10: Severe Logger message
+Ended Logger example</code></pre>
+<h2 id="a-file-logger">A file logger</h2>
+<p>Similarly we can define a file logger interface. It contains a
+<code>Logger</code> whose log operation will log to an open file, and it contains
+an effectful operation which flushes writes to the open file.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">FileLogger</span> e <span class="ot">=</span> <span class="dt">MkFileLogger</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  {<span class="ot"> fileLoggerLogger ::</span> <span class="dt">Logger</span> e,</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="ot">    flushImpl ::</span> <span class="dt">Eff</span> e ()</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  }</span></code></pre></div>
+<p>Composition, not inheritance! As for our definition of <code>Logger</code> we
+have some ceremony. Sorry.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">Handle</span> <span class="dt">FileLogger</span> <span class="kw">where</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  mapHandle fileLogger <span class="ot">=</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MkFileLogger</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>      { fileLoggerLogger <span class="ot">=</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>          mapHandle (fileLoggerLogger fileLogger),</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>        flushImpl <span class="ot">=</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>          useImpl (flushImpl fileLogger)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="ot">flush ::</span> (e <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span> <span class="dt">FileLogger</span> e <span class="ot">-&gt;</span> <span class="dt">Eff</span> es ()</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>flush <span class="ot">=</span> operationFrom flushImpl</span></code></pre></div>
+<p>To create a <code>FileLogger</code> we take a file name, get access to a
+writeable file handle using a Bluefin <code>withFile</code> block, and use the
+handle to define the <code>Logger</code> and the flush operation. Bluefin’s
+<code>withFile</code> is bracketed, so the file is closed automatically when
+leaving <code>withFileLogger</code> (even if an exception is thrown).</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ot">withFileLogger ::</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  (e1 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">FilePath</span> <span class="ot">-&gt;</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">IOE</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  (<span class="kw">forall</span> e<span class="op">.</span> <span class="dt">FileLogger</span> e <span class="ot">-&gt;</span> <span class="dt">Eff</span> (e <span class="op">:&amp;</span> es) r) <span class="ot">-&gt;</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es r</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>withFileLogger fp io k <span class="ot">=</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Open a file for writing</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>  withFile io fp <span class="dt">WriteMode</span> <span class="op">$</span> \handle <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Create the FileLogger</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    useImplIn</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>      k</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">MkFileLogger</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>        { fileLoggerLogger <span class="ot">=</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>            <span class="dt">MkLogger</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>              { logImpl <span class="ot">=</span></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>                  \msg sev <span class="ot">-&gt;</span></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>                    <span class="co">-- Log to the open file</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>                    hPutStrLn handle (mkMsg msg sev)</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>              },</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>          flushImpl <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>            <span class="co">-- Diagnostic message just for the sake of</span></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>            <span class="co">-- the example</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>            effIO io (<span class="fu">putStrLn</span> <span class="st">&quot;Flushing FileLogger&quot;</span>)</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>            <span class="co">-- Flush writes to the file</span></span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>            hFlush handle</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>    mkMsg msg sev <span class="ot">=</span></span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;FileLogger message: &quot;</span> <span class="op">++</span> <span class="fu">show</span> sev <span class="op">++</span> <span class="st">&quot;: &quot;</span> <span class="op">++</span> msg</span></code></pre></div>
+<p>We want to be able to use functions that accept <code>Logger</code> with our
+<code>FileLogger</code>. But how can we? Haskell doesn’t have subtyping!
+That’s OK: Haskell has functions. We can turn a <code>FileLogger</code>
+into a <code>Logger</code> as follows. This is the same role that subtyping
+plays, but here it’s an explicit use of function application.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ot">withFileLoggerAsLogger ::</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  (e1 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">FileLogger</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  (<span class="kw">forall</span> e<span class="op">.</span> <span class="dt">Logger</span> e <span class="ot">-&gt;</span> <span class="dt">Eff</span> (e <span class="op">:&amp;</span> es) r) <span class="ot">-&gt;</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es r</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>withFileLoggerAsLogger <span class="ot">=</span> useHandle fileLoggerLogger</span></code></pre></div>
+<p>Then we can use a <code>FileLogger</code> with our function <code>exampleWithLogger</code>,
+which expected a <code>Logger</code>:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="ot">exampleWithFileLogger ::</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  (e1 <span class="op">:&gt;</span> es, e2 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">IOE</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">FileLogger</span> e2 <span class="ot">-&gt;</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es ()</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>exampleWithFileLogger io fileLogger <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Create a Logger from the FileLogger</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  withFileLoggerAsLogger fileLogger <span class="op">$</span> \logger <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>    effIO io (<span class="fu">putStrLn</span> <span class="st">&quot;Started FileLogger example&quot;</span>)</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Log to the FileLogger</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">log</span> logger <span class="st">&quot;Mild FileLogger message&quot;</span> <span class="dv">0</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>    withLogAboveSeverityLogger <span class="dv">5</span> logger <span class="op">$</span> \severeLogger <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>      exampleWithLogger io severeLogger</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Flush the FileLogger</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>    flush fileLogger</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">log</span> logger <span class="st">&quot;Severe FileLogger message&quot;</span> <span class="dv">10</span></span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>    effIO io (<span class="fu">putStrLn</span> <span class="st">&quot;Ended Logger example&quot;</span>)</span></code></pre></div>
+<p>and run it (using the “file” <code>/dev/stdout</code>, so that all messages
+appear directly on the console for the benefit of exposition).</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="ot">runExampleWithFileLogger ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>runExampleWithFileLogger <span class="ot">=</span> runEff <span class="op">$</span> \io <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Create the FileLogger</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  withFileLogger <span class="st">&quot;/dev/stdout&quot;</span> io <span class="op">$</span> \fileLogger <span class="ot">-&gt;</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Use the FileLogger</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    exampleWithFileLogger io fileLogger</span></code></pre></div>
+<p>We can see that the <code>FileLogger</code>is used for all messages, the
+<code>FileLogger</code> is flushed at the expected point, and the mild message
+arising from <code>exampleWithLogger</code> is suppressed (as it was above in
+<code>runExampleWithLogAboveSeverityLogger</code>).</p>
+<pre><code>Opening file
+Started FileLogger example
+File logger message: 0: Mild FileLogger message
+Started Logger example
+File logger message: 10: Severe Logger message
+Ended Logger example
+Flushing FileLogger
+File logger message: 10: Severe FileLogger message
+Ended Logger example
+Closing file</code></pre>
+<h2 id="bluefin-or-haskell">Bluefin or Haskell?</h2>
+<p>Are we really getting the benefits from Bluefin here, or just Haskell?
+Well, it’s mostly Haskell actually, but there’s one notable benefit of
+Bluefin: the file handle supplied by <code>withFile</code>, used in the
+definition of <code>withFileLogger</code>, is guaranteed not to escape its scope,
+that is, it’s not possible to use it after <code>withFileLogger</code> has
+returned. That guarantee is not provided by Haskell’s standard
+<a href="https://www.stackage.org/haddock/lts-22.39/base-4.18.2.1/System-IO.html#v:withFile"><code>System.IO.withFile</code></a>.</p>
+<p>Furthermore, we can enforce that functions don’t use <code>IO</code>. For
+example, we can add a logger that just yields log messages to a
+Bluefin <code>Stream</code>:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="ot">streamLogger ::</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  (e1 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Stream</span> <span class="dt">String</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  (<span class="kw">forall</span> e<span class="op">.</span> <span class="dt">Logger</span> e <span class="ot">-&gt;</span> <span class="dt">Eff</span> (e <span class="op">:&amp;</span> es) r) <span class="ot">-&gt;</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es r</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>streamLogger stream k <span class="ot">=</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  useImplIn</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    k</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MkLogger</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>      { logImpl <span class="ot">=</span> \msg sev <span class="ot">-&gt;</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>          yield stream (mkMsg msg sev)</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>    mkMsg msg sev <span class="ot">=</span></span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;streamLogger message: &quot;</span> <span class="op">++</span> <span class="fu">show</span> sev <span class="op">++</span> <span class="st">&quot;: &quot;</span> <span class="op">++</span> msg</span></code></pre></div>
+<p>Later we can choose what to do with the elements from the stream.
+Here we print them. From the structure of this program its clear that
+the logging itself does not involve <code>IO</code> (there is no <code>io</code> argument to
+<code>streamLogger</code>) even though other parts of the program do. This
+fine-grained tracking of effects is not possible if you use the raw
+<code>IO</code> monad.</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="ot">runExampleStreamLogger ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>runExampleStreamLogger <span class="ot">=</span> runEff <span class="op">$</span> \io <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  forEach</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    ( \stream <span class="ot">-&gt;</span> streamLogger stream <span class="op">$</span> \logger <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>        exampleWithLogger io logger</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>    ( \logMsg <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>        effIO io (<span class="fu">putStrLn</span> logMsg)</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>    )</span></code></pre></div>
+<p>The output is equivalent to <code>runExampleWithLogger</code> above.</p>
+<pre><code>Started Logger example
+streamLogger message: 0: Mild Logger message
+streamLogger message: 10: Severe Logger message
+Ended Logger example</code></pre>
+<h2 id="worse">Worse</h2>
+<p>In what ways is Bluefin worse than an OOP language?</p>
+<ul>
+<li><p>Ceremony</p></li>
+<li><p>Effect tracking</p></li>
+<li><p>We have to write <code>withFileLoggerAsLogger</code> rather than just get it
+“for free” by defining <code>FileLogger</code> as a subclass of <code>Logger</code></p></li>
+</ul>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Omer’s article suggested that the minimum severity logger should
+be created afresh, but I think it’s better to take an existing logger
+and transform it into one that only logs messages above the minimum
+severity.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>
