@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>bluefin-prevents-handles-leaking</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>bluefin-prevents-handles-leaking</h3>
+  <h1 id="bluefin-prevents-handles-leaking">Bluefin prevents handles leaking</h1>
+<p>Haskell’s <code>System.IO.withFile</code> has a nice resource safety property.
+It also has a problem which its Bluefin equivalent fixes. Let’s have
+a look.</p>
+<h2 id="withfile"><code>withFile</code></h2>
+<p><a href="https://hackage.haskell.org/package/base-4.20.0.1/docs/System-IO.html#v:withFile"><code>System.IO.withFile</code></a>
+has the following type</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">withFile ::</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">FilePath</span> <span class="ot">-&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">IOMode</span> <span class="ot">-&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- | The &quot;body&quot;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  (<span class="dt">Handle</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> r) <span class="ot">-&gt;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">IO</span> r</span></code></pre></div>
+<p>It allows us to open a file by its path, and then interact with it in
+the “body” of the <code>withFile</code> using its “file handle” (of type
+<a href="https://hackage.haskell.org/package/base-4.20.0.1/docs/System-IO.html#t:Handle"><code>System.IO.Handle</code></a>). When
+the body has finished <code>withFile</code> will automatically close the file,
+releasing its <code>Handle</code>. File handles are a scarce resource so it’s
+important to release them promptly. <code>withFile</code> saves us work by
+taking care of that for us automatically. Here’s an example</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">useHandle ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>useHandle <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  System.IO.withFile <span class="st">&quot;/tmp/message&quot;</span> <span class="dt">WriteMode</span> <span class="op">$</span> \handle <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- This do block is called the &quot;body&quot; of the withFile</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    System.IO.hPutStrLn handle <span class="st">&quot;Hello!&quot;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- handle has been closed by the time we get here</span></span></code></pre></div>
+<p>Even better, <code>withFile</code> is “bracketed”. That means that it releases
+its <code>Handle</code> even when the body it terminated by an exception:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">useHandleException ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>useHandleException <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  System.IO.withFile <span class="st">&quot;/tmp/message&quot;</span> <span class="dt">WriteMode</span> <span class="op">$</span> \handle <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- This do block is called the &quot;body&quot; of the withFile</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    System.IO.hPutStrLn handle <span class="st">&quot;Hello!&quot;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">error</span> <span class="st">&quot;Oh dear!&quot;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- handle has been closed by the time we get here,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- even though the body was terminated by an exception</span></span></code></pre></div>
+<p>But all is not good. Nothing stops us leaking the handle from
+<code>withFile</code> and attempting to access it after it has been closed. For
+example, the following code errors out at run time:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">leakHandle ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>leakHandle <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  handle <span class="ot">&lt;-</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    System.IO.withFile <span class="st">&quot;/tmp/output-file&quot;</span> <span class="dt">WriteMode</span> <span class="op">$</span> \handle <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pure</span> handle</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  System.IO.hPutStrLn handle <span class="st">&quot;Still open?&quot;</span></span></code></pre></div>
+<pre><code>ghci&gt; leakHandle
+*** Exception: /tmp/output-file: hPutStr: illegal operation (handle is closed)</code></pre>
+<h2 id="bluefin-to-the-rescue">Bluefin to the rescue</h2>
+<p><a href="https://hackage.haskell.org/package/bluefin-0.0.10.0/docs/Bluefin-System-IO.html#v:withFile">Bluefin’s version of
+<code>withFile</code></a>
+doesn’t suffer from the same problem. If we try to write code that
+leaks the handle from <code>withFile</code> we get a type error.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ot">leakHandleBf ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>leakHandleBf <span class="ot">=</span> runEff <span class="op">$</span> \io <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  handle <span class="ot">&lt;-</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    Bluefin.System.IO.withFile</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>      io</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;/tmp/output-file&quot;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">WriteMode</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>      <span class="op">$</span> \handle <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>        <span class="fu">pure</span> handle</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  Bluefin.System.IO.hPutStrLn handle <span class="st">&quot;Still open?&quot;</span></span></code></pre></div>
+<pre><code>/home/tom/H2/code/logger.hs:208:10: error:
+   • Couldn't match type ‘e0’ with ‘e1’
+     Expected: Handle e0
+       Actual: Handle e1
+   • because type variable ‘e1’ would escape its scope</code></pre>
+<p>How does that happen? It’s because of the type of Bluefin’s
+<code>withFile</code>, which is:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ot">withFile ::</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  (e1 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">IOE</span> e1 <span class="ot">-&gt;</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">FilePath</span> <span class="ot">-&gt;</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">IOMode</span> <span class="ot">-&gt;</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  (<span class="kw">forall</span> e<span class="op">.</span> <span class="dt">Handle</span> e <span class="ot">-&gt;</span> <span class="dt">Eff</span> (e <span class="op">:&amp;</span> es) r) <span class="ot">-&gt;</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es r</span></code></pre></div>
+<p>The type of the handle that Bluefin’s <code>withFile</code> provides to its body
+is <code>Handle e</code> (that’s a
+<a href="https://hackage.haskell.org/package/bluefin-0.0.10.0/docs/Bluefin-System-IO.html#t:Handle"><code>Bluefin.System.IO.Handle</code></a>),
+i.e. it is tagged with the Bluefin effect type <code>e</code>. The <code>forall</code> that
+binds <code>e</code> prevents us from smuggling the handle out as part of <code>r</code>,
+the return type of the block. This technique is an augmented version
+of the one used by
+<a href="https://www.stackage.org/haddock/lts-22.39/base-4.18.2.1/Control-Monad-ST.html#v:runST"><code>runST</code></a>
+to avoid leaking <code>STRef</code>s.</p>
+<p>So <code>System.IO.withFile</code> has a neat resource safety property, and
+Bluefin’s equivalent is even safer!</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="../bluefin-streams-finalize-promptly/">Bluefin streams finalize
+promptly</a></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>
