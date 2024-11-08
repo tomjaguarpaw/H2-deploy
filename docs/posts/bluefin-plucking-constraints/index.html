@@ -182,7 +182,7 @@ removes, the exception effect is</p>
 <span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Right</span> () <span class="ot">-&gt;</span> <span class="fu">pure</span> ()</span></code></pre></div>
 <p>When we use it to handle <code>operBf</code> we get</p>
 <div class="sourceCode" id="cb13"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ot">handledOper ::</span> (e1 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span> <span class="dt">State</span> <span class="dt">Int</span> e1 <span class="ot">-&gt;</span> <span class="dt">Eff</span> es ()</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>handledOper <span class="ot">=</span> handleLengthBf (operBf s) s</span></code></pre></div>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>handledOper s <span class="ot">=</span> handleLengthBf (operBf s) s</span></code></pre></div>
 <p>Let’s see how this one works. Again, I’m going to rename a type
 variable to avoid confusion, this time <code>es</code> in <code>operBf</code> to <code>es'</code>.</p>
 <div class="sourceCode" id="cb14"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="ot">operBf ::</span></span>
@@ -193,7 +193,7 @@ variable to avoid confusion, this time <code>es</code> in <code>operBf</code> to
 <p>Subsequently, for <code>handleLengthBf (operBf s) s</code> to type check we need
 <code>es'</code> to be <code>e2 :&amp; es</code>, so we get the type</p>
 <div class="sourceCode" id="cb15"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="ot">handledBf ::</span> (e1 <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span> <span class="dt">State</span> <span class="dt">Int</span> e1 <span class="ot">-&gt;</span> <span class="dt">Eff</span> es ()</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>handledBf <span class="ot">=</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>handledBf s <span class="ot">=</span></span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  handleLengthbf</span>
 <span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    (operBf<span class="ot"> s ::</span></span>
 <span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>      <span class="kw">forall</span> e2<span class="op">.</span></span>
@@ -201,7 +201,7 @@ variable to avoid confusion, this time <code>es</code> in <code>operBf</code> to
 <span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Exception</span> <span class="dt">String</span> e2 <span class="ot">-&gt;</span></span>
 <span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Eff</span> (e2 <span class="op">:&amp;</span> es) ()</span>
 <span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>   )</span></code></pre></div>
-<p>Notice that I have not only annotated <code>handleBf</code> with a type, but I
+<p>Notice that I have not only annotated <code>handledBf</code> with a type, but I
 have also annotated <code>operBf</code>. That’s because the constraints that we
 need to resolve contain <code>e2</code>, a type variable bound by the type of
 <code>operBf</code>. An interesting development! Nothing like this was seen in
