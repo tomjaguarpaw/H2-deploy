@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>articles-forthcoming</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>articles-forthcoming</h3>
+  <h1 id="article-forthcoming">Article forthcoming</h1>
+<ul>
+<li><p><code>HasCallStack</code> considered harmful</p>
+<p>Using <code>HasCallStack</code> it is possible to write</p>
+<pre><code>myInt :: HasCallStack =&gt; Int</code></pre>
+<p>that has a “different value” depending on where in your program it
+is called. This seems undesirable!</p>
+<p><a href="https://github.com/NorfairKing/haskell-dangerous-functions/issues/17" class="uri">https://github.com/NorfairKing/haskell-dangerous-functions/issues/17</a></p></li>
+<li><p>Bluefin streams finalize promptly, more complex example</p>
+<p>Prompted by elaforge, an example of mixing streams with prompt
+finalization</p>
+<p><a href="https://discourse.haskell.org/t/solving-a-resourcet-related-space-leak-in-production/11007/11?u=tomjaguarpaw" class="uri">https://discourse.haskell.org/t/solving-a-resourcet-related-space-leak-in-production/11007/11?u=tomjaguarpaw</a></p></li>
+<li><p>Bluefin streams don’t leak space</p>
+<p>Unlike lazy lists or the streaming library, Bluefin streams don’t
+leak space</p>
+<p><a href="https://github.com/haskell-streaming/streaming/issues/110#issuecomment-1518988421" class="uri">https://github.com/haskell-streaming/streaming/issues/110#issuecomment-1518988421</a></p></li>
+<li><p>Bluefin OO article</p>
+<p>Ömer Sinan Ağacan wrote an article explaining the benefits of object
+oriented design. He started explaining a Haskell-based solution but
+didn’t take it far enough. The job can be finished using Bluefin.</p>
+<p><a href="https://osa1.net/posts/2024-10-09-oop-good.html" class="uri">https://osa1.net/posts/2024-10-09-oop-good.html</a></p></li>
+<li><p>Scrap your fold combinators</p>
+<p>Confused about fold combinators? Then just use <code>for_</code> and save
+yourself a headache.</p>
+<p><code>foldl</code>? Just use <code>for_</code>. <code>foldl'</code>? Just use <code>for_</code>. <code>foldM</code>? Just
+use <code>for_</code>. <code>mapAccumL</code>? Just use <code>for_</code>. <code>mapAccumLM</code>? Just use
+<code>for_</code>. <code>concatMap</code>? Just use <code>for_</code>. <code>mapMaybe</code>? Just use
+<code>for_</code>. <code>loop</code>? Just use <code>for_</code>.</p></li>
+<li><p>Internal versus external streams in Bluefin</p>
+<p>Looking at the iterator dichotomy of “push/internal” vs
+“pull/external” through a Bluefin lens.</p>
+<p><a href="https://medium.com/@pateldhruv020/pull-vs-push-system-ab95a65b0938" class="uri">https://medium.com/@pateldhruv020/pull-vs-push-system-ab95a65b0938</a></p>
+<p><a href="https://lobste.rs/s/isx2ju/go_s_weird_little_iterators" class="uri">https://lobste.rs/s/isx2ju/go_s_weird_little_iterators</a></p></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>
