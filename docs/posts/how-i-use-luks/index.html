@@ -71,11 +71,14 @@ $ sudo cryptsetup close $MAPPING_NAME</code></pre></li>
 $ sudo cryptsetup luksHeaderBackup --header-backup-file $HEADER_BACKUP_FILE $DEVICE</code></pre></li>
 <li><p>Opening a LUKS device from a header backup</p>
 <pre><code>sudo cryptsetup --header $HEADER_BACKUP_FILE luksOpen $DEVICE $MAPPING_NAME</code></pre></li>
+<li><p>Adding a password to a LUKS device</p>
+<pre><code>sudo cryptsetup luksAddKey $DEVICE</code></pre></li>
 </ul>
 <h2 id="references">References</h2>
 <ul>
 <li><a href="https://security.stackexchange.com/questions/140948/mapping-of-encrypted-to-decrypted-blocks-in-lucks" class="uri">https://security.stackexchange.com/questions/140948/mapping-of-encrypted-to-decrypted-blocks-in-lucks</a></li>
 <li><a href="https://gitlab.com/cryptsetup/cryptsetup/-/wikis/FrequentlyAskedQuestions#6-backup-and-data-recovery" class="uri">https://gitlab.com/cryptsetup/cryptsetup/-/wikis/FrequentlyAskedQuestions#6-backup-and-data-recovery</a></li>
+<li><a href="https://askubuntu.com/questions/1319688/luks-how-can-i-add-more-password-slots-or-remove-change-a-password" class="uri">https://askubuntu.com/questions/1319688/luks-how-can-i-add-more-password-slots-or-remove-change-a-password</a></li>
 </ul>
 </div>
 <hr>
