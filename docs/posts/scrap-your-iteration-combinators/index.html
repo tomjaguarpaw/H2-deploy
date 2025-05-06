@@ -125,7 +125,7 @@ leaks.</p>
 <a href="https://hackage.haskell.org/package/base-4.19.1.0/docs/Data-List.html#v:foldl-39-"><code>Data.List.foldl'</code></a>
 with <code>for_</code>. The idea is that the “state parameter” of <code>foldl'</code>
 becomes the “state parameter” of a
-<a href="https://hackage-content.haskell.org/package/transformers-0.6.2.0/docs/Control-Monad-Trans-State-Strict.html#t:State"><code>State</code></a>
+<a href="https://hackage-content.haskell.org/package/transformers-0.6.2.0/docs/Control-Monad-Trans-State-Strict.html#t:State"><code>State</code></a><a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>
 monad operation. The code in terms of <code>for_</code> will generally be more
 complicated than the code written in terms of <code>foldl'</code>, so unless the
 “loop body” <code>f</code> is large, it’s probably not worth using <code>for_</code> in
@@ -585,6 +585,16 @@ remember how a small collection of monads or monad transformers work
 (especially monads for state, exceptions and streaming), and stick to
 the simple and obvious iteration combinators <code>for_</code>, <code>for</code> and
 <code>forever</code>.</p>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1"><p>N.B. the state monad referred to in this article is the <em>strict</em>
+state monad (<code>Control.Monad.Trans.State.Strict</code>). I’ve never seen
+a use for the lazy state monad (<code>Control.Monad.Trans.State.Lazy</code>)
+and using it will probably give you bizarre and unpredictable
+performance.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
 </div>
 <hr>
 
