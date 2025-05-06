@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>scrap-your-iteration-combinators</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>scrap-your-iteration-combinators</h3>
+  <h1 id="scrap-your-iteration-combinators">Scrap your iteration combinators</h1>
+<p>– by Tom Ellis, May 2025</p>
+<p>Typical programming languages have “for” and “while” loop constructs
+that allow iteration over a range of numbers, over the elements of a
+container, until a condition is satisfied, or simply indefinitely.
+Haskell has standard library functions called
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-Foldable.html#v:for_"><code>for_</code></a>
+(with an underbar),
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-Traversable.html#v:for"><code>for</code></a>
+(without an underbar) and
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Control-Monad.html#v:forever"><code>forever</code></a>
+that work very generally to achieve similar purposes. Besides these
+general constructs, there are a variety of specific constructs used
+for looping and iteration. Taken together we might call them “iteration
+combinators”. This article explains how specific iteration
+combinators can be replaced by the general ones, and suggests
+conditions under which you might choose to do so.</p>
+<h2 id="fold-and-iteration-combinators">Fold and iteration combinators</h2>
+<p>Haskell’s
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-Foldable.html#v:foldl"><code>foldl</code></a>,
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-Foldable.html#v:foldl-39-"><code>foldl'</code></a>,
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-Foldable.html#v:foldr"><code>foldr</code></a>
+and
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Control-Monad.html#v:foldM"><code>foldM</code></a>
+iterate over a container and produce a “single value” (as opposed to
+another container); they are called “folds” or “fold combinators”. In
+the standard library and beyond there are other functions that iterate
+over a container but don’t produce a “single result” instead producing
+another container, and functions that iterate but not over a container
+at all. Examples of the former include
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-List.html#v:mapAccumL"><code>mapAccumL</code></a>,
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-List.html#v:mapAccumR"><code>mapAccumR</code></a>,
+<a href="https://hackage.haskell.org/package/ghc-9.12.1/docs/GHC-Utils-Monad.html#v:mapAccumLM"><code>mapAccumLM</code></a>,
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Prelude.html#v:concatMap"><code>concatMap</code></a>
+and
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-Maybe.html#v:mapMaybe"><code>mapMaybe</code></a>;
+examples of the latter include
+<a href="https://hackage.haskell.org/package/extra-1.8/docs/Control-Monad-Extra.html#v:loop"><code>loop</code></a>
+and
+<a href="https://hackage.haskell.org/package/extra-1.8/docs/Control-Monad-Extra.html#v:loopM"><code>loopM</code></a>.
+In general, we could call these folds plus friends “iteration
+combinators”.</p>
+<p>Wow, that’s a lot of iteration combinators! Is there anything we can
+do to simplify dealing with this menagerie? Well, I have frequently
+been impressed by Haskell’s ability to generalise seemingly disparate
+concepts and, in so doing, simplify them. The case of fold combinators
+is no exception: they can all be rewritten in terms of <code>for_</code>; that
+is, <code>for_</code> generalises every fold combinator! The reason is that
+folds over any container (or more accurately, any instance of
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Prelude.html#t:Foldable"><code>Foldable</code></a>)
+can be written in terms of <code>Foldable</code>’s
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Prelude.html#v:foldr"><code>foldr</code></a>
+method but, equally, every use of <code>foldr</code> can be written in terms of
+<code>for_</code> (as explained in my article “<a href="../foldl-traverses-state-foldr-traverses-anything/"><code>foldl</code> traverses with <code>State</code>,
+<code>foldr</code> traverses with
+anything</a>”).</p>
+<p>Furthermore, the other iteration combinators can be generalised by
+<code>for</code> and <code>forever</code>. Using a smaller number of equally-powerful
+concepts is generally preferable, so should we use <code>for_</code>, <code>for</code> and
+<code>forever</code> in preference to specific iteration combinators? In most
+cases I would say yes. <code>foldl'</code> is probably too simple to be worth
+replacing, but in the other cases it becomes difficult to justify
+specific combinators once the “loop bodies” become complicated, and
+especially once the combinators become “monadic” (the “monadic” ones
+are the ones whose names end with <code>M</code>).</p>
+<p>Let’s see how to do “the same with less”, using <code>for_</code> to replace fold
+combinators, and <code>for</code> and <code>forever</code> to replace some of the other
+iteration combinators.</p>
+<h3 id="foldl"><code>foldl</code></h3>
+<p><code>foldl</code> loops over a <code>Foldable</code> container, updating a “state
+parameter” at each iteration. It risks leaking space because it
+doesn’t evaluate the state parameter at each iteration; rather it
+creates a new thunk. Use <code>foldl'</code> instead to avoid the risk of space
+leaks.</p>
+<h3 id="foldl-1"><code>foldl'</code></h3>
+<p>Here’s how to replace
+<a href="https://hackage.haskell.org/package/base-4.19.1.0/docs/Data-List.html#v:foldl-39-"><code>Data.List.foldl'</code></a>
+with <code>for_</code>. The idea is that the “state parameter” of <code>foldl'</code>
+becomes the “state parameter” of a
+<a href="https://hackage-content.haskell.org/package/transformers-0.6.2.0/docs/Control-Monad-Trans-State-Strict.html#t:State"><code>State</code></a>
+monad operation. The code in terms of <code>for_</code> will generally be more
+complicated than the code written in terms of <code>foldl'</code>, so unless the
+“loop body” <code>f</code> is large, it’s probably not worth using <code>for_</code> in
+preference.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">foldl' ::</span> (s <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> s) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> s</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>foldl' f s0 as <span class="ot">=</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">flip</span> evalState s0 <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    for_ as <span class="op">$</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      s <span class="ot">&lt;-</span> get</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> s' <span class="ot">=</span> f s a</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      put <span class="op">$!</span> s'</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    get</span></code></pre></div>
+<p>(Exactly the same code works for any <code>Foldable</code>, not just <code>[a]</code>, but
+I’ll stick to lists in type signatures for simplicity. Instead of
+<a href="https://hackage-content.haskell.org/package/transformers-0.6.2.0/docs/Control-Monad-Trans-State-Strict.html#v:evalState"><code>evalState</code></a>
+and a final
+<a href="https://hackage-content.haskell.org/package/transformers-0.6.2.0/docs/Control-Monad-Trans-State-Strict.html#v:get"><code>get</code></a>
+we could use
+<a href="https://hackage-content.haskell.org/package/transformers-0.6.2.0/docs/Control-Monad-Trans-State-Strict.html#v:execState"><code>execState</code></a>,
+but I prefer to <em>always</em> use <code>evalState</code> for running <code>State</code> monads,
+so I can forget about the existence of
+<a href="https://hackage-content.haskell.org/package/transformers-0.6.2.0/docs/Control-Monad-Trans-State-Strict.html#v:runState"><code>runState</code></a>
+and <code>execState</code>.)</p>
+<p><a name="foldM"></p>
+<h3 id="foldm"><code>foldM</code></h3>
+<p><a href="https://hackage.haskell.org/package/base-4.19.1.0/docs/Control-Monad.html#v:foldM"><code>Control.Monad.foldM</code></a>
+can be replaced with <code>for_</code> using the same code that we used for
+<code>foldl'</code>, except in the
+<a href="https://hackage-content.haskell.org/package/transformers-0.6.2.0/docs/Control-Monad-Trans-State-Strict.html#t:StateT"><code>StateT</code></a>
+monad instead of just <code>State</code>. We use <code>foldM</code> instead of <code>foldl'</code>
+when the “loop body” <code>f</code> has some monadic effect <code>m</code>. In such cases
+the loop body is often complex enough that <code>get</code> and
+<a href="https://hackage-content.haskell.org/package/transformers-0.6.2.0/docs/Control-Monad-Trans-State-Strict.html#v:put"><code>put</code></a>
+can be absorbed into it, and it becomes worth replacing <code>foldM</code> with
+<code>for_</code>.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">foldM ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> (s <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> m s) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> m s</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>foldM f s0 as <span class="ot">=</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">flip</span> evalStateT s0 <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    for_ as <span class="op">$</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      s <span class="ot">&lt;-</span> get</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      s' <span class="ot">&lt;-</span> lift (f s a)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      put s'</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    get</span></code></pre></div>
+<p>(Like <code>foldl</code>, <code>foldM</code> is not strict, so to avoid a space leak one
+might want to evaluate <code>s'</code> before <code>put</code>ting it.)</p>
+<h3 id="mapaccuml"><code>mapAccumL</code></h3>
+<p><a href="https://hackage.haskell.org/package/base-4.19.1.0/docs/Data-List.html#v:mapAccumL"><code>Data.List.mapAccumL</code></a>
+updates a “state parameter” at each iteration through elements of a
+list, like <code>foldl</code> and <code>foldl'</code>. Additionally, it returns a list of
+the same length as the input list, where each output element can
+depend on the input element and the state at the time the input
+element is reached. Thus we can replace it with <code>for</code> and a <code>State</code>
+monad. I think the replacement is <em>always</em> preferable to <code>mapAccumL</code>.
+I am baffled by <code>mapAccumL</code> every time I see it but the version in
+terms of <code>for</code> is clear and direct.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">mapAccumL ::</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  (s <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> (s, b)) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> (s, [b])</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>mapAccumL f s0 as <span class="ot">=</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  swap <span class="op">$</span> <span class="fu">flip</span> runState s0 <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    for as <span class="op">$</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      s <span class="ot">&lt;-</span> get</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> (s', b) <span class="ot">=</span> f s a</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      put s'</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pure</span> b</span></code></pre></div>
+<p>(This implementation generalises to any <code>Traversable</code>. In a real use
+case the <code>swap</code>, <code>get</code> and <code>put</code> would probably be absorbed into the
+surrounding code. Again, for strictness, we might want to evaluate
+<code>s'</code>.)</p>
+<h3 id="mapaccumr"><code>mapAccumR</code></h3>
+<p><code>mapAccumR</code> is rather mind bending. <a href="https://www.stackage.org/haddock/lts-23.7/base-4.19.2.0/Data-Traversable.html#v:mapAccumR">Its
+documentation</a>
+says</p>
+<blockquote>
+<p>The <code>mapAccumR</code> function … applies a function to each element of a
+structure, passing an accumulating parameter from right to left</p>
+</blockquote>
+<p>(“Right” and “left” here really mean “end” and “start”, but because we
+write English from left to right the we call the last element of a
+list the “rightmost” one and the first the “leftmost” one.) In any
+case, <code>mapAccumR</code> traverses a list from the end to the start. For
+example:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">mapAccumRExample ::</span> (<span class="dt">String</span>, [<span class="dt">String</span>])</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>mapAccumRExample <span class="ot">=</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  mapAccumR</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    (\s i <span class="ot">-&gt;</span> <span class="kw">let</span> s' <span class="ot">=</span> s <span class="op">++</span> <span class="st">&quot;-&gt;&quot;</span> <span class="op">++</span> <span class="fu">show</span> i <span class="kw">in</span> (s', s'))</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;start&quot;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    [<span class="dv">1</span> <span class="op">..</span> <span class="dv">4</span>]</span></code></pre></div>
+<pre><code>ghci&gt; mapAccumRExample
+(&quot;start-&gt;4-&gt;3-&gt;2-&gt;1&quot;,[&quot;start-&gt;4-&gt;3-&gt;2-&gt;1&quot;,&quot;start-&gt;4-&gt;3-&gt;2&quot;,&quot;start-&gt;4-&gt;3&quot;,&quot;start-&gt;4&quot;])</code></pre>
+<p>This means that <code>mapAccumR</code> is equivalent to
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-List.html"><code>reverse</code></a>ing
+a list, applying <code>mapAccumL</code>, and then <code>reverse</code>ing the resulting
+list. I don’t particularly see the point of <code>mapAccumL</code>, so I suggest
+rewriting it in terms of <code>reverse</code> and <code>mapAccumL</code>, and from there in
+terms of <code>for</code> and <code>State</code>.</p>
+<h3 id="mapaccumlm"><code>mapAccumLM</code></h3>
+<p>As <code>foldM</code> generalises <code>foldl</code> to a monadic setting,
+<a href="https://www.stackage.org/haddock/lts-22.14/ghc-9.6.4/GHC-Utils-Monad.html#v:mapAccumLM"><code>GHC.Utils.Monad.mapAccumLM</code></a>
+generalises <code>mapAccumL</code>. We can replace it with <code>for</code> and the
+<code>StateT</code> monad. I can’t see any reason to ever use <code>mapAccumLM</code> in
+practice over the version in terms of <code>for</code>.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ot">mapAccumLM ::</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  (<span class="dt">Monad</span> m) <span class="ot">=&gt;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  (s <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> m (s, b)) <span class="ot">-&gt;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  s <span class="ot">-&gt;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  [a] <span class="ot">-&gt;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  m (s, [b])</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>mapAccumLM f s0 as <span class="ot">=</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmap</span> swap <span class="op">$</span> <span class="fu">flip</span> runStateT s0 <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    for as <span class="op">$</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>      s <span class="ot">&lt;-</span> get</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>      (s', b) <span class="ot">&lt;-</span> lift (f s a)</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>      put s'</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pure</span> b</span></code></pre></div>
+<p>(Again, in practice the
+<a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-Tuple.html#v:swap"><code>swap</code></a>,
+<code>get</code> and <code>put</code> will probably be absorbed into the surrounding code,
+and we might want to evaluate <code>s'</code>. See also <a href="https://discourse.haskell.org/t/break-with-traverse-traverse/9152/19?u=tomjaguarpaw">a related Discourse
+thread</a>.)</p>
+<h3 id="loop"><code>loop</code></h3>
+<p><a href="https://hackage.haskell.org/package/extra-1.7.14/docs/Extra.html#v:loop"><code>Extra.loop</code></a>
+repeatedly updates a state parameter until the “loop body” signals
+that it’s time to break (by returning a <code>Left</code>). That is, we are
+updating a state parameter “forever”, until an early return is
+requested. That means we can replace <code>loop</code> with <code>forever</code> and an
+<code>EitherT</code> monad which encodes the “early return” effect. <code>loop</code> is
+sufficiently simple that it’s probably not worth doing this
+transformation in practice.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ot">loop ::</span> (s <span class="ot">-&gt;</span> <span class="dt">Either</span> r s) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> r</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>loop f s0 <span class="ot">=</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  runEarlyReturn <span class="op">$</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">flip</span> evalStateT s0 <span class="op">$</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>      forever <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        s <span class="ot">&lt;-</span> get</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        s' <span class="ot">&lt;-</span> lift (f s)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        put s'</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="ot">runEarlyReturn ::</span> <span class="dt">Either</span> r r <span class="ot">-&gt;</span> r</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>runEarlyReturn <span class="ot">=</span> <span class="fu">either</span> <span class="fu">id</span> <span class="fu">id</span></span></code></pre></div>
+<p>(Again, you might want to evaluate <code>s'</code>.)</p>
+<h3 id="loopm"><code>loopM</code></h3>
+<p><a href="https://hackage.haskell.org/package/extra-1.7.14/docs/Extra.html#v:loopM"><code>Extra.loopM</code></a>
+is the same as <code>loop</code> except that the loop body can run in the monad
+<code>m</code>, so we adjust the transformation accordingly. In cases where the
+loop bodies are complex it starts to look appealing to replace
+<code>loopM</code> in this way.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ot">loopM ::</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  (<span class="dt">Monad</span> m) <span class="ot">=&gt;</span> (s <span class="ot">-&gt;</span> m (<span class="dt">Either</span> r s)) <span class="ot">-&gt;</span> s <span class="ot">-&gt;</span> m r</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>loopM f s0 <span class="ot">=</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  runEarlyReturnT <span class="op">$</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">flip</span> evalStateT s0 <span class="op">$</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>      forever <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        s <span class="ot">&lt;-</span> get</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        fs <span class="ot">&lt;-</span> (lift <span class="op">.</span> lift) (f s)</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        s' <span class="ot">&lt;-</span> lift (except fs)</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>        put s'</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="ot">runEarlyReturnT ::</span> (<span class="dt">Monad</span> m) <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> r m r <span class="ot">-&gt;</span> m r</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>runEarlyReturnT <span class="ot">=</span> <span class="fu">fmap</span> (<span class="fu">either</span> <span class="fu">id</span> <span class="fu">id</span>) <span class="op">.</span> runExceptT</span></code></pre></div>
+<p>(You might find it interesting to note that the return type of the
+loop body, <code>m (Either r s)</code> is isomorphic to the type <code>EitherT r m s</code>.
+Ditto <code>s'</code> evaluation.)</p>
+<h3 id="concatmap"><code>concatMap</code></h3>
+<p><a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-Foldable.html"><code>Data.Foldable.concatMap</code></a>
+iterates over a list and produces, for each element, another list of
+elements. All elements produced in this way are concatenated into a
+result list. This process is equivalent to two nested <code>for_</code> loops,
+and in order to express it as such we need something we haven’t seen
+yet in this article: a streaming abstraction. Here is an
+implementation using the
+<a href="https://hackage.haskell.org/package/streaming"><code>streaming</code></a> library:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">concatMap</span><span class="ot"> ::</span> (a <span class="ot">-&gt;</span> [b]) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [b]</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">concatMap</span> f as <span class="ot">=</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  toList <span class="op">$</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    for_ as <span class="op">$</span> \a <span class="ot">-&gt;</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>      for_ (f a) <span class="op">$</span> \b <span class="ot">-&gt;</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>        yield b</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="ot">toList ::</span> <span class="dt">Stream</span> (<span class="dt">Of</span> a) <span class="dt">Identity</span> r <span class="ot">-&gt;</span> [a]</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>toList <span class="ot">=</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  Streaming.Prelude.fst'</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>   <span class="op">.</span> runIdentity</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>   <span class="op">.</span> Streaming.Prelude.toList</span></code></pre></div>
+<p>I usually prefer reading the nested <code>for_</code> loops to reading a
+<code>concatMap</code>, and I usually find it easier to <em>write</em> the nested <code>for_</code>
+loops than wonder how to express my intent as a <code>concatMap</code>. I would
+always prefer to replace <em>nested</em> <code>concatMaps</code> with nested <code>for_</code>s.
+In many cases, once you have adopted the streaming abstraction, you
+won’t actually want to use <code>toList</code>. You can continue using the
+streaming abstraction in the surrounding code.</p>
+<p>(An implementation using <code>pipes</code>, <code>conduit</code> or
+<a href="https://hackage-content.haskell.org/package/bluefin-0.0.15.0/docs/Bluefin-Stream.html"><code>Bluefin.Stream</code></a>
+would work equally well as <code>streaming</code>.)</p>
+<h3 id="mapmaybe"><code>mapMaybe</code></h3>
+<p><a href="https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-Maybe.html#v:mapMaybe"><code>Data.Maybe.mapMaybe</code></a>
+serves a similar purpose to <code>concatMap</code>. Its replacement in terms of
+<code>for_</code> is identical, because <code>for_</code> is polymorphic. In the
+<code>concatMap</code> replacement <code>for_ (f a)</code> was over a list and in the
+<code>mapMaybe</code> replacement <code>for_ (f a)</code> is over a <code>Maybe</code>.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ot">mapMaybe ::</span> (a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> b) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> [b]</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>mapMaybe f as <span class="ot">=</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  toList <span class="op">$</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    for_ as <span class="op">$</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>      for_ (f a) <span class="op">$</span> \b <span class="ot">-&gt;</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>        yield b</span></code></pre></div>
+<h3 id="mapmaybem"><code>mapMaybeM</code></h3>
+<p><a href="https://www.stackage.org/haddock/lts-22.15/extra-1.7.14/Control-Monad-Extra.html#v:mapMaybeM"><code>Control.Monad.Extra.mapMaybeM</code></a>
+is the monadic version of <code>mapMaybe</code>. It is even more compelling to
+replace <code>mapMaybeM</code> with <code>for_</code> than it is <code>mapMaybe</code>.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ot">mapMaybeM ::</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  (<span class="dt">Monad</span> m) <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> m (<span class="dt">Maybe</span> b)) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> m [b]</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>mapMaybeM f as <span class="ot">=</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmap</span> Streaming.Prelude.fst' <span class="op">$</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    Streaming.Prelude.toList <span class="op">$</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>      for_ as <span class="op">$</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>        fa <span class="ot">&lt;-</span> lift (f a)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>        for_ fa <span class="op">$</span> \b <span class="ot">-&gt;</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>          yield b</span></code></pre></div>
+<p>(In practice you’ll likely want to avoid converting the <code>Stream</code> to a
+list and instead consume the stream directly in the surrounding code.
+This allows you to avoid materialising the whole list at once and
+instead process the result in constant space.)</p>
+<h2 id="lifting"><code>lift</code>ing</h2>
+<p>You’ll notice that the monadic implementations are full of
+<a href="https://hackage-content.haskell.org/package/transformers-0.6.2.0/docs/Control-Monad-Trans-Class.html#v:lift"><code>lift</code></a>s. Depending
+on the context that might be fine (especially if using the <code>mtl</code>
+versions of operations, where sometimes the <code>lift</code>s can be inferred,
+rather than the <code>transformers</code> versions) but sometimes it might be
+tedious. In any case, as the maintainer of the
+<a href="https://hackage.haskell.org/package/bluefin">Bluefin</a> effect system I
+recommend using Bluefin instead of <code>mtl</code> or <code>transformers</code> for a
+<code>lift</code>-free experience.</p>
+<h2 id="real-world-example">Real world example</h2>
+<p>Here’s <a href="https://github.com/haskell/cabal/blob/12f6894cfb154b256342c57348cb754bb18d073d/cabal-install/Distribution/Solver/Modular/Validate.hs#L394-L417"><code>extend</code>, a real world function from
+<code>cabal-install</code></a>,
+which uses <code>foldM</code>; we’ll investigate how to change it to use <code>for_</code>
+of a <code>StateT</code>. What does <code>extend</code> do? I don’t know! But that’s OK:
+the procedure we’re about to see is a mechanical refactoring that
+preserves program behaviour. In fact, I think it’s easier to
+understand what <code>extend</code> does <em>by transforming it to <code>for_</code> form
+first!</em> Let’s see.</p>
+<p>Here is the original code. The “<code>foldM</code> body” is <code>extendSingle</code>, which
+inspects all the possible cases of one of its arguments to determine
+what to return. The other argument of <code>extendSingle</code> is <code>a</code>, the
+“<code>foldM</code> state”. Its type is <code>PPreAssignment</code> and its initial value is
+<code>ppa</code>. Many of the branches “error out” by returning <code>Left</code>. The
+other branches return the “next state”.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ot">extend ::</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a> (<span class="dt">Extension</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a> (<span class="dt">Language</span>  <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a> (<span class="dt">PkgconfigName</span> <span class="ot">-&gt;</span> <span class="dt">PkgconfigVersionRange</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>) <span class="ot">-&gt;</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a> [<span class="dt">LDep</span> <span class="dt">QPN</span>] <span class="ot">-&gt;</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a> <span class="dt">PPreAssignment</span> <span class="ot">-&gt;</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a> <span class="dt">Either</span> <span class="dt">Conflict</span> <span class="dt">PPreAssignment</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>extend extSupported langSupported pkgPresent newactives ppa <span class="ot">=</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>  foldM extendSingle ppa newactives</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="ot">    extendSingle ::</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">PPreAssignment</span> <span class="ot">-&gt;</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">LDep</span> <span class="dt">QPN</span> <span class="ot">-&gt;</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Either</span> <span class="dt">Conflict</span> <span class="dt">PPreAssignment</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>    extendSingle a (<span class="dt">LDep</span> dr (<span class="dt">Ext</span> ext)) <span class="ot">=</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>      <span class="kw">if</span> extSupported ext</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>      <span class="kw">then</span> <span class="dt">Right</span> a</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>      <span class="kw">else</span> <span class="dt">Left</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>           (dependencyReasonToConflictSet dr,</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>            <span class="dt">UnsupportedExtension</span> ext)</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>    extendSingle a (<span class="dt">LDep</span> dr (<span class="dt">Lang</span> lang)) <span class="ot">=</span></span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>      <span class="kw">if</span> langSupported lang</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>      <span class="kw">then</span> <span class="dt">Right</span> a</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>      <span class="kw">else</span> <span class="dt">Left</span></span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>             (dependencyReasonToConflictSet dr,</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>              <span class="dt">UnsupportedLanguage</span> lang)</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>    extendSingle a (<span class="dt">LDep</span> dr (<span class="dt">Pkg</span> pn vr)) <span class="ot">=</span></span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>      <span class="kw">if</span> pkgPresent pn vr</span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>      <span class="kw">then</span> <span class="dt">Right</span> a</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>      <span class="kw">else</span> <span class="dt">Left</span></span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>            (dependencyReasonToConflictSet dr,</span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>             <span class="dt">MissingPkgconfigPackage</span> pn vr)</span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>    extendSingle a (<span class="dt">LDep</span> dr (<span class="dt">Dep</span> dep<span class="op">@</span>(<span class="dt">PkgComponent</span> qpn _) ci)) <span class="ot">=</span></span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> mergedDep <span class="ot">=</span></span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>            M.findWithDefault (<span class="dt">MergedDepConstrained</span> []) qpn a</span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>      <span class="kw">in</span> <span class="kw">case</span></span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>        (\x <span class="ot">-&gt;</span> M.insert qpn x a)</span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>          <span class="op">&lt;$&gt;</span> merge mergedDep (<span class="dt">PkgDep</span> dr dep ci) <span class="kw">of</span></span>
+<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a>          <span class="dt">Left</span> (c, (d, d')) <span class="ot">-&gt;</span></span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>            <span class="dt">Left</span> (c, <span class="dt">ConflictingConstraints</span> d d')</span>
+<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>          <span class="dt">Right</span> x <span class="ot">-&gt;</span> <span class="dt">Right</span> x</span></code></pre></div>
+<p>As explained <a href="#foldM">above, in the <code>foldM</code> section</a>, we should
+proceed by introducing a <code>StateT</code> transformer around our inner monad
+<code>m</code>, which in this case is <code>Either Conflict</code>. We have to insert some
+<code>lift</code>s to lift the <code>Either</code> into the <code>StateT</code>. We’ll improve that
+shortly, but for now, let’s take stock:</p>
+<p><a name="original-extend"></a></p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Control.Monad.Trans.State.Strict</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  (<span class="dt">StateT</span>, evalStateT, get, put)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>extend extSupported langSupported pkgPresent newactives ppa <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">flip</span> evalStateT ppa <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    for_ newactives extendSingle</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    get</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">where</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="ot">    extendSingle ::</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">LDep</span> <span class="dt">QPN</span> <span class="ot">-&gt;</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">StateT</span> <span class="dt">PPreAssignment</span> (<span class="dt">Either</span> <span class="dt">Conflict</span>) ()</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    extendSingle (<span class="dt">LDep</span> dr (<span class="dt">Ext</span> ext)) <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>      a <span class="ot">&lt;-</span> get</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>      <span class="kw">if</span> extSupported ext</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>      <span class="kw">then</span> put a</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>      <span class="kw">else</span> lift <span class="op">$</span> <span class="dt">Left</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>           (dependencyReasonToConflictSet dr,</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>            <span class="dt">UnsupportedExtension</span> ext)</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>    extendSingle (<span class="dt">LDep</span> dr (<span class="dt">Lang</span> lang)) <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>      a <span class="ot">&lt;-</span> get</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>      <span class="kw">if</span> langSupported lang</span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>      <span class="kw">then</span> put a</span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>      <span class="kw">else</span> lift <span class="op">$</span> <span class="dt">Left</span></span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>             (dependencyReasonToConflictSet dr,</span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>              <span class="dt">UnsupportedLanguage</span> lang)</span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>    extendSingle (<span class="dt">LDep</span> dr (<span class="dt">Pkg</span> pn vr)) <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>      a <span class="ot">&lt;-</span> get</span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>      <span class="kw">if</span> pkgPresent pn vr</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>      <span class="kw">then</span> put a</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>      <span class="kw">else</span> lift <span class="op">$</span> <span class="dt">Left</span></span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>            (dependencyReasonToConflictSet dr,</span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>             <span class="dt">MissingPkgconfigPackage</span> pn vr)</span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>    extendSingle (<span class="dt">LDep</span> dr (<span class="dt">Dep</span> dep<span class="op">@</span>(<span class="dt">PkgComponent</span> qpn _) ci)) <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a>      a <span class="ot">&lt;-</span> get</span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> mergedDep <span class="ot">=</span></span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>            M.findWithDefault (<span class="dt">MergedDepConstrained</span> []) qpn a</span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a>      <span class="kw">case</span></span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a>        (\x <span class="ot">-&gt;</span> M.insert qpn x a)</span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>          <span class="op">&lt;$&gt;</span> merge mergedDep (<span class="dt">PkgDep</span> dr dep ci) <span class="kw">of</span></span>
+<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a>          <span class="dt">Left</span> (c, (d, d')) <span class="ot">-&gt;</span></span>
+<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a>            lift <span class="op">$</span> <span class="dt">Left</span> (c, <span class="dt">ConflictingConstraints</span> d d')</span>
+<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>          <span class="dt">Right</span> x <span class="ot">-&gt;</span> put x</span></code></pre></div>
+<p>So far so mechanical, and it looks it. The code is less clear than
+before, not more. But we can do better: there are plenty of places we
+<code>get</code> the state <code>a</code>, only to <code>put</code> it straight back. These cases
+follow the pattern:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">do</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  a <span class="ot">&lt;-</span> get</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">if</span> <span class="op">...</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">then</span> put a</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">else</span> lift <span class="op">$</span> <span class="dt">Left</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>     <span class="op">...</span></span></code></pre></div>
+<p>That’s the same as not getting or putting the state at all:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">do</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">if</span> <span class="op">...</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">then</span> <span class="fu">pure</span> ()</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">else</span> lift <span class="op">$</span> <span class="dt">Left</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>     <span class="op">...</span></span></code></pre></div>
+<p>And that’s the same as using <code>unless</code>:</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="ot">extendSingle ::</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">LDep</span> <span class="dt">QPN</span> <span class="ot">-&gt;</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">StateT</span> <span class="dt">PPreAssignment</span> (<span class="dt">Either</span> <span class="dt">Conflict</span>) ()</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>extendSingle (<span class="dt">LDep</span> dr (<span class="dt">Ext</span> ext)) <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  unless (extSupported ext) <span class="op">$</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    lift <span class="op">$</span> <span class="dt">Left</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>      (dependencyReasonToConflictSet dr,</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>       <span class="dt">UnsupportedExtension</span> ext)</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>extendSingle (<span class="dt">LDep</span> dr (<span class="dt">Lang</span> lang)) <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>  unless (langSupported lang) <span class="op">$</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    lift <span class="op">$</span> <span class="dt">Left</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>      (dependencyReasonToConflictSet dr,</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>       <span class="dt">UnsupportedLanguage</span> lang)</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>extendSingle (<span class="dt">LDep</span> dr (<span class="dt">Pkg</span> pn vr)) <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>  unless (pkgPresent pn vr) <span class="op">$</span></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>    lift <span class="op">$</span> <span class="dt">Left</span></span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>      (dependencyReasonToConflictSet dr,</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>       <span class="dt">MissingPkgconfigPackage</span> pn vr)</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a><span class="op">...</span></span></code></pre></div>
+<p>Before proceeding to eliminate the <code>lift</code>s I want to make an unrelated
+refactoring: move the <code>M.insert qpn x</code> into the <code>Right</code> branch, like
+so:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">case</span> merge mergedDep (<span class="dt">PkgDep</span> dr dep ci) <span class="kw">of</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Left</span> (c, (d, d')) <span class="ot">-&gt;</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    lift <span class="op">$</span> <span class="dt">Left</span> (c, <span class="dt">ConflictingConstraints</span> d d')</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Right</span> x <span class="ot">-&gt;</span> put (M.insert qpn x a)</span></code></pre></div>
+<p>It seems clearer than using <code>&lt;$&gt;</code>. Next I’m going to eliminate the
+<code>lift</code>s by switching to <code>mtl</code> and replacing <code>lift $ Left ...</code> with
+<code>throwError ...</code>. I’m also going to inline <code>extendSingle</code> so the loop
+body really looks like a loop body.</p>
+<p><a name="final-extend"></a></p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Control.Monad.State.Strict</span> (evalStateT, get, put)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Control.Monad.Except</span> (throwError)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>extend extSupported langSupported pkgPresent newactives ppa <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">flip</span> evalStateT ppa <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>    for_ newactives <span class="op">$</span> \<span class="kw">case</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">LDep</span> dr (<span class="dt">Ext</span> ext) <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>        unless (extSupported ext) <span class="op">$</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>          throwError</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>            (dependencyReasonToConflictSet dr,</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>             <span class="dt">UnsupportedExtension</span> ext)</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">LDep</span> dr (<span class="dt">Lang</span> lang) <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>        unless (langSupported lang) <span class="op">$</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>          throwError</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>            (dependencyReasonToConflictSet dr,</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>             <span class="dt">UnsupportedLanguage</span> lang)</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>      <span class="dt">LDep</span> dr (<span class="dt">Pkg</span> pn vr) <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>        unless (pkgPresent pn vr) <span class="op">$</span></span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>          throwError</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>            (dependencyReasonToConflictSet dr,</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>             <span class="dt">MissingPkgconfigPackage</span> pn vr)</span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">LDep</span> dr (<span class="dt">Dep</span> dep<span class="op">@</span>(<span class="dt">PkgComponent</span> qpn _) ci) <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>        a <span class="ot">&lt;-</span> get</span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> mergedDep <span class="ot">=</span></span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>              M.findWithDefault (<span class="dt">MergedDepConstrained</span> []) qpn a</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a>        <span class="kw">case</span> merge mergedDep (<span class="dt">PkgDep</span> dr dep ci) <span class="kw">of</span></span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>          <span class="dt">Left</span> (c, (d, d')) <span class="ot">-&gt;</span></span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a>            throwError (c, <span class="dt">ConflictingConstraints</span> d d')</span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a>          <span class="dt">Right</span> x <span class="ot">-&gt;</span> put (M.insert qpn x a)</span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a>    get</span></code></pre></div>
+<p>I find this code very clear! We start with an initial state of <code>ppa</code>.
+For each of the <code>newactives</code>, if it is an extension, language or
+package we check whether it is supported, and if not then we
+<code>throwError</code>. If it is a dependency then we check a mergeability
+condition, and if it fails then we <code>throwError</code>. If the condition
+succeeds then we insert a new key-value pair into the state. Simple.</p>
+<p>(The <code>get</code> is a bit sad and awkward all down at the bottom on its own.
+If you really don’t like it you can use <code>execState</code> instead of
+<code>evalState</code>.)</p>
+<h2 id="performance">Performance</h2>
+<p>If using <code>transformers</code> or <code>mtl</code> then it is likely that the
+transformations described in this article will have no performance
+impact, because after inlining the original and replacement versions
+will optimise to the same compilation result. If you use Bluefin (or
+similarly, <a href="https://hackage.haskell.org/package/effectful">effectful</a>)
+then it’s likely you’ll experience some slow down relative to the
+original versions when the loop bodies are small and can be completely
+inlined. On the other hand it’s possible that you will experience a
+performance boost for large loop bodies that cannot be entirely
+inlined (for example those that span module boundaries).</p>
+<h2 id="commentary-and-conclusion">Commentary and conclusion</h2>
+<p><em>“The <a href="#final-extend">final version of <code>extend</code></a> looks imperative”</em> –
+Yes! In fact I would say it <em>is</em> imperative. – <em>“But then isn’t it
+the same as if it had been written in Python or Java?”</em> – No! The
+final version of <code>extend</code> is <em>the same</em> as the <a href="#original-extend">original
+version</a>, not just in the sense that it calculates
+the same result, nor even just in the sense that it calculates the
+same result in the same way, but that it is a transformation of
+<em>exactly the same code</em>. This implies all the same benefits we expect
+from pure functional code when it comes to maintenance and
+refactoring. For example, if <code>extend</code> had been written in Python or
+Java then the type system wouldn’t catch it if I slipped in a call to
+delete files from disk, make network connections or launch the
+missiles; in the “imperative” <code>extend</code> written in Haskell it would: I
+can <em>only</em> do “<code>State</code> effects on a <code>PPreAssignment</code>”, and “<code>Either</code>
+effects on a <code>Conflict</code>”. This is why Haskell is “<a href="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/07/mark.pdf?from=https://research.microsoft.com/~simonpj/papers/marktoberdorf/mark.pdf&amp;type=exact">the world’s finest
+imperative programming
+language</a>”.</p>
+<p>To sum up, instead of remembering how to use a plethora of
+increasingly complicated iteration combinators, we can instead
+remember how a small collection of monads or monad transformers work
+(especially monads for state, exceptions and streaming), and stick to
+the simple and obvious iteration combinators <code>for_</code>, <code>for</code> and
+<code>forever</code>.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>
