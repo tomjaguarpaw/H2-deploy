@@ -331,9 +331,11 @@ serves a similar purpose to <code>concatMap</code>. Its replacement in terms of
 <span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    for_ as <span class="op">$</span> \a <span class="ot">-&gt;</span> <span class="kw">do</span></span>
 <span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>      for_ (f a) <span class="op">$</span> \b <span class="ot">-&gt;</span></span>
 <span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>        yield b</span></code></pre></div>
+<p>Like <code>foldl'</code>, <code>mapMaybe</code> is probably too simple to be worth replacing
+like this.</p>
 <h3 id="mapmaybem"><code>mapMaybeM</code></h3>
 <p><a href="https://www.stackage.org/haddock/lts-22.15/extra-1.7.14/Control-Monad-Extra.html#v:mapMaybeM"><code>Control.Monad.Extra.mapMaybeM</code></a>
-is the monadic version of <code>mapMaybe</code>. It is even more compelling to
+is the monadic version of <code>mapMaybe</code>. It is more compelling to
 replace <code>mapMaybeM</code> with <code>for_</code> than it is <code>mapMaybe</code>.</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ot">mapMaybeM ::</span></span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  (<span class="dt">Monad</span> m) <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> m (<span class="dt">Maybe</span> b)) <span class="ot">-&gt;</span> [a] <span class="ot">-&gt;</span> m [b]</span>
