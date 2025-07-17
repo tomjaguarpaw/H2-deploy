@@ -63,7 +63,8 @@ Keys -&gt; Left Option Key -&gt; Esc+</p></li>
 <p>(see
 <a href="https://developer.apple.com/library/archive/technotes/tn2450/_index.html" class="uri">https://developer.apple.com/library/archive/technotes/tn2450/_index.html</a>)</p></li>
 <li><p>Show dock instantly</p>
-<pre><code>defaults write com.apple.dock autohide-time-modifier -int 0 &amp;&amp; killall Dock</code></pre></li>
+<pre><code>defaults write com.apple.dock autohide-time-modifier -int 0 &amp;&amp; killall Dock</code></pre>
+<pre><code>defaults write com.apple.dock autohide-delay -float 0; killall Dock</code></pre></li>
 <li><p>Disable drag lock: Accessibility -&gt; Pointer Control -&gt; Trackpad
 Options -&gt; Enable Dragging -&gt; Without Drag Lock</p>
 <p>But how to release drag instantly? No one knows.</p>
