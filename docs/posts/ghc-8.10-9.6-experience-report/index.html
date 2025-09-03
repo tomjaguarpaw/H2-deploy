@@ -101,7 +101,7 @@ as the upgrade</em><a href="#fn1" class="footnote-ref" id="fnref1" role="doc-not
 <h3 id="changes-to-libraries">Changes to libraries</h3>
 <h4 id="new-export-from-prelude">New export from <code>Prelude</code></h4>
 <p>Newer versions of <code>base</code> re-export <code>liftA2</code> from the <code>Prelude</code>
-therefore explicit imports from <code>Control.Applicative</code>emit warnings.
+therefore explicit imports from <code>Control.Applicative</code> emit warnings.
 The <em>forward-compatible mitigation</em> is to turn on
 <code>-Wwarn=unused-imports</code> but we chose the <em>breaking fix</em> of removing
 the explicit import.</p>
