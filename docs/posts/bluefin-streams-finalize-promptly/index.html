@@ -62,7 +62,7 @@ finalize promptly? Read on to find out.</p>
 example a file handle) we need to “finalize it promptly”, that is,
 “release” or “clean it up” as soon as possible after we no longer need
 it, so that it can be reused. If a program component is guaranteed to
-promptly finalize the resources it holds it is sometimes called
+promptly finalize the resources it holds it can be called
 “resource safe”.</p>
 <p>One element of the Haskell ecosystem that provides a form of prompt
 finalization is
@@ -118,7 +118,7 @@ Closing file
 <h2 id="bracketing-when-streaming">Bracketing when streaming</h2>
 <p>Bracketing of resources is a very useful, general concept. Streaming
 abstractions like those provided by pipes, conduit and Bluefin need to
-support prompt finalization, through some form of bracketing, because
+support prompt finalization through some form of bracketing because
 we want to be able to implement streaming computations that hold
 resources. For example, we might want to implement a producer that
 yields all lines from a file. To be resource safe, that producer must
@@ -136,7 +136,8 @@ and
 <a href="https://hackage.haskell.org/package/resourcet-1.3.0/docs/Control-Monad-Trans-Resource.html#t:ResourceT"><code>ResourceT</code></a>
 monad transformers that offer a form of prompt finalization that work
 with the pipes and conduit ecosystems, and beyond. Bluefin has its
-own general-purpose bracketing operation, also called <code>bracket</code>.</p>
+own general-purpose bracketing operation, also called
+[<code>bracket</code>]https://hackage-content.haskell.org/package/bluefin/docs/Bluefin-Eff.html).</p>
 <p>Let’s write a program so we can inspect the behaviour of pipes’s,
 conduit’s and Bluefin’s approaches to prompt finalization. The
 program will consist of a producer and a consumer. The producer will
@@ -281,7 +282,7 @@ operations?</p>
 the producer throws an exception before it emits “3” and we’re going
 to catch the exception outside the producer, so it doesn’t propagate
 further.</p>
-<p>Pipes and conduit do not deal well with this case. Bluefin does.</p>
+<p>Pipes and conduit do not deal well with this case; Bluefin does.</p>
 <h3 id="pipes-implementation-1">Pipes implementation</h3>
 <p>The pipes implementation is the same as before, except we throw an
 exception in the producer when <code>i &gt;= 3</code>, and catch it, at the
@@ -449,8 +450,9 @@ is <code>IO</code> under the hood. Firstly, this means we can use the standard
 <code>bracket</code> and <code>try</code> from <code>Control.Exception</code>, wrapped to work on <code>Eff</code>
 instead of <code>IO</code>, to bracket and try all Bluefin operations. No
 special-purpose operations are needed.</p>
-<p>Secondly, <code>connectCoroutines</code>, which connects a producer and a
-consumer, works by using
+<p>Secondly,
+<a href="https://hackage-content.haskell.org/package/bluefin/docs/Bluefin-Coroutine.html#v:connectCoroutines"><code>connectCoroutines</code></a>,
+which connects a producer and a consumer, works by using
 <a href="https://hackage.haskell.org/package/async-2.2.5/docs/Control-Concurrent-Async.html#v:race"><code>Async.race</code></a>
 to fork two threads which communicate in a synchronized fashion
 through
