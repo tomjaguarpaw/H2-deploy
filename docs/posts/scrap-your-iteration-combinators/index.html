@@ -190,6 +190,10 @@ terms of <code>for</code> is clear and direct.</p>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> (s', b) <span class="ot">=</span> f s a</span>
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      put s'</span>
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pure</span> b</span></code></pre></div>
+<p>(<a href="https://github.com/haskell/core-libraries-committee/issues/406"><code>mapAccumL</code>’s state updates are
+lazy</a>
+so as for <code>foldM</code> to avoid a space leak one might want to evaluate
+<code>s'</code> before <code>put</code>ting it.)</p>
 <p>(This implementation generalises to any <code>Traversable</code>. In a real use
 case the <code>swap</code>, <code>get</code> and <code>put</code> would probably be absorbed into the
 surrounding code. Again, for strictness, we might want to evaluate
