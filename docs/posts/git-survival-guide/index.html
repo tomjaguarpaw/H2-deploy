@@ -212,7 +212,7 @@ PAGER=&quot;less -S&quot; \
 git log --graph \
         --decorate \
         --pretty=format:&quot;%C(auto)%h %&lt;(7,trunc)%C(auto)%ae%Creset%C(auto)%d %s [%ar]%Creset&quot; \
-        $(git reflog $BRANCH | cut '-d ' -f1)</code></pre>
+        $(git log --walk-reflogs --format=&quot;%H&quot;)</code></pre>
 <p>You will be
 presented with a tree that contains everything that has even been on
 the given branch. You can then reset your branch to one of its

@@ -49,7 +49,8 @@
   <h1 id="how-i-use-debian-gnulinux-on-dell-xps-13-7390">How I use Debian GNU/Linux on Dell XPS 13 7390</h1>
 <h2 id="background">Background</h2>
 <p>I can happily report that this machine works well with Debian
-11/Bullseye!</p>
+11/Bullseye (and subsequently successfully upgraded to 12/Bookworm and
+13/Trixie)!</p>
 <p>Reportedly, other options for a machine that is highly compatible with
 Linux include Lenovo, <a href="https://laptopwithlinux.com/">Laptop with
 Linux</a>,
@@ -121,6 +122,9 @@ works, sometimes it doesn’t. Sometimes it seems to hang but can be
 recovered by closing the lid (i.e. putting the machine to sleep) and
 then opening it again. Sometimes it hangs and closing and opening the
 lid doesn’t work; in those cases I have to reboot.</p>
+<p>Sometimes I accidentally press a key combination (perhaps involving
+the Fn key) and Caps Lock gets toggled on. I haven’t been able to work
+out what that key combination is.</p>
 <h4 id="x11-external-screen-disconnection-bug">X11 external screen disconnection bug</h4>
 <p>If I am in dual head mode (i.e. X is using the internal screen and an
 external screen) and I unplug the external screen then the driver
@@ -192,6 +196,10 @@ shows all possibilities</li>
 quality seems not great</li>
 </ul></li>
 </ul>
+<h4 id="kick-bluetooth-back-into-a-good-state">Kick bluetooth back into a good state</h4>
+<p>Sometimes to put the Bluetooth speaker back into a good state I need
+to do</p>
+<pre><code>pactl set-card-profile $CARD off &amp;&amp; pactl set-card-profile $CARD a2dp_sink</code></pre>
 <h3 id="auto-dimming-screen-on-battery-power">Auto-dimming screen on battery power</h3>
 <p>By default, when running on batter power the screen automatically dims
 and brightens depending on what is on the screen. It seems somewhat
