@@ -207,12 +207,12 @@ git rebase conflicts</a> for more information.</p>
 <p>Are you scared that you’ve lost commits because of a rebase gone wrong
 or some other git mystery? Try this command with the name of your
 branch in the place of <code>&lt;branch&gt;</code>.</p>
-<pre class="shell"><code>BRANCH=&lt;branch&gt;; \
+<pre class="shell"><code>BRANCH=$(git branch --show-current); \
 PAGER=&quot;less -S&quot; \
 git log --graph \
         --decorate \
         --pretty=format:&quot;%C(auto)%h %&lt;(7,trunc)%C(auto)%ae%Creset%C(auto)%d %s [%ar]%Creset&quot; \
-        $(git log --walk-reflogs --format=&quot;%H&quot;)</code></pre>
+        $(git log --walk-reflogs $BRANCH --format=&quot;%H&quot;)</code></pre>
 <p>You will be
 presented with a tree that contains everything that has even been on
 the given branch. You can then reset your branch to one of its
