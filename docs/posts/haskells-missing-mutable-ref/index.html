@@ -233,17 +233,18 @@ way of fixing that: <code>bracket</code>. It allows us to define a cleanup actio
 that runs regardless of whether the body exited normally or abnormally
 (via exception). Let’s see if the following implementation is good
 enough:</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="ot">modifyIOScopedRef ::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> r <span class="ot">-&gt;</span> <span class="dt">IO</span> r</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>modifyIOScopedRef f (<span class="dt">MkIOScopedRef</span> ref) k <span class="ot">=</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  Control.Exception.bracket</span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    (Data.IORef.readIORef ref)</span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Cleanup action</span></span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    (Data.IORef.writeIORef ref)</span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Body</span></span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    ( \orig <span class="ot">-&gt;</span> <span class="kw">do</span></span>
-<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>        Data.IORef.modifyIORef ref f</span>
-<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>        k</span>
-<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    )</span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- </span><span class="al">WARNING</span><span class="co">: This does not have the desired behavior!</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="ot">modifyIOScopedRefStillBad ::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> r <span class="ot">-&gt;</span> <span class="dt">IO</span> r</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>modifyIOScopedRefStillBad f (<span class="dt">MkIOScopedRef</span> ref) k <span class="ot">=</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  Control.Exception.bracket</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    (Data.IORef.readIORef ref)</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Cleanup action</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    (Data.IORef.writeIORef ref)</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Body</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>    ( \orig <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>        Data.IORef.modifyIORef ref f</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>        k</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>    )</span></code></pre></div>
 <h3 id="concurrency">Concurrency</h3>
 <p>That implemetnation fixes the exception problem and causes
 <code>loggerExampleException</code> to give the desired output:</p>
