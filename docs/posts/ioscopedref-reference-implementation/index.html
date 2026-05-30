@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>ioscopedref-reference-implementation</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>ioscopedref-reference-implementation</h3>
+  <h1 id="a-reference-implementation-of-ioscopedref">A reference implementation of <code>IOScopedRef</code></h1>
+<p>– Tom Ellis, June 2026</p>
+<p>In a previous article <em>“<a href="../haskells-missing-mutable-ref">Haskell’s missing mutable reference
+type</a></em>” I presented the API of
+“<code>IOScopedRef</code>”, a potential new mutable reference type for Haskell,
+and described how it should behave: an <code>IOScopedRef</code> should be a
+reference that can be locally modified, and the local modification
+should behave well with respect to exceptions and threading. I also
+demonstrated the failure of an attempt to implement <code>IOScopedRef</code> in
+terms of <code>IORef</code>. This article contains a reference implementation
+that succeeds.</p>
+<h2 id="the-api">The API</h2>
+<p>Let’s remind ourselves of the API of <code>IOScopedRef</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">IOScopedRef</span><span class="ot"> ::</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Type</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Like ReaderT's runReaderT</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- (no direct equivalent of newIORef)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ot">withIOScopedRef ::</span> a <span class="ot">-&gt;</span> (<span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> r) <span class="ot">-&gt;</span> <span class="dt">IO</span> r</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Like ReaderT's ask</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ot">readIOScopedRef ::</span> <span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- Like ReaderT's local</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- (there is no direct equivalent of writeIORef)</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="ot">modifyIOScopedRef ::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> r <span class="ot">-&gt;</span> <span class="dt">IO</span> r</span></code></pre></div>
+<p>The comments about the behaviour of <code>IOScopedRef</code> being analogous to
+<code>ReaderT</code> already contain a clue to how we could implement it, so
+let’s look at the API of <code>ReaderT</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">ReaderT</span><span class="ot"> ::</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> (<span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Type</span>) <span class="ot">-&gt;</span> <span class="dt">Type</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Like IOScopedRef's withIOScopedRef</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="ot">runReaderT ::</span> <span class="dt">ReaderT</span> a m r <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> m r</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Like IOScopedRef's readIOScopedRef</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="ot">ask ::</span> <span class="dt">ReaderT</span> a m a</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- Like IOScopedRef's modifyIOScopedRef</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="ot">local ::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">ReaderT</span> a m r <span class="ot">-&gt;</span> <span class="dt">ReaderT</span> a m r</span></code></pre></div>
+<p>Does that help? Not immediately, because although <code>ReaderT</code> allows us
+to run a computation in a “scope with local modification” the
+modification can only be to one value of type <code>a</code>, whereas the
+<code>IOScopedRef</code> API allows us to hold references to any number of <code>a</code>s,
+and indeed references to any number of arbitrary types!</p>
+<h2 id="vault"><code>Vault</code></h2>
+<p>But what if we chose the <code>a</code> in <code>ReaderT a</code> to be a type which
+<em>itself</em> can contain any number of references to arbitrary types?
+That sounds like a mysterious type indeed, but in the world of Haskell
+many mysterious things exist and such a type is one of them: it’s
+called
+<a href="https://hackage.haskell.org/package/vault-0.3.1.5/docs/Data-Vault-Strict.html#t:Vault"><code>Vault</code></a>
+and comes from the package
+<a href="https://hackage.haskell.org/package/vault"><code>vault</code></a>. These are the
+elements of its API that will be needed for our purposes:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">Vault</span><span class="ot"> ::</span> <span class="dt">Type</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">Key</span><span class="ot"> ::</span> <span class="dt">Type</span> <span class="ot">-&gt;</span> <span class="dt">Type</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="ot">empty ::</span> <span class="dt">Vault</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="ot">newKey ::</span> <span class="dt">IO</span> (<span class="dt">Key</span> a)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="ot">insert ::</span> <span class="dt">Key</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Vault</span> <span class="ot">-&gt;</span> <span class="dt">Vault</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="fu">lookup</span><span class="ot"> ::</span> <span class="dt">Key</span> a <span class="ot">-&gt;</span> <span class="dt">Vault</span> <span class="ot">-&gt;</span> <span class="dt">Maybe</span> a</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="ot">adjust ::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">Key</span> a <span class="ot">-&gt;</span> <span class="dt">Vault</span> <span class="ot">-&gt;</span> <span class="dt">Vault</span></span></code></pre></div>
+<p>A <code>Vault</code> is a data structure that implements a “finite mapping” or
+“associative container” similar to <code>Data.Map.Map k v</code>. The latter
+maps keys of type <code>k</code> to values of type <code>v</code>. <code>Vault</code> differs from a
+<code>Map</code> in two important ways. Firstly, the keys of a <code>Vault</code> are of an
+abstract type <code>Key a</code>, inhabitants of which can only be created
+through <code>newKey</code>. Secondly, if there is a value in a <code>Vault</code>
+corresponding to a key of type <code>Key a</code> then that value is of type <code>a</code>.
+That is, the type of a value stored in a <code>Vault</code> depends on the type
+of the key at which it is stored, a property infrequently seen in
+associative container types.</p>
+<p>The behaviour of the <code>Vault</code> API is that <code>newKey</code> creates a new key,
+and that <code>empty</code>, <code>insert</code>, <code>lookup</code> and <code>adjust</code> create, query and
+modify a <code>Vault</code> in the way the functions of the same names do for
+<code>Data.Map.Map</code>. (<code>Vault</code> also allows the value corresponding to a key
+to be deleted, but we won’t use that functionality in this article.)
+Here’s an example of using these <code>vault</code> API elements:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">vaultExample ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>vaultExample <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Create an empty vault</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> v0 <span class="ot">=</span> Vault.empty</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Create a key</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  k0 <span class="ot">&lt;-</span> Vault.newKey</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Look up key k0 in the vault</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> r1 <span class="ot">=</span> Vault.lookup k0 v0</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- We haven't inserted anything into the vault at key k0 so the</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- result is</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="co">--</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Nothing</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span> r1</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Insert something into the vault at key k0</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> v1 <span class="ot">=</span> Vault.insert k0 <span class="st">&quot;Hello&quot;</span> v0</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Look up key k1 in the vault</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> r2 <span class="ot">=</span> Vault.lookup k0 v1</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Just &quot;Hello&quot;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span> r2</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Create another key</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>  k1 <span class="ot">&lt;-</span> Vault.newKey</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Look up key k1 in the vault</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> r3 <span class="ot">=</span> Vault.lookup k1 v1</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- We haven't inserted anything into the vault at key k1 so the</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- result is</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>  <span class="co">--</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Nothing</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span> r3</span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Insert something into the vault at key k1</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> v2 <span class="ot">=</span> Vault.insert k1 <span class="dt">True</span> v1</span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Look up each key in the vault. The result is</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>  <span class="co">--</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- (Just &quot;Hello&quot;, Just True)</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> r4 <span class="ot">=</span> (Vault.lookup k0 v2, Vault.lookup k1 v2)</span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span> r4</span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Adjust (modify) the value stored at key k0</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> v3 <span class="ot">=</span> Vault.adjust (<span class="op">++</span> <span class="st">&quot; world&quot;</span>) k0 v2</span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- We get the modified value at k0 and the unchanged value at k1</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>  <span class="co">--</span></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- (Just &quot;Hello world&quot;,Just True)</span></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> r5 <span class="ot">=</span> (Vault.lookup k0 v3, Vault.lookup k1 v3)</span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span> r5</span></code></pre></div>
+<h2 id="ioscopedref-in-terms-of-vault"><code>IOScopedRef</code> in terms of <code>Vault</code></h2>
+<p>Using a <code>Vault</code> we can implement <code>IOScopedRef</code> as an newtype wrapper
+around <code>Key</code>, and implement its operations in a monad “<code>NewIO</code>” which
+provides reader-like access to a <code>Vault</code> and supports <code>IO</code> actions.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- (The constructor is to be kept hidden)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">IOScopedRef</span> a <span class="ot">=</span> <span class="dt">MkIOScopedRef</span> (<span class="dt">Vault.Key</span> a)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- (The constructor is to be kept hidden)</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">NewIO</span> a <span class="ot">=</span> <span class="dt">MkNewIO</span> {<span class="ot">unNewIO ::</span> <span class="dt">ReaderT</span> <span class="dt">Vault.Vault</span> <span class="dt">IO</span> a}</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">deriving</span> <span class="kw">newtype</span> (<span class="dt">Functor</span>, <span class="dt">Applicative</span>, <span class="dt">Monad</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- IOScopedRefs are introduced by withIOScopefRef, which uses</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- Vault.newKey and Vault.insert to insert the initial value of the</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- IOScopedRef into the Vault</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="ot">withIOScopedRef ::</span> a <span class="ot">-&gt;</span> (<span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">NewIO</span> r) <span class="ot">-&gt;</span> <span class="dt">NewIO</span> r</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>withIOScopedRef a body <span class="ot">=</span> <span class="dt">MkNewIO</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  key <span class="ot">&lt;-</span> Control.Monad.Trans.lift Vault.newKey</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  Reader.local (Vault.insert key a) <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    unNewIO (body (<span class="dt">MkIOScopedRef</span> key))</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="co">-- When reading the IOScopedRef we ask for the vault and lookup the</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="co">-- key in it</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="ot">readIOScopedRef ::</span> <span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">NewIO</span> a</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>readIOScopedRef (<span class="dt">MkIOScopedRef</span> key) <span class="ot">=</span> <span class="dt">MkNewIO</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>  vault <span class="ot">&lt;-</span> Reader.ask</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>  <span class="kw">case</span> Vault.lookup key vault <span class="kw">of</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Nothing</span> <span class="ot">-&gt;</span> <span class="fu">error</span> <span class="st">&quot;IOScopedRef escaped its scope&quot;</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Just</span> a <span class="ot">-&gt;</span> <span class="fu">pure</span> a</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a><span class="co">-- When modifying the IOScopedRef we create a new local scope in</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a><span class="co">-- ReaderT in which we work with a modification of the Vault</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a><span class="ot">modifyIOScopedRef ::</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">NewIO</span> r <span class="ot">-&gt;</span> <span class="dt">NewIO</span> r</span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>modifyIOScopedRef f (<span class="dt">MkIOScopedRef</span> key) (<span class="dt">MkNewIO</span> body) <span class="ot">=</span> <span class="dt">MkNewIO</span> <span class="op">$</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>  Reader.local (Vault.adjust f key) body</span></code></pre></div>
+<p>According to this attempt a combination of <code>ReaderT</code> and <code>Vault</code> is
+enough to implement <code>IOScopedRef</code>! <code>NewIO</code> is identical to <code>IO</code>
+except that it also supports <code>IOScopedRef</code>. Let’s see how the attempt
+works in practice.</p>
+<h3 id="usage">Usage</h3>
+<p>To use <code>NewIO</code> with the existing Haskell ecosystem we can derive
+instances of <code>MonadIO</code> and
+<a href="https://hackage-content.haskell.org/package/unliftio-core-0.2.1.0/docs/Control-Monad-IO-Unlift.html#t:MonadUnliftIO"><code>MonadUnliftIO</code></a>,
+the latter of which allows us to use the
+<a href="https://hackage-content.haskell.org/package/unliftio"><code>unliftio</code></a>
+package. Therefore we extend our <code>deriving</code> clause to:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">deriving</span> <span class="kw">newtype</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  (<span class="dt">Functor</span>, <span class="dt">Applicative</span>, <span class="dt">Monad</span>, <span class="dt">MonadIO</span>, <span class="dt">MonadUnliftIO</span>)</span></code></pre></div>
+<p>And we can define <code>runNewIO</code> in order to conveniently run a <code>NewIO</code>
+computation.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ot">runNewIO ::</span> <span class="dt">NewIO</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>runNewIO (<span class="dt">MkNewIO</span> rio) <span class="ot">=</span> Reader.runReaderT rio Vault.empty</span></code></pre></div>
+<p>Then <a href="../haskells-missing-mutable-ref#logging-api">the logger API from <em>“Haskell’s missing mutable reference
+type”</em></a> becomes the
+following, by replacing occurrences of <code>IO</code> with <code>NewIO</code>. (The
+implementation in terms of the <code>IOScopedRef</code> API does not change.)</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Logger</span> <span class="ot">=</span> <span class="dt">Logger</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  {<span class="ot"> logMsg ::</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>      <span class="dt">Severity</span> <span class="ot">-&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">NewIO</span> (),</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="ot">    modifySeverity ::</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>      <span class="kw">forall</span> a<span class="op">.</span> (<span class="dt">Severity</span> <span class="ot">-&gt;</span> <span class="dt">Severity</span>) <span class="ot">-&gt;</span> <span class="dt">NewIO</span> a <span class="ot">-&gt;</span> <span class="dt">NewIO</span> a</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="ot">withStdoutLogger ::</span> <span class="dt">Severity</span> <span class="ot">-&gt;</span> (<span class="dt">Logger</span> <span class="ot">-&gt;</span> <span class="dt">NewIO</span> r) <span class="ot">-&gt;</span> <span class="dt">NewIO</span> r</span></code></pre></div>
+<h4 id="simple-example-and-abnormal-termination">Simple example, and abnormal termination</h4>
+<p>The most simple example from the previous article
+(<a href="../haskells-missing-mutable-ref#a-simple-use-of-the-logging-api"><code>loggerExample</code></a>)
+works as desired.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- ghci&gt; loggerExample</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- [1] Getting user</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- [1] Is VIP: True</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- [10] Getting data</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- [0] Done</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="ot">loggerExample ::</span> <span class="dt">IO</span> ()</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>loggerExample <span class="ot">=</span> withStdoutLogger <span class="dv">0</span> <span class="op">$</span> \logger <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> <span class="st">&quot;Getting user&quot;</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  user <span class="ot">&lt;-</span> getUser</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> (<span class="st">&quot;Is VIP: &quot;</span> <span class="op">&lt;&gt;</span> <span class="fu">show</span> (isVip user))</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> modification <span class="ot">=</span> <span class="kw">if</span> isVip user <span class="kw">then</span> (<span class="op">+</span> <span class="dv">10</span>) <span class="kw">else</span> <span class="fu">id</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  d <span class="ot">&lt;-</span> modifySeverity logger modification <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    logMsg logger <span class="dv">0</span> <span class="st">&quot;Getting data&quot;</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>    getData user</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>  writeData d</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">0</span> <span class="st">&quot;Done&quot;</span></span></code></pre></div>
+<p>The example that used exceptions
+(<a href="../haskells-missing-mutable-ref#loggerExampleException"><code>loggerExampleException</code></a>)
+also works as desired. When the body terminates abnormally (via
+exception) the original value of the <code>IOScopedRef</code> is restored (as it
+did under <a href="../haskells-missing-mutable-ref#a-naive-implementation">our earlier implementation using <code>IORef</code> and
+<code>bracket</code></a>):</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- ghci&gt; runNewIO loggerExampleException</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- [1] Getting user</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- [1] Is VIP: True</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- [10] Getting data</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- [1] Got exception</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- [0] Done</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="ot">loggerExampleException ::</span> <span class="dt">NewIO</span> ()</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>loggerExampleException <span class="ot">=</span> withStdoutLogger <span class="dv">0</span> <span class="op">$</span> \logger <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> <span class="st">&quot;Getting user&quot;</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  user <span class="ot">&lt;-</span> getUser</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> (<span class="st">&quot;Is VIP: &quot;</span> <span class="op">&lt;&gt;</span> <span class="fu">show</span> (isVip user))</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> modification <span class="ot">=</span> <span class="kw">if</span> isVip user <span class="kw">then</span> (<span class="op">+</span> <span class="dv">10</span>) <span class="kw">else</span> <span class="fu">id</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>  d <span class="ot">&lt;-</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>    UnliftIO.Exception.handle</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>      (\<span class="dt">Exception</span> <span class="ot">-&gt;</span> logMsg logger <span class="dv">1</span> <span class="st">&quot;Got exception&quot;</span>)</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>      ( modifySeverity logger modification <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>          logMsg logger <span class="dv">0</span> <span class="st">&quot;Getting data&quot;</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>          UnliftIO.Exception.throwIO <span class="dt">Exception</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>          getData user</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>  writeData d</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">0</span> <span class="st">&quot;Done&quot;</span></span></code></pre></div>
+<h4 id="concurrency">Concurrency</h4>
+<p>Even better, the example that uses concurrency
+(<a href="../haskells-missing-mutable-ref#concurrency"><code>loggerExampleConcurrently</code></a>)
+also works as desired, which is something that we could not achieve
+with an <code>IORef</code>-based implementation:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- ghci&gt; runNewIO loggerExampleConcurrently</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- [1] Getting user</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- [1] Is VIP: True</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- [10] Getting data</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- [0] Done</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="ot">loggerExampleConcurrently ::</span> <span class="dt">NewIO</span> ()</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>loggerExampleConcurrently <span class="ot">=</span> withStdoutLogger <span class="dv">0</span> <span class="op">$</span> \logger <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> <span class="st">&quot;Getting user&quot;</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  user <span class="ot">&lt;-</span> getUser</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> (<span class="st">&quot;Is VIP: &quot;</span> <span class="op">&lt;&gt;</span> <span class="fu">show</span> (isVip user))</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> modification <span class="ot">=</span> <span class="kw">if</span> isVip user <span class="kw">then</span> (<span class="op">+</span> <span class="dv">10</span>) <span class="kw">else</span> <span class="fu">id</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>  (d, ()) <span class="ot">&lt;-</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    UnliftIO.Async.concurrently</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>      ( modifySeverity logger modification <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>          logMsg logger <span class="dv">0</span> <span class="st">&quot;Getting data&quot;</span></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>          getData user</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>      ( <span class="co">-- Do some unimportant background processing</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>        modifySeverity logger (<span class="fu">subtract</span> <span class="dv">100</span>) <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>          UnliftIO.Concurrent.threadDelay <span class="dv">1000</span></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>  writeData d</span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">0</span> <span class="st">&quot;Done&quot;</span></span></code></pre></div>
+<p>Why did the attempt in terms of <code>Vault</code> succeed where the attempt in
+terms of <code>IORef</code> failed? Because when we fork child threads using
+<code>UnliftIO.Async.concurrently</code>, the in-scope <code>Vault</code> is passed to each
+of them, implicitly by the <code>MonadUnliftIO</code> instance of <code>ReaderT a IO</code>.
+The <code>Vault</code> is immutable, and thus nothing one thread does with it can
+affect the behaviour of any other thread. By contrast, <code>IORef</code> is
+mutable so when we tried to implement <code>IOScopedRef</code> in terms of one,
+changes to it could be observed across sibling threads.</p>
+<h3 id="ioscopedrefs-can-escape-their-scope"><code>IOScopedRef</code>s can escape their scope</h3>
+<p><code>IOScopedRef</code>s come with a notable caveat: they can escape their
+scope. The reference implementation can shed some light on this
+phenomenon. Recall that <code>withIOScopedRef</code> has the following type, and
+that there is no “<code>newIOScopedRef</code>” for creating an <code>IOScopedRef</code>
+directly.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ot">withIOScopedRef ::</span> a <span class="ot">-&gt;</span> (<span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> r) <span class="ot">-&gt;</span> <span class="dt">IO</span> r</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- This equivalent to newIORef does not exist</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="ot">newIOScopedRef ::</span> a <span class="ot">-&gt;</span> <span class="dt">IOScopedRef</span> a</span></code></pre></div>
+<p>We might attempt to implement <code>newIOScopedRef</code> as follows</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- This does not work!</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="ot">newIOScopedRef ::</span> a <span class="ot">-&gt;</span> <span class="dt">NewIO</span> (<span class="dt">IOScopedRef</span> a)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>newIOScopedRef <span class="ot">=</span> withIOScopedRef () <span class="fu">pure</span></span></code></pre></div>
+<p>but if we do, things go wrong:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- ghci&gt; escape</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- *** Exception: IOScopedRef value not in scope</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="ot">escape ::</span> <span class="dt">NewIO</span> ()</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>escape <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  ref <span class="ot">&lt;-</span> newIOScopedRef ()</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  readIOScopedRef ref</span></code></pre></div>
+<p>Why? In terms of our reference implementation we would say “because
+outside the scope of the <code>Reader.local</code> that occurs in the definition
+of <code>withIOScopedRef</code>, the <code>Vault</code> is what it was before we entered the
+body”. In this case, it does not contain the new key allocated in
+<code>withIOScopedRef</code>. When we come to <code>readIOScopedRef</code> our
+<code>Vault.lookup</code> returns <code>Nothing</code>, so we have no choice but to error
+out.</p>
+<p>Let’s look at an example which uses threads. In <code>badShare</code> below we
+pass an <code>IOScopedRef</code> created in a thread to a sibling thread, via an
+<code>MVar</code>. The sibling thread is not within the scope of the reference
+and <code>readIOScopedRef</code> fails. Why? Again in terms of our reference
+implementation “because the <code>IOScopedRef</code> was added to the <code>Vault</code> in
+the reader environment of the first thread and therefore has no entry
+in the <code>Vault</code> in the second thread”.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- ghci&gt; runNewIO badShare</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- *** Exception: IOScopedRef value not in scope</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="ot">badShare ::</span> <span class="dt">NewIO</span> ((), <span class="dt">String</span>)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>badShare <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  mvar <span class="ot">&lt;-</span> UnliftIO.MVar.newEmptyMVar</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>  UnliftIO.Async.concurrently</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>    ( withIOScopedRef <span class="st">&quot;Hello&quot;</span> <span class="op">$</span> \ref <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>        UnliftIO.MVar.putMVar mvar ref</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        UnliftIO.Concurrent.threadDelay <span class="dv">1000000000</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>    ( <span class="kw">do</span></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>        ref' <span class="ot">&lt;-</span> UnliftIO.MVar.takeMVar mvar</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>        readIOScopedRef ref'</span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>    )</span></code></pre></div>
+<p>By contrast, if both threads run in the scope of an <code>IOScopedRef</code> then
+it is fine to pass that <code>IOScopedRef</code> between them.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- ghci&gt; runNewIO goodShare</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- ((),&quot;Hello&quot;)</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="ot">goodShare ::</span> <span class="dt">NewIO</span> ((), <span class="dt">String</span>)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>goodShare <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  mvar <span class="ot">&lt;-</span> UnliftIO.MVar.newEmptyMVar</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  withIOScopedRef <span class="st">&quot;Hello&quot;</span> <span class="op">$</span> \ref <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    UnliftIO.Async.concurrently</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>      (UnliftIO.MVar.putMVar mvar ref)</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>      ( <span class="kw">do</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>          ref' <span class="ot">&lt;-</span> UnliftIO.MVar.takeMVar mvar</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>          readIOScopedRef ref'</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>      )</span></code></pre></div>
+<p>Now, the problem of <code>IOScopedRef</code>s going out of scope is not a
+weakness particular to this reference implementation: it is a
+requirement of any implementation, if we are to satisfy other
+desirable properties of <code>IOScopedRef</code>. Regardless of how we implement
+currency primitives it does not seem possible to assign coherent
+semantics to <code>IOScopedRef</code>s shared between threads.</p>
+<p>Let’s see an example. In <code>confusingShare</code> below, if <code>readIOScopedRef ref1</code> does not error out then what should be the value of <code>a</code>? It
+must be <code>"Hello"</code>. Then by the same logic the value of <code>b</code> must be
+<code>"Bye"</code>. But can the same reasoning hold in <code>straightforwardShare</code>?
+It passes around the reference in exactly the same way as
+<code>confusingShare</code> and differs only because the body of each thread is
+in the scope of the creation of the <code>IOScopedRef</code>. According to our
+design goal that threads interacting with a shared <code>IOScopedRef</code>
+should not interfere with each other (exemplified by
+<code>loggerExampleConcurrently</code> above) <code>b</code> must be <code>"Hello"</code> not <code>"Bye"</code>!</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>confusingShare <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  mvar <span class="ot">&lt;-</span> newEmptyMVar</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  concurrently_</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>    ( withIOScopedRef <span class="st">&quot;Hello&quot;</span> <span class="op">$</span> \ref0 <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>        putMVar mvar ref0</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>        ref2 <span class="ot">&lt;-</span> takeMVar mvar</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">-- If readIOScopedRef succeeds, b ought to be &quot;Bye&quot;</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>        b <span class="ot">&lt;-</span> readIOScopedRef ref2</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>        threadDelay d</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>    ( <span class="kw">do</span></span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>        ref1 <span class="ot">&lt;-</span> takeMVar mvar</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">-- If readIOScopedRef succeeds, a ought to be &quot;Hello&quot;</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>        a <span class="ot">&lt;-</span> readIOScopedRef ref1</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>        modifyIOScopedRef (<span class="fu">const</span> <span class="st">&quot;Bye&quot;</span>) ref1 <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>          putMVar mvar ref1</span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>          threadDelay d</span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>straightforwardShare <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>  withIOScopedRef <span class="st">&quot;Hello&quot;</span> <span class="op">$</span> \ref0 <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>    mvar <span class="ot">&lt;-</span> newEmptyMVar</span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>    concurrently_</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>      ( <span class="kw">do</span></span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a>          putMVar mvar ref0</span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a>          ref2 <span class="ot">&lt;-</span> takeMVar mvar</span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a>          <span class="co">-- b is &quot;Hello&quot;</span></span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a>          b <span class="ot">&lt;-</span> readIOScopedRef ref2</span>
+<span id="cb17-29"><a href="#cb17-29" aria-hidden="true" tabindex="-1"></a>          threadDelay d</span>
+<span id="cb17-30"><a href="#cb17-30" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb17-31"><a href="#cb17-31" aria-hidden="true" tabindex="-1"></a>      ( <span class="kw">do</span></span>
+<span id="cb17-32"><a href="#cb17-32" aria-hidden="true" tabindex="-1"></a>          ref1 <span class="ot">&lt;-</span> takeMVar mvar</span>
+<span id="cb17-33"><a href="#cb17-33" aria-hidden="true" tabindex="-1"></a>          <span class="co">-- a is &quot;Hello&quot;</span></span>
+<span id="cb17-34"><a href="#cb17-34" aria-hidden="true" tabindex="-1"></a>          a <span class="ot">&lt;-</span> readIOScopedRef ref1</span>
+<span id="cb17-35"><a href="#cb17-35" aria-hidden="true" tabindex="-1"></a>          modifyIOScopedRef (<span class="fu">const</span> <span class="st">&quot;Bye&quot;</span>) ref1 <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb17-36"><a href="#cb17-36" aria-hidden="true" tabindex="-1"></a>            putMVar mvar ref1</span>
+<span id="cb17-37"><a href="#cb17-37" aria-hidden="true" tabindex="-1"></a>            threadDelay d</span>
+<span id="cb17-38"><a href="#cb17-38" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb17-39"><a href="#cb17-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-40"><a href="#cb17-40" aria-hidden="true" tabindex="-1"></a><span class="ot">d ::</span> <span class="dt">Int</span></span>
+<span id="cb17-41"><a href="#cb17-41" aria-hidden="true" tabindex="-1"></a>d <span class="ot">=</span> <span class="op">...</span></span></code></pre></div>
+<p>Therefore, if we desire <code>IOScopedRef</code> to satisfy two properties –
+firstly that interactions with <code>IOScopedRef</code> in concurrent threads do
+not interfere with each other (which is property of <code>IOScopedRef</code> that
+fundamentally distinguishes it from <code>IORef</code>) and secondly that the
+behaviour of an <code>IOScopedRef</code> is independent of subtle operational
+details like which thread it was created in – then we are forced to
+conclude that <code>readIOScopedRef</code> must fail when called on an argument
+that has escaped its scope.</p>
+<h4 id="preventing-escape-using-the-type-system">Preventing escape using the type system</h4>
+<p>Even though the consequences of a run time error are less severe than
+the consequences of a subtle concurrency bug, it would not be pleasant
+to have to keep track of scope when using <code>IOScopedRef</code>
+concurrently. Can the type system help?</p>
+<p>One thing we might try is defining a “checked” version of
+<code>readIOScopedRef</code> like this:</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="ot">readIOScopedRefMaybe ::</span> <span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Maybe</span> a)</span></code></pre></div>
+<p>But that doesn’t help much. Users will only attempt to read an
+<code>IOScopedRef</code> when they believe it to be in scope and so will probably
+just end up defining an unchecked version in terms of the checked version:</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="ot">readIOScopedRefUnchecked ::</span> <span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Maybe</span> a)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>readIOScopedRefUnchecked <span class="ot">=</span> <span class="fu">fmap</span> fromJust <span class="op">.</span> readIOScopedRefMaybe</span></code></pre></div>
+<p>What we want is to be statically prevented from reading an
+<code>IOScopedRef</code> when it is not in scope. Is there a way the type system
+can help with that? Yes, there is. I won’t elaborate in this article,
+but <a href="https://hackage-content.haskell.org/package/bluefin">Bluefin</a>, my
+Haskell effect system built on capabilities, explicitly tracks scope
+in the type system. <a href="https://hackage-content.haskell.org/package/bluefin-0.6.0.0/docs/Bluefin-Capability-Ask.html">The <code>Ask</code>
+capability</a>
+is Bluefin’s equivalent of <code>IOScopedRef</code>, and Bluefin’s scope tracking
+ensures that such a capability cannot escape its scope.</p>
+<p>(If <code>IOScopedRef</code> were implemented in GHC, Bluefin would switch its
+implementation of <code>Ask</code> to use <code>IOScopedRef</code>. A robust implementation
+of <code>Ask</code>, i.e. one that that both respects concurrency in the way
+exemplified by <code>loggerExampleConcurrently</code> <em>and</em> interoperates with
+existing higher order <code>IO</code> code, is not currently possible. The
+introduction of <code>IOScopedRef</code> would resolve that problem.)</p>
+<h3 id="replacing-io">Replacing <code>IO</code></h3>
+<p>Our original design goal was for <code>IOScopedRef</code> to operate in
+<code>IO</code>. Instead, we have implemented it in some new monad called
+“<code>NewIO</code>”. How could we bridge that gap? In principle we could take
+Haskell’s existing definition of <code>IO</code>, rename it <code>OldIO</code> and define</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">NewIO</span> a <span class="ot">=</span> <span class="dt">MkNewIO</span> (<span class="dt">ReaderT</span> <span class="dt">Vault.Vault</span> <span class="dt">OldIO</span> a)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">IO</span> a <span class="ot">=</span> <span class="dt">MkIO</span> (<span class="dt">NewIO</span> a)</span></code></pre></div>
+<p>and we’d have support for <code>IOScopedRef</code> in <code>IO</code>! Is that a plausible
+approach? There are two reasons why it might not be. Firstly,
+<a href="https://www.stackage.org/haddock/lts-24.42/base-4.20.2.0/GHC-Base.html#v:IO"><code>GHC.Base</code>
+exposes</a>
+the implementation of <code>IO</code>, specifically</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">IO</span> <span class="ot">=</span> <span class="dt">IO</span> (<span class="dt">State</span><span class="op">#</span> <span class="dt">RealWorld</span> <span class="ot">-&gt;</span> (<span class="op">#</span> <span class="dt">State</span><span class="op">#</span> <span class="dt">RealWorld</span>, a <span class="op">#</span>))</span></code></pre></div>
+<p>Therefore, some existing code would break if we changed the definition
+of <code>IO</code> to</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">IO</span> a <span class="ot">=</span> <span class="dt">MkIO</span> (<span class="dt">NewIO</span> a)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">NewIO</span> a <span class="ot">=</span> <span class="dt">MkNewIO</span> (<span class="dt">ReaderT</span> <span class="dt">Vault.Vault</span> <span class="dt">OldIO</span> a)</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">OldIO</span> <span class="ot">=</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">MkOldIO</span> (<span class="dt">State</span><span class="op">#</span> <span class="dt">RealWorld</span> <span class="ot">-&gt;</span> (<span class="op">#</span> <span class="dt">State</span><span class="op">#</span> <span class="dt">RealWorld</span>, a <span class="op">#</span>))</span></code></pre></div>
+<p>Secondly, the implementation in terms of <code>ReaderT Vault</code> may not be
+the most efficient possible. It likely imposes an efficiency penalty
+on users who do not use <code>IOScopedRef</code> at all. An implementation in
+GHC’s RTS may overcome that problem.</p>
+<h4 id="why-implement-ioscopedref-in-io-anyway">Why implement <code>IOScopedRef</code> in <code>IO</code> anyway?</h4>
+<p>But now that we have an implementation of <code>IOScopedRef</code> do we even
+care that it’s not in <code>IO</code>? Can’t we just provide it as a library and
+be happy with that? I believe that we <em>should</em> insist that
+<code>IOScopedRef</code> works directly in <code>IO</code>, with no wrappers. Why? Because
+Haskell users need a “lowest common denominator” to program against,
+and whatever that is, we should call it <code>IO</code>.</p>
+<p>To see why, consider the following hypothetical library function,
+<code>runQuery</code>, which uses <code>IO</code> in a “higher order” manner, that is, it
+has an argument which is a function which returns <code>IO</code>. The behaviour
+of <code>runQuery</code> is to run a database query whilst enclosing separate
+parts of its implementation in labelled blocks, to support logging,
+observability and performance measurement.</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="ot">runQuery ::</span> <span class="dt">Query</span> <span class="ot">-&gt;</span> (<span class="kw">forall</span> a<span class="op">.</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a) <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Result</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>runQuery query label <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  (conn, preparedQuery) <span class="ot">&lt;-</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>    concurrently</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>      ( label <span class="st">&quot;obtain connection&quot;</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>          getConnection</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>      ( label <span class="st">&quot;preparing query&quot;</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>          prepare query</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>  label <span class="st">&quot;running query&quot;</span> <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>    runPrepared conn preparedQuery</span></code></pre></div>
+<p><code>runQuery</code> is implemented using threads so if we want to use <code>label</code>
+for logging in a similar way to our earlier logging example then we
+need to have something like <code>IOScopedRef</code>. If <code>IOScopedRun</code> runs in
+<code>NewIO</code> rather than <code>IO</code> then we can’t. <code>runQuery</code> doesn’t accept an
+argument that returns <code>NewIO</code>. What are our options?</p>
+<ul>
+<li><p><em>Rewrite <code>runQuery</code> to use <code>NewIO</code></em></p>
+<p>We might be able to convert libraries <em>we</em> control to <code>NewIO</code>; we
+might be able to persuade some third party maintainers to convert
+too. But even if we could convert <em>all</em> libraries to <code>NewIO</code>, what
+are we going to do if someone comes up with yet <em>another</em> monad that
+supports yet <em>another</em> feature? Rewrite everything again? Library
+authors want to program against an interface that works once and for
+all. We need to make a choice of monad that won’t impose further
+changes on library authors in the future, a “lowest common
+denominator”.</p></li>
+<li><p><em>Rewrite <code>runQuery</code> to use <code>MonadUnliftIO m</code></em></p>
+<p><code>MonadUnliftIO</code> is a general interface that supports everything that
+we would want to do with <code>NewIO</code> and anything we are likely to want
+to do with a hypothetical new monad supporting any hypothetical new
+feature. Once <code>runQuery</code> is written using it, it won’t require
+further changes. So <code>MonadUnliftIO</code> is a “lowest common
+denominator”. Unfortunately, using a type class for this purpose
+hurts performance, as explained by Alexis King in <em><a href="https://www.youtube.com/watch?v=0jI-AlWEwYI">Effects for
+Less</a></em>, because some
+optimizations are unavailable due to <code>m</code>’s bind operation being
+unknown. Therefore <code>MonadUnliftIO</code> is unsatisfactory.</p></li>
+<li><p><em>Rewrite <code>runQuery</code> to use <code>ReaderT r IO a</code></em></p>
+<p>Writing <code>runQuery</code> in terms of <code>ReaderT</code> would allow us to support
+<code>IOScopedRef</code> (<code>NewIO</code> was just a newtype wrapper over <code>ReaderT</code>)
+and it has a known bind, so avoids the performance problems of
+<code>MonadUnliftIO</code>. We could even mix <code>IOScopedRef</code> effects (which
+need to read <code>Vault</code>) with other effects by tupling up their
+environments (as in <code>ReaderT (Vault, OtherEnv) IO</code>). So <code>ReaderT</code>
+is possibly a “lowest common denominator”, as long as all new
+features won’t require anything other than a reader
+environment. <code>ReaderT</code> used that way would become a rudimentary
+effect system. Some questions remain unresolved: can we,
+practically, rewrite all existing code to this form, and is there a
+performance penalty?</p></li>
+<li><p><em>Put <code>IOScopedRef</code> in <code>IO</code></em></p>
+<p>This is by far the simplest option. We accept <code>IO</code> as the lowest
+common denominator, where we put all new features that are not pure,
+all existing code can remain the same, all future code can also
+target this interface.</p></li>
+</ul>
+<p>There is one remaining question before choosing <code>IO</code> as the
+destination for <code>IOScopedRef</code>:</p>
+<p><em>“Doesn’t this risk making <code>IO</code> too big?</em></p>
+<p>It makes <code>IO</code> bigger, and implies that it will become yet bigger with
+time as new features are added, but personally I don’t see that as a
+problem. The large and wild domain of <code>IO</code> can be tamed by “analytic”
+effect systems (such as
+<a href="https://hackage.haskell.org/package/effectful"><code>effectful</code></a> and
+<a href="https://hackage.haskell.org/package/bluefin">Bluefin</a>), which carve
+<code>IO</code> into smaller well-behaved pieces. Making <code>IO</code> “bigger” by
+adopting <code>IOScopedRef</code> into it would have no impact on a user of an
+analytic effect system. Conversely, new features in <code>IO</code> can be
+adopted by analytic effect systems, which can restrict their use to
+well-defined parts of a program.</p>
+<hr />
+<h2 id="notes">Notes</h2>
+<p>By using <code>Vault</code> in a <code>ReaderT</code> we have obtained a mutable reference
+type, <code>IOScopedRef</code>, just a newtype around <code>Key</code>, that itself behaves
+in a “reader-like” way. This mirrors what van der Ploeg, Claessen and
+Buiras achieved in <a href="https://dl.acm.org/doi/10.1145/3241625.2976008"><em>The Key monad: type-safe unconstrained dynamic
+typing</em></a> where they
+used a type isomorphic to <code>Vault</code> (which they call <code>KeyMap</code>) in a
+<code>StateT</code> and obtained a mutable reference type, <code>STRef</code>, just a
+newtype around their <code>Key</code>, which itself behaves in a “state-like”
+way.</p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>
