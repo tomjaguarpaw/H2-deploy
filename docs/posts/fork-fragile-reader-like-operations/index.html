@@ -247,11 +247,12 @@ in
 to apply a modification to all incoming requests or outgoing responses</li>
 </ul></li>
 <li><strong>Fork-fragile symptom</strong>: Symptom 2</li>
-<li><strong>Notes</strong>: <code>Store ctx</code> is identical to what <a href="../../posts/haskells-missing-mutable-ref"><code>IOScopedRef     ctx</code></a> would be, with
-<code>adjust</code> corresponding to <code>modifyIOScopedRef</code>, except
-<code>IOScopedRef</code> has the desired behaviour around access within a
-new thread whilst <code>Store</code> does not (as it has no way to achieve
-it with current GHC primitives).</li>
+<li><strong>Notes</strong>: <code>Store ctx</code> is identical to what <a href="../../posts/haskells-missing-mutable-ref"><code>IOScopedRef     ctx</code></a> would be (with
+<code>adjust</code> corresponding to <code>modifyIOScopedRef</code> and <code>use</code>
+corresponding to <code>readIOScopedRef</code>) except that <code>IOScopedRef</code>
+would have the desired behaviour around access within a new
+thread whilst <code>Store</code> does not (and cannot, with current GHC
+primitives).</li>
 </ul></li>
 <li><p>OpenTelemetry allows defining enclosing spans for blocks of code
 for improved observability</p>
