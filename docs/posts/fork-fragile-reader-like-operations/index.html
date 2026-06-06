@@ -139,8 +139,8 @@ modifying” the ambient state amounts to updating the value of the
 <span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="ot">local ::</span> (<span class="dt">StateType</span> <span class="ot">-&gt;</span> <span class="dt">StateType</span>) <span class="ot">-&gt;</span> <span class="dt">IO</span> r <span class="ot">-&gt;</span> <span class="dt">IO</span> r</span>
 <span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>local f body <span class="ot">=</span> <span class="kw">do</span></span>
 <span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- Read the original value of the state</span></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  t <span class="ot">&lt;-</span> myThreadId</span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  m <span class="ot">&lt;-</span> readIORef ambientState</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  m <span class="ot">&lt;-</span> readIORef ambientState</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  t <span class="ot">&lt;-</span> myThreadId</span>
 <span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> orig <span class="ot">=</span> fromJust (Map.lookup t m)</span>
 <span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  bracket_</span>
