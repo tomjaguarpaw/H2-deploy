@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>fork-fragile-reader-like-operations</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h3>fork-fragile-reader-like-operations</h3>
+  <h1 id="fork-fragile-reader-like-operations-in-haskell">Fork-fragile Reader-like operations in Haskell</h1>
+<ul>
+<li><p><em>Symptom 1:</em> Child threads don’t need to reinitialise the state, but
+sibling threads can see the overrides performed in each other. (This
+symptom occurs for shared mutable state that does not index their
+storage by thread ID.)</p></li>
+<li><p><em>Symptom 2:</em> Child threads need to reinitialise the state (either
+manually or through library-specific thread-creation primitives)
+(This symptom occurs for shared mutable state that <em>does</em> index its
+storage by thread ID.)</p></li>
+<li><p><code>withArgs</code>/<code>withProgArgv</code></p>
+<ul>
+<li><strong>Package</strong>: <code>base</code></li>
+<li><strong>Local-like operations</strong>:
+<ul>
+<li><a href="https://hackage-content.haskell.org/package/base-4.22.0.0/docs/System-Environment.html#v:withArgs"><code>withArgs :: [String] -&gt; IO a -&gt; IO a</code></a></li>
+<li><a href="https://hackage-content.haskell.org/package/base-4.22.0.0/docs/System-Environment.html#v:withProgName"><code>withProgName :: String -&gt; IO a -&gt; IO a</code></a></li>
+</ul></li>
+<li><strong>Local state</strong>: Program arguments and program name</li>
+<li><strong>Storage</strong>: RTS-wide argv table</li>
+<li><strong>Fork-fragile symptom</strong>: Symptom 1</li>
+</ul></li>
+<li><p><code>Handle</code> default encoding</p>
+<ul>
+<li><strong>Package</strong>: <code>with-utf8</code></li>
+<li><strong>Local-like operations</strong>:
+<ul>
+<li><a href="https://hackage.haskell.org/package/with-utf8-1.1.0.0/docs/Main-Utf8.html#v:withUtf8"><code>withUtf8 :: MonadIO m =&gt; m r -&gt; m r</code></a></li>
+<li><a href="https://hackage.haskell.org/package/with-utf8-1.1.0.0/docs/Main-Utf8.html#v:withStdTerminalHandles"><code>withStdTerminalHandles :: MonadIO m =&gt; m r -&gt; m r</code></a></li>
+</ul></li>
+<li><strong>Local state</strong>: Current encoding for standard handles and
+default locale encoding</li>
+<li><strong>Storage</strong>: Mutable GHC
+<a href="https://hackage-content.haskell.org/package/ghc-internal-9.1401.0/docs/src/GHC.Internal.IO.Handle.Types.html#Handle"><code>Handle</code></a>
+state for <code>stdin</code>, <code>stdout</code> and <code>stderr</code>, and GHC’s
+program-global locale encoding</li>
+<li><strong>Fork-fragile symptom</strong>: Symptom 1</li>
+</ul></li>
+<li><p><code>Handle</code> buffering</p>
+<ul>
+<li><strong>Packages</strong>: <code>QuickCheck</code>, <code>hspec-core</code></li>
+<li><strong>Local-like operations</strong>:
+<ul>
+<li><a href="https://github.com/nick8325/quickcheck/blob/3c2d0d87d4b9f457a586b1cde6d1d3ac03d862bf/src/Test/QuickCheck/Text.hs#L175-L181"><code>withBuffering :: IO a -&gt; IO     a</code></a></li>
+<li><a href="https://github.com/hspec/hspec/blob/main/hspec-core/src/Test/Hspec/Core/Formatters/Internal.hs#L240-L242"><code>withLineBuffering :: IO a -&gt; IO     a</code></a></li>
+</ul></li>
+<li><strong>Local state</strong>: Current buffering mode for standard handles</li>
+<li><strong>Storage</strong>: Mutable GHC
+<a href="https://hackage-content.haskell.org/package/ghc-internal-9.1401.0/docs/src/GHC.Internal.IO.Handle.Types.html#Handle"><code>Handle</code></a>
+state for <code>stdout</code> and <code>stderr</code></li>
+<li><strong>Fork-fragile symptom</strong>: Symptom 1</li>
+</ul></li>
+<li><p><code>context</code></p>
+<ul>
+<li><strong>Package</strong>: <code>context</code></li>
+<li><strong>Local-like operation</strong>:
+<ul>
+<li><a href="https://hackage-content.haskell.org/package/context-0.2.1.1/docs/Context.html#v:adjust"><code>adjust :: MonadIO m =&gt; Store ctxt -&gt; (ctx -&gt; ctx) -&gt; m a -&gt; m a</code></a></li>
+</ul></li>
+<li><strong>Local state</strong>: User-defined value of type <code>ctx</code></li>
+<li><strong>Storage</strong>: Global <code>IORef</code></li>
+<li><strong>Used by</strong>:
+<ul>
+<li><a href="https://hackage-content.haskell.org/package/monad-logger-aeson-0.4.1.6/docs/Control-Monad-Logger-Aeson.html#v:withThreadContext"><code>withThreadContext</code></a>
+in
+<a href="https://hackage.haskell.org/package/monad-logger-aeson"><code>monad-logger-aeson</code></a>
+and <a href="https://hackage.haskell.org/package/Blammo"><code>Blammo</code></a>,
+to attach context to log messages</li>
+<li><a href="https://hackage.haskell.org/package/context-http-client-0.2.0.2/docs/Network-HTTP-Client-Context.html#v:modifyRequestsWithContext"><code>modifyRequestsWithContext</code></a>/<a href="https://hackage.haskell.org/package/context-http-client-0.2.0.2/docs/Network-HTTP-Client-Context.html#v:modifyResponsesWithContext"><code>modifyResponsesWithContext</code></a>
+in
+<a href="https://hackage.haskell.org/package/context-http-client-0.2.0.2"><code>context-http-client</code></a>,
+to apply a modification to all incoming requests or outgoing responses</li>
+</ul></li>
+<li><strong>Fork-fragile symptom</strong>: Symptom 2</li>
+<li><strong>Notes</strong>: <code>Store ctx</code> is identical to what <code>IOScopedRef ctx</code>
+would be, with <code>adjust</code> corresponding to <code>modifyIOScopedRef</code>,
+except <code>IOScopedRef</code> has the desired propagation behaviour on
+creation of a new thread and <code>Store</code> does not (as it has no way
+to achieve it with current GHC primitives).</li>
+</ul></li>
+<li><p>OpenTelemetry spans</p>
+<ul>
+<li><strong>Package</strong>: <code>hs-opentelemetry-api</code></li>
+<li><strong>Local-like operation</strong>:
+<ul>
+<li><a href="https://hackage-content.haskell.org/package/hs-opentelemetry-api-1.0.0.0/docs/OpenTelemetry-Trace-Core.html#v:inSpan"><code>MonadUnliftIO m =&gt; inSpan :: ... -&gt; m a -&gt; m a</code></a></li>
+</ul></li>
+<li><strong>Local state</strong>: Current span stack and context</li>
+<li><strong>Storage</strong>: Per-thread <code>IORef</code></li>
+<li><strong>Fork-fragile symptom</strong>: Symptom 2</li>
+</ul></li>
+<li><p>Instana SDK current span</p>
+<ul>
+<li><strong>Package</strong>: <code>instana-haskell-trace-sdk</code></li>
+<li><strong>Local-like operation</strong>:
+<ul>
+<li><a href="https://hackage.haskell.org/package/instana-haskell-trace-sdk-0.10.2.0/docs/Instana-SDK-SDK.html#v:withRootEntry"><code>withRootEntry :: MonadIO m =&gt; InstanaContext -&gt; SpanType       -&gt; m a -&gt; m       a</code></a>
+(and <code>withEntry</code>, <code>withExit</code>, …)</li>
+</ul></li>
+<li><strong>Local state</strong>: Current tracing span stack</li>
+<li><strong>Storage</strong>: <a href="https://github.com/instana/haskell-trace-sdk/blob/02e9960d6358340308a9d5ee0dd7ce70ede86aa7/src/Instana/SDK/Internal/Context.hs#L145">Shared thread-indexed <code>TVar</code></a></li>
+<li><strong>Fork-fragile symptom</strong>: Symptom 2</li>
+</ul></li>
+<li><p>Thread-indexed logging settings</p>
+<ul>
+<li><strong>Package</strong>: <code>heavy-logger</code></li>
+<li><strong>Local-like operation</strong>:
+<ul>
+<li><a href="https://hackage.haskell.org/package/heavy-logger-0.3.2.2/docs/System-Log-Heavy-IO.html#v:withLoggingIO"><code>withLoggingIO :: LoggingSettings -&gt; IO a -&gt; IO       a</code></a></li>
+</ul></li>
+<li><strong>Local state</strong>: Current logger, backend and log context</li>
+<li><strong>Storage</strong>: Global thread-indexed <code>IORef</code></li>
+<li><strong>Fork-fragile symptom</strong>: Symptom 2</li>
+</ul></li>
+<li><p>Global IO logging settings</p>
+<ul>
+<li><strong>Packages</strong>: <code>logging</code>, <code>simple-logger</code>, <code>hslogger</code>, <code>nvim-hs</code></li>
+<li><strong>Local-like operations</strong>:
+<ul>
+<li><a href="https://hackage-content.haskell.org/package/logging-3.0.6/docs/Control-Logging.html#v:withStdoutLogging"><code>withStdoutLogging :: MonadIO m =&gt;     m a -&gt; m a</code></a></li>
+<li><a href="https://hackage-content.haskell.org/package/logging-3.0.6/docs/Control-Logging.html#v:withStderrLogging"><code>withStderrLogging :: MonadIO m =&gt;     m a -&gt; m a</code></a></li>
+<li><a href="https://hackage-content.haskell.org/package/logging-3.0.6/docs/Control-Logging.html#v:withFileLogging"><code>withFileLogging :: MonadIO m =&gt;     FilePath -&gt; m a -&gt; m a</code></a></li>
+<li><a href="https://hackage.haskell.org/package/simple-logger-0.1.1/docs/Control-Logger-Simple.html#v:withGlobalLogging"><code>withGlobalLogging :: LogConfig -&gt; IO a -&gt; IO     a</code></a></li>
+<li><a href="https://hackage-content.haskell.org/package/nvim-hs-2.3.2.4/docs/Neovim-Log.html#v:withLogger"><code>withLogger :: FilePath -&gt; Priority -&gt; IO a -&gt; IO a</code></a><br />
+</li>
+</ul></li>
+<li><strong>Local state</strong>: Current global logger set, log level, time
+format etc.</li>
+<li><strong>Storage</strong>: Top-level <code>IORef</code>s</li>
+<li><strong>Fork-fragile symptom</strong>: Symptom 1</li>
+<li><strong>Notes</strong>: These reader-like operations are “supposed to” be
+only used at the top level of your program, but nothing enforces
+that</li>
+</ul></li>
+<li><p>String-indexed storage</p>
+<ul>
+<li><strong>Package</strong>: <code>io-storage</code></li>
+<li><strong>Local-like operation</strong>:
+<ul>
+<li><a href="https://hackage.haskell.org/package/io-storage-0.3/docs/System-IO-Storage.html#withStore"><code>withStore :: String -&gt; IO a -&gt; IO a</code></a></li>
+</ul></li>
+<li><strong>Local state</strong>: Current named dynamic store</li>
+<li><strong>Storage</strong>: Top-level <code>IORef</code></li>
+<li><strong>Fork-fragile symptom</strong>: Symptom 1</li>
+<li><strong>Notes</strong>: Formerly used by <a href="https://github.com/simonmichael/hledger/blob/c6a85c4b88d7b5cad074388bcee19a10c472bff6/hledger-web/Hledger/Web/Main.hs#L85"><code>hledger-web</code></a></li>
+</ul></li>
+</ul>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>
