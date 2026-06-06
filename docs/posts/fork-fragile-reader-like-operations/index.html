@@ -179,7 +179,7 @@ with a catalogue of some ecosystem examples of reader-like operations
 which, inevitably, exhibit such behaviour.</p>
 <h2 id="catalogue-of-fork-fragile-reader-like-operations">Catalogue of fork-fragile reader-like operations</h2>
 <ul>
-<li><p><code>withArgs</code> and <code>withProgArgv</code> allow the programs arguments and
+<li><p><code>withArgs</code> and <code>withProgName</code> allow the programs arguments and
 program name to be locally overridden.</p>
 <ul>
 <li><strong>Package</strong>: <code>base</code></li>
@@ -232,7 +232,8 @@ program-global locale encoding</li>
 <li><a href="https://hackage-content.haskell.org/package/context-0.2.1.1/docs/Context.html#v:adjust"><code>adjust :: MonadIO m =&gt; Store ctxt -&gt; (ctx -&gt; ctx) -&gt; m a -&gt; m a</code></a></li>
 </ul></li>
 <li><strong>Local state</strong>: User-defined value of type <code>ctx</code></li>
-<li><strong>Storage</strong>: <code>Store</code> is implemented with an <code>IORef</code></li>
+<li><strong>Storage</strong>: <code>Store</code> is implemented with an <code>IORef</code> containing a
+thread-indexed <code>Map</code></li>
 <li><strong>Used by</strong>:
 <ul>
 <li><a href="https://hackage-content.haskell.org/package/monad-logger-aeson-0.4.1.6/docs/Control-Monad-Logger-Aeson.html#v:withThreadContext"><code>withThreadContext</code></a>
@@ -240,7 +241,7 @@ in
 <a href="https://hackage.haskell.org/package/monad-logger-aeson"><code>monad-logger-aeson</code></a>
 and <a href="https://hackage.haskell.org/package/Blammo"><code>Blammo</code></a>,
 to attach context to log messages</li>
-<li><a href="https://hackage.haskell.org/package/context-http-client-0.2.0.2/docs/Network-HTTP-Client-Context.html#v:modifyRequestsWithContext"><code>modifyRequestsWithContext</code></a>/<a href="https://hackage.haskell.org/package/context-http-client-0.2.0.2/docs/Network-HTTP-Client-Context.html#v:modifyResponsesWithContext"><code>modifyResponsesWithContext</code></a>
+<li><a href="https://hackage.haskell.org/package/context-http-client-0.2.0.2/docs/Network-HTTP-Client-Context.html#v:modifyResponsesWithContext"><code>modifyResponsesWithContext</code></a>/<a href="https://hackage.haskell.org/package/context-http-client-0.2.0.2/docs/Network-HTTP-Client-Context.html#v:modifyRequestsWithContext"><code>modifyRequestsWithContext</code></a>
 in
 <a href="https://hackage.haskell.org/package/context-http-client-0.2.0.2"><code>context-http-client</code></a>,
 to apply a modification to all incoming requests or outgoing responses</li>
@@ -302,7 +303,7 @@ for improved observability</p>
 </ul></li>
 <li><strong>Local state</strong>: Current global logger set, log level, time
 format etc.</li>
-<li><strong>Storage</strong>: Top-level <code>IORef</code>s</li>
+<li><strong>Storage</strong>: Top-level mutable state</li>
 <li><strong>Fork-fragile symptom</strong>: Symptom 1</li>
 <li><strong>Notes</strong>: These reader-like operations are “supposed to” be
 only used at the top level of your program, but nothing enforces
