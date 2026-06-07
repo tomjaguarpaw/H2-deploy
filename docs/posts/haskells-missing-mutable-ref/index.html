@@ -389,6 +389,50 @@ continues with <em>“<a href="../../posts/ioscopedref-reference-implementation/
 <code>IOScopedRef</code></a>”</em>.</p>
 <hr />
 <h2 id="appendix">Appendix</h2>
+<h3 id="partial-implementation-in-haskell">Partial implementation in Haskell</h3>
+<p>The <a href="https://hackage-content.haskell.org/package/context"><code>context</code>
+package</a> provides
+a partial implementation of a type equivalent to <code>IOScopedRef</code>. Its
+API is as follows</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Equivalent to `IOScopedRef ctx`</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">Store</span> ctx</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Equivalent to `withIOScopedRef`</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="ot">withNonEmptyStore ::</span> <span class="dt">MonadIO</span> m <span class="ot">=&gt;</span> ctx <span class="ot">-&gt;</span> (<span class="dt">Store</span> ctx <span class="ot">-&gt;</span> m a) <span class="ot">-&gt;</span> m a</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Equivalent to `readIOScopedRef`</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="ot">mine ::</span> <span class="dt">MonadIO</span> m <span class="ot">=&gt;</span> <span class="dt">Store</span> ctx <span class="ot">-&gt;</span> m ctx</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- Equivalent to `modifyIOScopedRef`</span></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="ot">adjust ::</span> <span class="dt">MonadIO</span> m <span class="ot">=&gt;</span> <span class="dt">Store</span> ctx <span class="ot">-&gt;</span> (ctx <span class="ot">-&gt;</span> ctx) <span class="ot">-&gt;</span> m a <span class="ot">-&gt;</span> m a</span></code></pre></div>
+<p>It cannot serve as a complete implementation of <code>IOScopedRef</code> because
+a <code>Store</code> when read in a child thread created with standard thread
+creation primitives does not pick up modifications that were made to
+it in the parent thread. For example:</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>Context.withNonEmptyStore <span class="st">&quot;Hello&quot;</span> <span class="op">$</span> \store <span class="ot">-&gt;</span> <span class="kw">do</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  x1 <span class="ot">&lt;-</span> Context.mine store</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="co">-- &quot;Hello&quot;, as desired</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">putStrLn</span> x1</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>  Context.adjust store (<span class="op">++</span> <span class="st">&quot; world&quot;</span>) <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>    x2 <span class="ot">&lt;-</span> Context.mine store</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- &quot;Hello world&quot;, as desired</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">putStrLn</span> x2</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>    Control.Concurrent.Async.concurrently_</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>      (<span class="fu">pure</span> ())</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>      ( <span class="kw">do</span></span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>          x3 <span class="ot">&lt;-</span> Context.mine store</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>          <span class="co">-- &quot;Hello&quot;, but it should be &quot;Hello world&quot;</span></span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>          <span class="fu">putStrLn</span> x3</span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>      )</span></code></pre></div>
+<p>As a convenience, <code>context</code> provides its own thread-creation
+operations in
+<a href="https://hackage-content.haskell.org/package/context-0.2.1.1/docs/Context-Concurrent.html"><code>Context.Concurrent</code></a>
+which are <code>Store</code>-aware and propagate the desired value of all
+<code>Store</code>s in scope to child threads. For more details on this sort of
+behaviour see <a href="../../posts/fork-fragile-reader-like-operations/"><em>Fork-fragile reader-like operations in
+Haskell</em></a>.</p>
 <h3 id="similar-features-in-other-languages">Similar features in other languages</h3>
 <p>At least Java, Python and Common Lisp have primitives that have
 similar behavior to <code>IOScopedRef</code>, <em>scoped values</em>, <em>context
