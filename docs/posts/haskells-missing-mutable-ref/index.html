@@ -214,16 +214,19 @@ current value of the reference; <code>modifySeverity</code> uses
 the user, locally modifying the severity of log messages when the user
 we are dealing with is a VIP.</p>
 <div class="sourceCode" id="cb10"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ot">loggerExample ::</span> <span class="dt">IO</span> ()</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>loggerExample <span class="ot">=</span> withStdoutLogger <span class="dv">0</span> <span class="op">$</span> \logger <span class="ot">-&gt;</span> <span class="kw">do</span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> <span class="st">&quot;Getting user&quot;</span></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  user <span class="ot">&lt;-</span> getUser</span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> (<span class="st">&quot;Is VIP: &quot;</span> <span class="op">&lt;&gt;</span> <span class="fu">show</span> (isVip user))</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> modification <span class="ot">=</span> <span class="kw">if</span> isVip user <span class="kw">then</span> (<span class="op">+</span> <span class="dv">10</span>) <span class="kw">else</span> <span class="fu">id</span></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  d <span class="ot">&lt;-</span> modifySeverity logger modification <span class="op">$</span> <span class="kw">do</span></span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    logMsg logger <span class="dv">0</span> <span class="st">&quot;Getting data&quot;</span></span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    getData user</span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  writeData d</span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">0</span> <span class="st">&quot;Done&quot;</span></span></code></pre></div>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>loggerExample <span class="ot">=</span> withStdoutLogger <span class="dv">0</span> writeUserData</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="ot">writeUserData ::</span> <span class="dt">Logger</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>writeUserData logger <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> <span class="st">&quot;Getting user&quot;</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  user <span class="ot">&lt;-</span> getUser</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> (<span class="st">&quot;Is VIP: &quot;</span> <span class="op">&lt;&gt;</span> <span class="fu">show</span> (isVip user))</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> modification <span class="ot">=</span> <span class="kw">if</span> isVip user <span class="kw">then</span> (<span class="op">+</span> <span class="dv">10</span>) <span class="kw">else</span> <span class="fu">id</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  d <span class="ot">&lt;-</span> modifySeverity logger modification <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    logMsg logger <span class="dv">0</span> <span class="st">&quot;Getting data&quot;</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    getData user</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>  writeData d</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">0</span> <span class="st">&quot;Done&quot;</span></span></code></pre></div>
 <p>When we are dealing with a VIP the corresponding message is logged at
 a higher severity:</p>
 <pre><code>ghci&gt; loggerExample
@@ -503,6 +506,10 @@ uses it “parameter” feature to allow local overriding of security
 level. Although not through a “scoped variable” as such, PostgreSQL
 has <a href="https://www.postgresql.org/docs/current/sql-set-role.html">a similar
 feature</a>.</p>
+<h2 id="acknowledgements">Acknowledgements</h2>
+<p>Thanks to Simon Peyton Jones and <a href="https://welltypedwit.ch/">Alice
+(prophet)</a> for helpful discussion and
+suggestions.</p>
 </div>
 <hr>
 
