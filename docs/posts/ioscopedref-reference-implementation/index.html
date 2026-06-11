@@ -476,7 +476,7 @@ concurrently. Can the type system help?</p>
 <p>But that doesn’t help much. Users will only attempt to read an
 <code>IOScopedRef</code> when they believe it to be in scope and so will probably
 just end up defining an unchecked version in terms of the checked version:</p>
-<div class="sourceCode" id="cb19"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="ot">readIOScopedRefUnchecked ::</span> <span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">Maybe</span> a)</span>
+<div class="sourceCode" id="cb19"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="ot">readIOScopedRefUnchecked ::</span> <span class="dt">IOScopedRef</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a</span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>readIOScopedRefUnchecked <span class="ot">=</span> <span class="fu">fmap</span> fromJust <span class="op">.</span> readIOScopedRefMaybe</span></code></pre></div>
 <p>What we want is to be statically prevented from reading an
 <code>IOScopedRef</code> when it is not in scope. Is there a way the type system
