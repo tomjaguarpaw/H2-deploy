@@ -333,23 +333,27 @@ output. The severity adjustment is reset to <code>0</code> on leaving the
 function which uses the same <code>Logger</code> concurrently in two child
 threads:</p>
 <div class="sourceCode" id="cb17"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="ot">loggerExampleConcurrently ::</span> <span class="dt">IO</span> ()</span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>loggerExampleConcurrently <span class="ot">=</span> withStdoutLogger <span class="dv">0</span> <span class="op">$</span> \logger <span class="ot">-&gt;</span> <span class="kw">do</span></span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> <span class="st">&quot;Getting user&quot;</span></span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  user <span class="ot">&lt;-</span> getUser</span>
-<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> (<span class="st">&quot;Is VIP: &quot;</span> <span class="op">&lt;&gt;</span> <span class="fu">show</span> (isVip user))</span>
-<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> modification <span class="ot">=</span> <span class="kw">if</span> isVip user <span class="kw">then</span> (<span class="op">+</span> <span class="dv">10</span>) <span class="kw">else</span> <span class="fu">id</span></span>
-<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  (d, ()) <span class="ot">&lt;-</span></span>
-<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    Control.Concurrent.Async.concurrently</span>
-<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>      ( modifySeverity logger modification <span class="op">$</span> <span class="kw">do</span></span>
-<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>          logMsg logger <span class="dv">0</span> <span class="st">&quot;Getting data&quot;</span></span>
-<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>          getData user</span>
-<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>      )</span>
-<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>      ( <span class="co">-- Do some unimportant background processing</span></span>
-<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>        modifySeverity logger (<span class="fu">subtract</span> <span class="dv">100</span>) <span class="op">$</span> <span class="kw">do</span></span>
-<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>          Control.Concurrent.threadDelay <span class="dv">1000</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>loggerExampleConcurrently <span class="ot">=</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  withStdoutLogger <span class="dv">0</span> writeUserDataConcurrently</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="ot">writeUserDataConcurrently ::</span> <span class="dt">Logger</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>writeUserDataConcurrently logger <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> <span class="st">&quot;Getting user&quot;</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>  user <span class="ot">&lt;-</span> getUser</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">1</span> (<span class="st">&quot;Is VIP: &quot;</span> <span class="op">&lt;&gt;</span> <span class="fu">show</span> (isVip user))</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> modification <span class="ot">=</span> <span class="kw">if</span> isVip user <span class="kw">then</span> (<span class="op">+</span> <span class="dv">10</span>) <span class="kw">else</span> <span class="fu">id</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>  (d, ()) <span class="ot">&lt;-</span></span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>    Control.Concurrent.Async.concurrently</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>      ( modifySeverity logger modification <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>          logMsg logger <span class="dv">0</span> <span class="st">&quot;Getting data&quot;</span></span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>          getData user</span>
 <span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>      )</span>
-<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>  writeData d</span>
-<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">0</span> <span class="st">&quot;Done&quot;</span></span></code></pre></div>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>      ( <span class="co">-- Do some unimportant background processing</span></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>        modifySeverity logger (<span class="fu">subtract</span> <span class="dv">100</span>) <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>          Control.Concurrent.threadDelay <span class="dv">1000</span></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>  writeData d</span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>  logMsg logger <span class="dv">0</span> <span class="st">&quot;Done&quot;</span></span></code></pre></div>
 <p>The output is wrong in a different way. The modification to reduce
 the severity for the background processing thread affected the
 concurrent thread getting the VIP data!</p>
