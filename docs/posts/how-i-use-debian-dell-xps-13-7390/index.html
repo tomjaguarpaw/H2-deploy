@@ -199,6 +199,9 @@ quality seems not great</li>
 <p>Sometimes to put the Bluetooth speaker back into a good state I need
 to do</p>
 <pre><code>pactl set-card-profile $CARD off &amp;&amp; pactl set-card-profile $CARD a2dp_sink</code></pre>
+<h4 id="restart-the-bluetooth-service">Restart the bluetooth service</h4>
+<p>Sometimes this can help:</p>
+<pre><code>sudo systemctl restart bluetooth</code></pre>
 <h3 id="auto-dimming-screen-on-battery-power">Auto-dimming screen on battery power</h3>
 <p>By default, when running on batter power the screen automatically dims
 and brightens depending on what is on the screen. It seems somewhat

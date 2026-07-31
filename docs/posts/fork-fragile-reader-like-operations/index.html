@@ -229,6 +229,25 @@ program name to be locally overridden.</p>
 <li><strong>Storage</strong>: RTS-wide argv table</li>
 <li><strong>Fork-fragile symptom</strong>: Symptom 1</li>
 </ul></li>
+<li><p><code>withCurrentDirectory</code> allows the process’s current working directory
+to be locally overridden.</p>
+<ul>
+<li><strong>Package</strong>: <code>directory</code></li>
+<li><strong>Local-like operation</strong>:
+<ul>
+<li><a href="https://hackage-content.haskell.org/package/directory-1.3.10.1/docs/System-Directory.html#v:withCurrentDirectory"><code>withCurrentDirectory :: FilePath -&gt; IO a -&gt; IO a</code></a></li>
+</ul></li>
+<li><strong>Local state</strong>: Current working directory</li>
+<li><strong>Storage</strong>: Operating-system process-wide current working directory</li>
+<li><strong>Fork-fragile symptom</strong>: Symptom 1</li>
+<li><strong>Notes</strong>: The fork fragility of <code>withCurrentDirectory</code> is
+exemplified by <code>ghcid</code>’s test suite. <a href="https://github.com/ndmitchell/ghcid/blob/4f575946cca8984c8eb87d521d539f954dfb9dee/test/Test/Ghcid.hs#L40-L52"><code>freshDir</code> and
+<code>copyDir</code></a>
+wrap tests in <code>withCurrentDirectory</code>. This requires <code>ghcid</code>’s
+test suite to run single threaded, because with multiple
+threads, concurrent tests would overwrite each other’s current
+working directory.</li>
+</ul></li>
 <li><p>Internal functions in testing libraries allow <code>Handle</code> buffering
 setting to be locally overridden</p>
 <ul>
