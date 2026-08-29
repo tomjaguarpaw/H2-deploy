@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>bluefin-capability-leftovers</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h2 id="capabilities-in-bluefin">Capabilities in Bluefin</h2>
+<p>The important property of capabilities, as Bluefin treats them, is
+that they are value-level entities that do not fundamentally differ
+from other program values (e.g. strings, numbers, …) and can be
+manipulated in just the same ways (e.g. passing them as arguments to
+functions, returning them from functions, putting them in tuples and
+records, closing over them in function definitions, …).</p>
+<hr />
+<h4 id="the-notion-of-purity">The notion of “purity”</h4>
+<p>As an aside, the notion of “purity” or “pure function” is awkward when
+applied to Haskell. Although <code>computeFunction :: String -&gt; Int</code> could
+throw an exception or loop forever, if it doesn’t it seems reasonable
+to describe it as computing a pure, mathematical function that maps
+<code>String</code> to <code>Int</code>.</p>
+<hr />
+<p>There is a misconception that “Haskell is a pure language”, implying
+that it “can’t do effects” and needs “something else”—specifically
+“monads” and particularly “the <code>IO</code> monad”—to allow it to “do
+effects”. This is false. Haskell implementations have always been
+able to do more than just calculate the result of mathematical
+functions, i.e. perform pure calculations. Rather than “pure”, I
+prefer to use “referentially transparent” to describe this aspect of
+Haskell. It is not possible for a program component written in a
+referentially transparent language to interact with an external
+environment without the possibility of that interaction being
+reflected in the type of the component.</p>
+<p>The problem with <code>IO</code> is that it is “too big”.</p>
+<hr />
+<p>Every Haskell program starts in <code>main</code> with the “I/O capability” as
+provided by the “<code>IO</code> monad”. Bluefin’s <code>runEff</code> function converts
+this into a Bluefin <code>IOE</code> capability:</p>
+<pre><code>runEff :: (forall e. IOE e -&gt; Eff e r) -&gt; IO r</code></pre>
+<p>From there, various other capabilities (reading and writing the
+filesystem, connecting to a database, making HTTP requests …) can be
+derived from <code>IOE</code>.</p>
+<hr />
+<p>Migrating Bluefin’s terminology from “handle” to “terminology” is
+ongoing work. See
+<a href="https://hackage-content.haskell.org/package/bluefin-0.7.0.1/docs/Bluefin-Capability.html"><code>Bluefin.Capability</code></a></p>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>

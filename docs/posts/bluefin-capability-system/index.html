@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+        <!-- Basic Page Needs
+================================================== -->
+        <meta charset="utf-8">
+  <title>Bluefin is a capability system</title>
+        <meta name="description" content>
+        <meta name="author" content>
+
+        <!-- Fonts
+================================================== -->
+  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+
+        <!-- Mobile Specific Metas
+================================================== -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- CSS
+================================================== -->
+  <link rel="stylesheet" href="../../css/combined.css">
+
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+
+        <!--[if lt IE 9]>
+                <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+        <!-- Atom
+        ================================================== -->
+</head>
+<body>
+
+        <!-- Primary Page Layout
+        ================================================== -->
+  <div class="container">
+  <div class="ten columns offset-by-three">
+  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <hr />
+</div>
+<div class="twelve columns offset-by-two">
+  <h1 id="bluefin-is-a-capability-system">Bluefin is a capability system</h1>
+<p>– Tom Ellis, September 2026</p>
+<p>When I released <a href="https://hackage.haskell.org/package/bluefin-0.0.0.0">the first version of my Haskell package
+Bluefin</a> in early
+2024 I called it an “effect system”, specifically, an “<code>IO</code>-wrapper”
+(or “analytic”) effect system<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>, in which regard it follows
+<a href="https://hackage.haskell.org/package/effectful"><code>effectful</code></a>. Now in
+late 2026 I have decided to start referring to Bluefin as a
+“capability system” first and an “effect system” second, that is,
+something like “a capability system that can be used to obtain the
+benefits of a traditional Haskell effect system”.</p>
+<h2 id="capability-systems">Capability systems</h2>
+<p>A <em>capability system</em> is a programming language framework for working
+with “capabilities”, a <em>capability</em> being a program entity that
+references a program or system resource and, moreover, grants
+authority to access that resource.</p>
+<blockquote>
+<p>In a capability system, each capability points from a subject to a
+resource. Consequently every capability can serve both to designate
+which resource to access, and to provide the authority to perform
+that access.<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+</blockquote>
+<p>An example of a capability that most programmers will have encountered
+is the file handle. In the words of Lampson<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a>:</p>
+<blockquote>
+<p>A familiar example in operating systems is a file descriptor or file
+handle for an open file. When a process opens the file, the OS
+[after checking that the process has sufficient rights to access the
+file] creates a handle for the open file.</p>
+</blockquote>
+<p>The notion of capability was originally introduced for security
+purposes, as a model for access control and protection in operating
+systems<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a>. <a href="https://en.wikipedia.org/wiki/SeL4">se4L</a> is a
+capability-based kernel with an executable specification written in
+Haskell! Capabilities are also used in programming languages
+(e.g. <a href="https://en.wikipedia.org/wiki/Pony_(programming_language)">Pony</a>),
+where they are often referred to as “object capabilities”.</p>
+<p>After writing Bluefin I realised that there’s no reason to view
+capabilities in a narrow, security-only context. Effect systems can
+be considered to be capability systems. Read on to learn more.</p>
+<h2 id="effect-systems">Effect systems</h2>
+<h3 id="definition">Definition</h3>
+<p>In Haskell the notion of “effect system” is not precisely defined.
+However, all usages of the terminology have something important in
+common: an effect system allows the programmer to circumscribe the
+range of externally visible behaviours of program components.</p>
+<p>Interpreted narrowly, “effect system” might mean a library in the
+style of
+<a href="https://hackage.haskell.org/package/extensible-effects/"><code>extensible-effects</code></a><a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a>,
+in which all effects take place in a specific monad (e.g. in
+<code>effectful</code>
+“<a href="https://hackage-content.haskell.org/package/effectful-core-2.7.1.1/docs/Effectful.html#t:Eff"><code>Eff</code></a>”)
+and the possibility of an effect is indicated by a constraint, i.e. at
+the type level. For example, the following function (using types from
+<code>effectful</code>) may only interact with a database and/or throw an
+exception of <code>String</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">operationEffectful ::</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  (<span class="dt">Database</span> <span class="op">:&gt;</span> es, <span class="dt">Error</span> <span class="dt">String</span> <span class="op">:&gt;</span> es) <span class="ot">=&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es ()</span></code></pre></div>
+<p>A slight broadening of this narrow interpretation permits Bluefin to
+be described as an effect system. In Bluefin, the difference is that
+the possibility of an effect is indicated by a value-level argument,
+for example:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">operationBluefin ::</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Database</span> es <span class="ot">-&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Throw</span> <span class="dt">String</span> es <span class="ot">-&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Eff</span> es ()</span></code></pre></div>
+<p>Further stretching the definition allows
+<a href="https://hackage.haskell.org/package/mtl">MTL</a> to be considered an
+effect system:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">operationMTL ::</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  (<span class="dt">MonadDatabase</span> m, <span class="dt">MonadError</span> <span class="dt">String</span> m) <span class="ot">=&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  m ()</span></code></pre></div>
+<p>or even
+<a href="https://hackage.haskell.org/package/transformers"><code>transformers</code></a>:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">operationTransformers ::</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">DatabaseT</span> (<span class="dt">Except</span> <span class="dt">String</span>) ()</span></code></pre></div>
+<p>A very broad definition allows
+<a href="https://hackage-content.haskell.org/package/base-4.22.0.0/docs/Control-Monad-ST.html"><code>ST</code></a>
+to be considered an effect system (that only allows mutable state
+effects) and even <code>IO</code> (which allows mutable state, exceptions, and
+the whole kitchen sink of interactions with external resources).</p>
+<p>(The order in which the effect systems were presented here is close to
+the <em>opposite</em> of the order in which they were developed historically.
+For more information see my talk “<a href="https://www.youtube.com/watch?v=RsTuy1jXQ6Y">A History of Effect
+Systems</a>”.)</p>
+<h3 id="absence-of-effects">Absence of effects</h3>
+<p>It is important to emphasise that the reason effect systems are useful
+is not that they allow the programmer to define program components
+that perform effects. Rather, they are useful because they allow the
+programmer to define program components that are <em>forbidden</em> from
+performing effects outside a specified set.</p>
+<p>In the extreme we can forbid <em>all</em> externally visible effects, thereby
+using the type system to enforce that our operation must be what is
+sometimes called a “pure function” or a “mathematical function”. The
+types for an operation that takes a <code>String</code> and returns an <code>Int</code>,
+performing no externally visible effects, might look as follows in
+different effect systems:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ot">computeEffectful ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Eff</span> es <span class="dt">Int</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="ot">computeBluefin ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Eff</span> es <span class="dt">Int</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="ot">computeMTL ::</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">String</span> <span class="ot">-&gt;</span> m <span class="dt">Int</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="ot">computeTransformers ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Identity</span> <span class="dt">Int</span></span></code></pre></div>
+<p>In <code>ST</code> and <code>IO</code> there is no way of circumscribing the externally
+visible effects short of not using them at all, so we could settle for
+the following (which has no effect system in sight):</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ot">computeFunction ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Int</span></span></code></pre></div>
+<h2 id="capability-systems-versus-effect-systems">Capability systems versus effect systems</h2>
+<p>In a capability system there are operations you can only perform if
+you have access to a capability that provides authority to perform
+them. Above we saw an example: you can only write to an open file if
+you its handle in scope. Correspondingly, in an effect system there
+are effectful operations you can only perform if their corresponding
+effect is somehow “in scope”. For example, you can only throw an
+exception if some sort of error, exception or throw effect is in
+scope (in <code>extensible-effects</code> and descendants and MTL, at the type
+level; in Bluefin at the value level; in <code>transformers</code> provided by a
+monad transformer). What, then, is the <em>difference</em> between
+capability systems and effect systems? I think there is no
+difference!</p>
+<p>Let’s investigate the supposed correspondence a bit more closely. Can
+all capabilities be treated as effects? When introducing capability
+systems above we noted that authority to access a file is provided by
+a capability, often called a “file descriptor” or “file handle”.
+Likewise, the authority to access a database would be considered a
+capability, generally provided through a “connection handle”. The
+<code>operation*</code> examples above show how different Haskell effect systems
+represent such a capability. Haskell effect systems already have the
+ability to pass around, implicitly or explicitly, a program resource
+that is required to use a particular program component.</p>
+<p>How about the converse? Can all effects be treated as capabilities? I
+think yes. In order to perform a particular effectful operation
+something has to be “in scope”. It can be interpreted as <em>the
+capability to perform that effect</em>.</p>
+<h3 id="effects-as-capabilities">Effects as capabilities</h3>
+<p>Let’s look at a few examples of effects as capabilities. Firstly, a
+state effect can be interpreted as a capability that grants authority
+to interact with a mutable value of a given type. I think it is
+particularly interesting to look at the case of <code>ST</code>, <code>IO</code> and
+<code>Bluefin</code>, where <code>STRef</code>, <code>IORef</code> and
+<a href="https://hackage-content.haskell.org/package/bluefin-0.7.0.1/docs/Bluefin-Capability-Modify.html"><code>Modify</code></a>
+respectively provide what is traditionally called a “mutable
+reference”, at the value level. A “mutable reference” matches exactly
+the definition of capability we saw earlier (“a program entity that
+references a program or system resource and, moreover, grants
+authority to access that resource”). A mutable reference is a pointer
+which references some mutable region of memory and “grants access to
+it”, i.e. if you hold such a mutable reference you can use it to
+modify the mutable region of memory.</p>
+<p>Secondly, an exception effect can be interpreted as the capability
+which grants the authority to throw a value of a particular type to a
+particular handler. Again, I find the case of <code>Bluefin</code> particularly
+interesting: a value of type
+<a href="https://hackage-content.haskell.org/package/bluefin-0.7.0.1/docs/Bluefin-Capability-Throw.html"><code>Throw</code></a>
+grants access to the exception mechanism, allowing you to throw an
+exception to the handler that was installed by
+<a href="https://hackage-content.haskell.org/package/bluefin-0.7.0.1/docs/Bluefin-Capability-Throw.html#v:try"><code>try</code></a>
+(or <code>catch</code> or <code>handle</code>), the same site that introduced the <code>Throw</code>
+into scope<a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a>.</p>
+<p>Thirdly, a reader effect can be interpreted as the capability to
+interact with some thread-local, locally-mutable state. No such
+primitive mutable state reference exists in Haskell at present, but
+there is <a href="https://github.com/ghc-proposals/ghc-proposals/pull/751">a proposal to add
+one</a>. I like
+the name <code>IOScopedRef</code> for the new reference type<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a>. (Bluefin and
+<code>effectful</code> simulate this kind of reference, as
+<a href="https://hackage-content.haskell.org/package/bluefin-0.7.0.1/docs/Bluefin-Capability-Ask.html"><code>Ask</code></a>
+and <code>Reader</code> respectively.)</p>
+<p>Finally, “I/O effects”, i.e. the ability to interact in arbitrary ways
+with Haskell’s runtime system (RTS), can be interpreted as the
+capability granting authority to do so. That is to say, <code>effectful</code>’s
+type level <code>IOE</code>, Bluefin’s value level <code>IOE</code>, MTL’s <code>MonadIO</code>
+constraint and the plain <code>IO</code> monad itself can all be interpreted as
+capabilities granting authority to interact with the RTS.</p>
+<h2 id="bluefin-is-a-capability-system-1">“Bluefin is a capability system”</h2>
+<p>So why have I decided to describe Bluefin as a “capability system”?
+Because I think that “capability” terminology communicates better than
+“effect” terminology. Firstly, the latter raises the awkward question
+of what an “effect” <em>is</em>. One might attempt to define “effect” in
+terms of opposition to a notion of “pure”, but I’ve never seen a
+convincing such attempt. In fact I haven’t come across a convincing
+definition of “pure” either<a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a>.</p>
+<p>Secondly, I think that, regrettably, the terminology “effect system”
+gives the wrong impression about Haskell to outsiders, specifically
+that, unlike other languages, Haskell needs a “special system” to do
+“effects”. The converse is true: other languages, unlike Haskell,
+cannot <em>circumscribe the possible range of effects</em>. I hope that
+using the terminology “capability system” to describe Bluefin moves
+the perception of Haskell by outsiders a modest amount in a favourable
+direction.</p>
+<p>Thirdly, “effect systems” are used as a software engineering tool for
+structuring programs in the large, but the name doesn’t fit the use
+case. A talk by Tom Wells entitled “<a href="https://www.youtube.com/watch?v=JaLAvoyjwoQ">Encoding Architecture Into Your
+Code (So Agents Can’t Break
+It)</a>” describes how to
+use an effect system to enforce layering in an application by defining
+abstraction boundaries. The executive summary is that <em>effect systems
+can be used to constrain architecture</em>. That’s a concise way of
+summarising a benefit of Haskell I’ve found when programming in the
+large. But the phrase sounds odd to me. What does architecture have
+to do with effects? <em>“Capability systems can be used to constrain
+architecture”</em> sounds much more natural! In fact it’s so natural it’s
+almost obvious how that works: you give each component in your
+architecture the capability to perform only what it needs to. (A very
+interesting open question remains: how do you use your capability
+system to propagate capabilities to where they are needed?)</p>
+<h3 id="agent-generated-code">Agent-generated code</h3>
+<p>Tom Wells’s talk was specifically on the topic of maintaining good
+architecture when code is generated by AI agents. In a world where
+the cost of generating technically correct code is declining rapidly
+but good design is not becoming commensurately easier I believe that
+effect systems have a critical role to play. Their role is not
+limited to architecture either: they can help enforce security
+properties of code at scale. I think the Haskell community will have
+an easier time explaining how our favourite language helps in that
+regard, and maybe win a few converts to our community, if instead of
+calling them “effect systems” we call them “capability systems”.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://roscidus.com/blog/blog/2023/04/26/lambda-capabilities/">Lambda
+Capabilities</a>
+by Thomas Leonard discusses capabilities in the context of OCaml.</li>
+</ul>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1"><p>For more information on “<code>IO</code>-wrapper” or “analytic” effect
+systems, as well as the history of effect systems in Haskell in
+general, see my talk <a href="https://www.youtube.com/watch?v=RsTuy1jXQ6Y">A History of Effect
+Systems</a><a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p><a href="http://zesty.ca/capmyths/">Capability Myths Demolished</a><a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p><a href="https://www.microsoft.com/en-us/research/publication/practical-principles-for-computer-security/">Practical Principles for Computer
+Security</a><a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p><a href="https://dl.acm.org/doi/10.1145/365230.365252">Programming semantics for multiprogrammed
+computations</a><a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p><code>extensible-effects</code> originates from <a href="https://okmij.org/ftp/Haskell/extensible/">Extensible Effects: an alternative to Monad
+Transformers</a> by
+Kiselyov, Sabry and Swords<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p>The ealiest example of this idea of “scoped exception” may have
+been Brachthäuser, Schuster, Ostermann in <a href="https://www.cambridge.org/core/journals/journal-of-functional-programming/article/effekt-capabilitypassing-style-for-type-and-effectsafe-extensible-effect-handlers-in-scala/A19680B18FB74AD95F8D83BC4B097D4F">Effects as Capabilities: Effect
+Handlers and Lightweight Effect
+Polymorphism</a>.<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p>See also my article <a href="https://h2.jaguarpaw.co.uk/posts/haskells-missing-mutable-ref/">Haskell’s missing mutable reference
+type</a><a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn8"><p>Unless it’s just “‘pure’ means ‘referentially transparent’”<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</div>
+<hr>
+
+  </div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>
