@@ -54,6 +54,22 @@ in to the Beelink, not via a hub.</p></li>
 <li><p>Install <code>firmware-intel-graphics</code> in order to get the full graphics
 resolution in X.</p></li>
 </ul>
+<h2 id="initramfs"><code>initramfs</code></h2>
+<p>When installing a new Debian kernel through <code>apt</code>, the <code>initramfs</code> is
+built, by default, with the <code>MODULES=dep</code> setting, which detects the
+hardware currently plugged into the device and only adds support for
+hardware it finds. This means that if you run your Beelink headless it
+will not boot with support for a USB keyboard. If you use LUKS, you
+will not be able to type your password on next boot. To get around
+this:</p>
+<ul>
+<li><p><code>sudoedit /etc/initramfs-tools/conf.d/driver-policy</code></p></li>
+<li><p>Change <code>MODULES=dep</code> to <code>MODULES=most</code></p></li>
+<li><p><code>sudo update-initramfs -u -k 6.12.111+deb13-amd64</code></p></li>
+<li><p>Verify it contains USB input support:</p>
+<pre><code>lsinitramfs /boot/initrd.img-6.12.111+deb13-amd64 |
+  grep -E 'xhci|usbcore|usbhid|hid-generic|evdev'</code></pre></li>
+</ul>
 </div>
 <hr>
 
