@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,16 +34,16 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="postgres-weirdness">Postgres weirdness</h1>
 <ul>
 <li>Array indices cannot be applied separately</li>
@@ -88,8 +87,7 @@ from (select ('{{1,2}, {3,4}}' :: integer[])[1:1] as foo) as t1;
 <li><p><a href="https://stackoverflow.com/questions/42588304/postgresql-why-cant-i-create-composite-foreign-key-based-on-unique-column-wit" class="uri">https://stackoverflow.com/questions/42588304/postgresql-why-cant-i-create-composite-foreign-key-based-on-unique-column-wit</a></p></li>
 <li><p><a href="https://edgedb.com/blog/we-can-do-better-than-sql/" class="uri">https://edgedb.com/blog/we-can-do-better-than-sql/</a></p></li>
 </ul>
-</div>
-<hr>
+</main>
 
   </div>
 

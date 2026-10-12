@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,16 +34,16 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="listt-done-wrong"><code>ListT</code> done wrong</h1>
 <p>The typical definition definition of <code>ListT</code>, for example <a href="http://hackage.haskell.org/package/transformers-0.3.0.0/docs/Control-Monad-Trans-List.html#v:ListT">from
 <code>transformers</code></a>,
@@ -135,8 +134,7 @@ go1 = (execWriter . runListT . join . fmap join) foo
           
 go2 = (execWriter . runListT . join . join) foo
 -- &quot;ABDCE&quot;</code></pre>
-</div>
-<hr>
+</main>
 
   </div>
 

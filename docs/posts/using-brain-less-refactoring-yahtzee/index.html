@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,18 +34,20 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="using-our-brain-less-in-refactoring-yahtzee">Using our brain less in refactoring Yahtzee</h1>
-<p>– Tom Ellis, October 2019</p>
+<p class="byline">
+<a href="http://web.jaguarpaw.co.uk/~tom/contact/">Tom Ellis</a>, October 2019
+</p>
 <p>Cameron Gera and Taylor Fausak <a href="https://haskellweekly.news/episode/22.html">produced a
 podcast</a> on <a href="../good-design-and-type-safety-in-yahtzee/">an article of
 mine about good design and
@@ -286,8 +287,7 @@ parametricity. In this small example we were happy to just inspect
 the body of the function. Parametricity really shines in more
 complicated codebases where unrelated, opaque, pieces of functionality
 are being combined.</p>
-</div>
-<hr>
+</main>
 
   </div>
 

@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,16 +34,16 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="how-i-use-cryptsetup-and-luks">How I use cryptsetup and LUKS</h1>
 <ul>
 <li><p>LUKS device configuration</p>
@@ -79,8 +78,7 @@ $ sudo cryptsetup luksHeaderBackup --header-backup-file $HEADER_BACKUP_FILE $DEV
 <li><a href="https://gitlab.com/cryptsetup/cryptsetup/-/wikis/FrequentlyAskedQuestions#6-backup-and-data-recovery" class="uri">https://gitlab.com/cryptsetup/cryptsetup/-/wikis/FrequentlyAskedQuestions#6-backup-and-data-recovery</a></li>
 <li><a href="https://askubuntu.com/questions/1319688/luks-how-can-i-add-more-password-slots-or-remove-change-a-password" class="uri">https://askubuntu.com/questions/1319688/luks-how-can-i-add-more-password-slots-or-remove-change-a-password</a></li>
 </ul>
-</div>
-<hr>
+</main>
 
   </div>
 

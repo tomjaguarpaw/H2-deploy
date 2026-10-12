@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,16 +34,16 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="faking-modules-in-haskell-via-implicit-parameters">Faking modules in Haskell via implicit parameters</h1>
 <p>Many years ago <a href="http://augustss.blogspot.se/2008/12/somewhat-failed-adventure-in-haskell.html">Lennart Augustsson wrote about the difficulty of
 faking an ML-module-like structure in
@@ -254,8 +253,7 @@ instance Ops Basic where
    ops = DOps (++) show
 
 type instance XString Basic = String</code></pre>
-</div>
-<hr>
+</main>
 
   </div>
 

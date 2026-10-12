@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,18 +34,20 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="how-i-use-cabal">How I use cabal</h1>
-<p>– version 3.2.0.0.</p>
+<p class="subtitle">
+version 3.2.0.0.
+</p>
 <h2 id="i-want-to-download-cabal">I want to download cabal</h2>
 <p>I use <a href="https://www.haskell.org/ghcup/">ghcup</a>. Personally I prefer
 the <a href="https://gitlab.haskell.org/haskell/ghcup-hs#manual-install">manual
@@ -109,8 +110,7 @@ This default doesn’t seem to make any sense, but there it is.</p></li>
 <h3 id="cabal-install---lib-doesnt-seem-to-work"><code>cabal install --lib</code> doesn’t seem to work</h3>
 <p>Although <code>cabal install --lib</code> seems like it ought to support use
 cases like this, I’ve never been able to get it to work.</p>
-</div>
-<hr>
+</main>
 
   </div>
 

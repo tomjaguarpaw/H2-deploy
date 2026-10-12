@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,17 +34,18 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="sixteen columns">
-  <h1 style="margin-top: 40px"><a class="homelink" href="./">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="./">The H2 Wiki</a></h1>
   <hr />
-</div>
+ </header>
 
-<div class="eight columns">
+<main class="home-layout">
+<section class="article-index">
   <h3>Bluefin articles</h3>
   <ul>
   <li><a href="./posts/bluefin-all/">Bluefin resources</a></li>
@@ -251,9 +251,9 @@
 <li><a href="./posts/wish-python-had/">Stuff I wish that Python had</a></li>
 <li><a href="./posts/works-of-art/">Works of art</a></li>
 </ul>
-</div>
+</section>
 
-<div class="seven columns offset-by-one">
+<aside class="about">
   <h3>About</h3>
   <p>The H2 Wiki is dedicated to thoughts on technology and Haskell.
   The name is in homage to <a href="http://c2.com/cgi/wiki">The C2
@@ -263,12 +263,8 @@
   <p>The main author
   is <a href="http://web.jaguarpaw.co.uk/~tom/contact/">Tom
   Ellis</a>.</p>
-</div>
-
-<div class="sixteen columns">
-<br>
-<hr />
-</div>
+</aside>
+</main>
 
   </div>
 

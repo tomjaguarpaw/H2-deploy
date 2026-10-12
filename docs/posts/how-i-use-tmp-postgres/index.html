@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,16 +34,16 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="how-i-use-tmp-postgres">How I use <code>tmp-postgres</code></h1>
 <pre><code>PATH=&quot;/usr/lib/postgresql/11/bin/:${PATH}&quot; \
   cabal v2-repl \
@@ -56,8 +55,7 @@ ghci&gt; db &lt;- do { Right db &lt;- start; print (toConnectionString db); retu
 ghci&gt; stop db</code></pre>
 <p>You have to make sure that <code>inidb</code> is on your <code>PATH</code> which it won’t be
 by default in Debian (nor Ubuntu, I think).</p>
-</div>
-<hr>
+</main>
 
   </div>
 

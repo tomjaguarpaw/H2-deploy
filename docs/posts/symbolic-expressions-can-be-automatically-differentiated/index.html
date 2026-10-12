@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,19 +34,23 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="symbolic-expressions-can-be-automatically-differentiated-too">Symbolic expressions can be Automatically differentiated too</h1>
-<p>– or, Forward mode Automatic Diffentiation demystified</p>
-<p>– Tom Ellis, January 2016</p>
+<p class="subtitle">
+or, Forward mode Automatic Diffentiation demystified
+</p>
+<p class="byline">
+<a href="http://web.jaguarpaw.co.uk/~tom/contact/">Tom Ellis</a>, January 2016
+</p>
 <p>All introductions to Automatic Differentiation that I have seen seem
 to present the technique mysteriously. It’s actually very simple.
 I’ll describe how.</p>
@@ -231,8 +234,7 @@ extension</a> using
 catamorphisms. In fact if you use this technique then you can
 implement <code>eval</code> and <code>diff</code> separately but still get good performance
 when you compose them! I may write about this later …</p>
-</div>
-<hr>
+</main>
 
   </div>
 

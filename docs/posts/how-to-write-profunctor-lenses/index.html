@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,18 +34,20 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="how-to-write-profunctor-lenses">How to write profunctor lenses</h1>
-<p>– and prisms</p>
+<p class="subtitle">
+and prisms
+</p>
 <p>A profunctor optic has the following general form</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> <span class="dt">LensLike</span> p s t a b <span class="ot">=</span> p a b <span class="ot">-&gt;</span> p s t</span></code></pre></div>
 <p>Compare this with the van Laarhoven version</p>
@@ -91,8 +92,7 @@ stuff”.</p>
 <div class="sourceCode" id="cb10"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ot">prism ::</span> <span class="dt">Choice</span> p</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>      <span class="ot">=&gt;</span> (s <span class="ot">-&gt;</span> <span class="dt">Either</span> a t) <span class="ot">-&gt;</span> (b <span class="ot">-&gt;</span> t) <span class="ot">-&gt;</span> p a b <span class="ot">-&gt;</span> p s t</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>prism f g <span class="ot">=</span> dimap f (\<span class="kw">case</span> {<span class="dt">Left</span> a' <span class="ot">-&gt;</span> g a'; <span class="dt">Right</span> t <span class="ot">-&gt;</span> t}) <span class="op">.</span> left'</span></code></pre></div>
-</div>
-<hr>
+</main>
 
   </div>
 

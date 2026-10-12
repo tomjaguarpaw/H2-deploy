@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,18 +34,20 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="domain-errors-with-hascallstack">Domain errors with <code>HasCallStack</code></h1>
-<p>– Tom Ellis, November 2024</p>
+<p class="byline">
+<a href="http://web.jaguarpaw.co.uk/~tom/contact/">Tom Ellis</a>, November 2024
+</p>
 <h2 id="introduction">Introduction</h2>
 <p><a href="https://www.stackage.org/haddock/lts-22.43/base-4.18.2.1/GHC-Stack.html#t:HasCallStack"><code>HasCallStack</code></a>
 is a feature in Haskell’s compiler, GHC, that is frequently used to
@@ -403,8 +404,7 @@ at GitHub</p></li>
 <span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a>          <span class="kw">case</span> f a <span class="kw">of</span></span>
 <span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>            <span class="dt">MkAssembly</span> f' <span class="ot">-&gt;</span> f' s1</span>
 <span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>      )</span></code></pre></div>
-</div>
-<hr>
+</main>
 
   </div>
 

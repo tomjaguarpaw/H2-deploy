@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,18 +34,20 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="simplifying-typeclasses">Simplifying typeclasses</h1>
-<p>– <em>Guest post by Daniel Smith (tysonzero)</em></p>
+<p class="byline">
+<em>Guest post by Daniel Smith (tysonzero)</em>
+</p>
 <p>The current implementation of typeclasses in GHC/Haskell is quite complex, as they have a variety of
 different features. A small portion of these features are fundamental to typeclasses and cannot be
 removed, but many of these features already exist in other forms in Haskell, and those other forms
@@ -271,8 +272,7 @@ various typeclass extensions and features, until eventually they can be deprecat
 removed. I can understand if some prefer the old syntax for some of the above, but note that using
 only single member typeclasses would not prevent use of the old syntax, so if the community prefers
 keeping various typeclass features they don’t necessarily have to be removed.</p>
-</div>
-<hr>
+</main>
 
   </div>
 

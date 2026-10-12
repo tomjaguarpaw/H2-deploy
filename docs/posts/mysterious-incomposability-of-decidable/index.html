@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,18 +34,20 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="the-mysterious-incomposability-of-decidable">The Mysterious Incomposability of Decidable</h1>
-<p>– Tom Ellis, March 2018</p>
+<p class="byline">
+<a href="http://web.jaguarpaw.co.uk/~tom/contact/">Tom Ellis</a>, March 2018
+</p>
 <p><code>Applicative</code>, <code>Alternative</code> and <code>Divisible</code> are Haskell classes that
 each have nice composition properties. There is a fourth class,
 <code>Decidable</code>, that fills in the remaining corner of a square of
@@ -140,8 +141,7 @@ so, <a href="http://web.jaguarpaw.co.uk/~tom/contact/">contact me</a>!</p>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="ot">(&lt;+&gt;) ::</span> <span class="dt">Divisible</span> f <span class="ot">=&gt;</span> f a <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f a</span>
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>(<span class="op">&lt;+&gt;</span>) <span class="ot">=</span> divide (\x <span class="ot">-&gt;</span> (x, x))</span></code></pre></div>
-</div>
-<hr>
+</main>
 
   </div>
 

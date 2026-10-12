@@ -14,8 +14,7 @@
 
         <!-- Fonts
 ================================================== -->
-  <link href="http://fonts.googleapis.com/css?family=PT+Sans" rel="stylesheet" type="text/css">
-  <link href="http://fonts.googleapis.com/css?family=PT+Serif" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" type="text/css">
 
         <!-- Mobile Specific Metas
 ================================================== -->
@@ -35,19 +34,23 @@
         <!-- Atom
         ================================================== -->
 </head>
-<body>
+<body class="site">
 
         <!-- Primary Page Layout
         ================================================== -->
   <div class="container">
-  <div class="ten columns offset-by-three">
-  <h1 style="margin-top: 40px"><a class="homelink" href="../../">The H2 Wiki</a></h1>
+  <header class="site-header">
+  <h1><a class="homelink" href="../../">The H2 Wiki</a></h1>
   <hr />
-</div>
-<div class="twelve columns offset-by-two">
+</header>
+<main class="post">
   <h1 id="exitfailure-doesnt-exit"><code>exitFailure</code> doesn’t exit</h1>
-<p>– nor do <code>exitSuccess</code>, <code>exitWith</code> and <code>die</code></p>
-<p>– Tom Ellis, October 2024</p>
+<p class="subtitle">
+nor do <code>exitSuccess</code>, <code>exitWith</code> and <code>die</code>
+</p>
+<p class="byline">
+<a href="http://web.jaguarpaw.co.uk/~tom/contact/">Tom Ellis</a>, October 2024
+</p>
 <p>Haskell’s <code>base</code> library contains
 <a href="https://hackage.haskell.org/package/base-4.20.0.0/docs/System-Exit.html#v:exitWith"><code>System.Exit.exitFailure</code></a>.
 From the name, it sounds as though running it ought to cause your
@@ -113,8 +116,7 @@ the exception to the parent thread.</p>
 <p>So <code>exitFailure</code> doesn’t exit, it throws an exception. The exception
 will cause the program exit if it gets to the top of the main thread.
 If it doesn’t, it won’t, so some care is needed!</p>
-</div>
-<hr>
+</main>
 
   </div>
 
