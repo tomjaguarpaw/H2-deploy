@@ -130,17 +130,18 @@ seems not to notify X. X still believes two displays are connected.
 Subsequently it becomes impossible to switch to internal-only mode
 until I plug the external screen back in.</p>
 <h3 id="suspend">Suspend</h3>
-<p>Only <code>s2idle</code>/<code>freeze</code> (which are both names for S0/suspend to idle)
-and <code>deep</code> (S3/suspend to RAM) seem to be supported. (It’s <em>possible</em>
-that <code>disk</code> (S4/suspend to disk/“hibernate”) doesn’t appear here only
-because I didn’t make a big enough swap partition, but I am not sure.)</p>
+<p><code>s2idle</code>/<code>freeze</code>/<code>disk</code> seem to be supported. Previously I only saw
+<code>s2idle</code>/<code>freeze</code> supported, but perhaps that was on an earlier
+kernel version.</p>
 <pre><code>$ cat /sys/power/state
-freeze mem
+freeze mem disk
 $ cat /sys/power/mem_sleep
 s2idle [deep]</code></pre>
+<h4 id="suspend-to-disk-s4-disk">Suspend to disk (S4, <code>disk</code>)</h4>
+<p>I haven’t tried this.</p>
 <h4 id="suspend-to-ram-s3-deep-mem">Suspend to RAM (S3, <code>deep</code> <code>mem</code>)</h4>
-<p>This is probably the variety of suspend that you actually want to
-use because it has extremely low power draw.</p>
+<p>Unless you use <code>disk</code>, this is probably the variety of suspend that
+you actually want to use, because it has extremely low power draw.</p>
 <p>I disabled TPM, SGX, SMM, and Absolute in the BIOS (as described
 in a helpful <a href="https://www.reddit.com/r/Dell/comments/hla8yk/how_to_enable_s3_deep_sleep_on_xps_17_9700_in/">Reddit
 post</a>).

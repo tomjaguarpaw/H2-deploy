@@ -222,7 +222,7 @@ as <em>the capability to perform that effect</em>.</p>
 capabilities, firstly state. A state effect can be interpreted as a
 capability that grants authority to interact with a mutable value of a
 given type. I think it is particularly interesting to look at the
-case of <code>ST</code>, <code>IO</code> and <code>Bluefin</code>, where
+case of <code>ST</code>, <code>IO</code> and Bluefin’s <code>Eff</code>, where
 <a href="https://hackage-content.haskell.org/package/base-4.22.0.0/docs/Data-STRef.html"><code>STRef</code></a>,
 <a href="https://www.stackage.org/haddock/lts-24.56/base-4.20.2.0/Data-IORef.html"><code>IORef</code></a>
 and
@@ -238,7 +238,7 @@ modify the mutable region of memory.</p>
 <p>Secondly, let’s look at exceptions. An exception effect can be
 interpreted as the capability which grants the authority to throw a
 value of a particular type to a particular handler. Again, I find the
-case of <code>Bluefin</code> particularly interesting: a value of type
+case of Bluefin particularly interesting: a value of type
 <a href="https://hackage-content.haskell.org/package/bluefin-0.7.0.1/docs/Bluefin-Capability-Throw.html"><code>Throw</code></a>
 grants access to the exception mechanism, allowing you to throw an
 exception to the handler that was installed by
