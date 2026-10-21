@@ -102,7 +102,7 @@ result then it’s easy enough to convert between <code>foldl</code> and <code>f
 as shown below. The important difference is <em>how</em> they calculate the
 result; the conversion below does not preserve behaviour. For example,
 <code>foldl (-) 0</code> calculates a sequence of subtractions in constant
-space<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>; <code>foldr (flip (-)) 0</code> uses <em>O(n)</em> space.</p>
+space;<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> <code>foldr (flip (-)) 0</code> uses <em>O(n)</em> space.</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode .hs"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">foldl</span> f z <span class="op">==</span> <span class="fu">foldr</span> (<span class="fu">flip</span> f) z <span class="op">.</span> <span class="fu">reverse</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">foldr</span> f z <span class="op">==</span> <span class="fu">foldl</span> (<span class="fu">flip</span> f) z <span class="op">.</span> <span class="fu">reverse</span></span></code></pre></div>
 <p>We will apply our analysis of <code>foldl</code> to its strict counterpart,

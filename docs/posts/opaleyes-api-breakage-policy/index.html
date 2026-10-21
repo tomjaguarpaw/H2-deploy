@@ -55,7 +55,7 @@ by <a href="http://web.jaguarpaw.co.uk/~tom/contact/">Tom Ellis</a>, March 2022
 package for writing queries against PostgreSQL. Occasionally I “break
 the API” of Opaleye, that is, I release a new version of the package
 such that some code written against the previous version of the
-package won’t work with the new version<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>. Such breakage
+package won’t work with the new version.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> Such breakage
 imposes a cost on Opaleye’s users: it takes effort to change code to
 make it work with the new version. There is a related cost which is
 often left unaccounted for: it takes effort even to discover what
@@ -256,7 +256,7 @@ Second, in version 0.7, I switched things around so that <a href="https://hackag
 name was a deprecated type synonym for the new
 name</a>,
 with a note that it would be removed in 0.8. Thirdly, in version 0.8
-the old name was removed<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a>.</p>
+the old name was removed.<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
 <h4 id="classes">Classes</h4>
 <p>Because types and classes are treated in a very similar way by the
 type system the same deprecation cycle for types works for classes
@@ -285,7 +285,7 @@ flag day when renaming classes. In version <code>N</code> users would <em>have t
 use <code>QueryRunnerColumnDefault</code> in type class instance heads, and in
 version <code>N+1</code> they would <em>have to</em> use <code>DefaultFromField</code>.
 Regrettably there is no way to write code that works across version
-<code>N</code> and <code>N+1</code><a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a>. Perhaps a change to GHC could add support for
+<code>N</code> and <code>N+1</code>.<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a> Perhaps a change to GHC could add support for
 this workflow.</p>
 <p>Another example is a change to Opaleye’s type of SQL fields or
 columns, that used to be called <code>Column</code>. Non-nullable columns were
@@ -293,7 +293,7 @@ represented as, for example, <code>Column SqlText</code> and nullable columns
 were represented as <code>Column (Nullable Sql)</code>. Unfortunately the
 nonsensical <code>Column (Nullable (Nullable SqlText))</code> was not prevented.
 To tighten up the types, version 0.9 improved the situation by
-replacing <code>Column</code> with <code>Field_</code><a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a>, which has the distinction
+replacing <code>Column</code> with <code>Field_</code>,<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a> which has the distinction
 <code>Field_ NonNullable SqlText</code> vs. <code>Field_ Nullable SqlText</code>. Replacing
 <code>Column</code> with <code>Field_</code> caused a flag day for the Opaleye ecosystem.
 Although there is <a href="https://hackage.haskell.org/package/opaleye-0.9.2.0/docs/Opaleye-Column.html#t:Column">a compatibility type
